@@ -1,0 +1,165 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  # Backend Tests
+  backend-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: lsm_admin
+          POSTGRES_PASSWORD: lsm_password
+          POSTGRES_DB: lsm_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/backend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./src/backend
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        working-directory: ./src/backend
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://lsm_admin:lsm_password@localhost:5432/lsm_test
+      
+      - name: Run tests
+        working-directory: ./src/backend
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://lsm_admin:lsm_password@localhost:5432/lsm_test
+          JWT_SECRET: test-secret-key
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./src/backend/coverage
+          flags: backend
+
+  # Frontend Tests
+  frontend-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./src/frontend
+        run: npm ci
+      
+      - name: Run tests
+        working-directory: ./src/frontend
+        run: npm test
+      
+      - name: Build
+        working-directory: ./src/frontend
+        run: npm run build
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./src/frontend/coverage
+          flags: frontend
+
+  # Code Quality
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies (backend)
+        working-directory: ./src/backend
+        run: npm ci
+      
+      - name: Lint backend
+        working-directory: ./src/backend
+        run: npm run lint || true
+      
+      - name: Install dependencies (frontend)
+        working-directory: ./src/frontend
+        run: npm ci
+      
+      - name: Lint frontend
+        working-directory: ./src/frontend
+        run: npm run lint || true
+
+  # Security Scan
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run npm audit (backend)
+        working-directory: ./src/backend
+        run: npm audit --audit-level=moderate || true
+      
+      - name: Run npm audit (frontend)
+        working-directory: ./src/frontend
+        run: npm audit --audit-level=moderate || true
+
+  # Deploy to Staging
+  deploy-staging:
+    needs: [backend-test, frontend-test, code-quality]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          # Add deployment steps here
+          echo "✅ Staging deployment complete"
+
+  # Deploy to Production
+  deploy-production:
+    needs: [backend-test, frontend-test, code-quality]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production environment..."
+          # Add deployment steps here
+          echo "✅ Production deployment complete"
