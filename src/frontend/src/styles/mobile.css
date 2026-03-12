@@ -1,0 +1,317 @@
+/* Mobile Responsive Styles for LSM Project */
+/* Version: 1.0.0 */
+/* Date: 2026-03-12 */
+
+/* Breakpoints */
+/* Mobile: < 640px */
+/* Tablet: 640px - 1024px */
+/* Desktop: > 1024px */
+
+/* Base Mobile Styles */
+@media (max-width: 640px) {
+  /* Container */
+  .container {
+    padding: 0 16px;
+  }
+
+  /* Header */
+  .header {
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .header-logo {
+    font-size: 18px;
+  }
+
+  .header-menu {
+    display: none; /* Use hamburger menu */
+  }
+
+  .header-mobile-menu {
+    display: block;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    position: fixed;
+    left: -280px;
+    top: 0;
+    height: 100vh;
+    width: 280px;
+    transition: left 0.3s ease;
+    z-index: 1000;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  /* Main Content */
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+  }
+
+  /* Cards */
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 16px;
+  }
+
+  /* Tables */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    font-size: 14px;
+    min-width: 600px;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px;
+    font-size: 14px;
+    min-height: 44px; /* Touch-friendly */
+  }
+
+  .btn-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Forms */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 12px;
+    min-height: 44px;
+  }
+
+  .form-label {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  /* Dashboard Stats */
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  /* Charts */
+  .chart-container {
+    height: 250px;
+  }
+
+  /* Navigation */
+  .nav-tabs {
+    flex-direction: column;
+  }
+
+  .nav-tab {
+    padding: 12px 16px;
+    text-align: center;
+  }
+
+  /* Modal */
+  .modal {
+    padding: 16px;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .modal-header {
+    padding: 16px 0;
+  }
+
+  .modal-body {
+    padding: 16px 0;
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+    gap: 8px;
+    padding: 16px 0;
+  }
+
+  /* List Items */
+  .list-item {
+    padding: 12px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .list-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  /* Status Badge */
+  .badge {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  /* Pagination */
+  .pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pagination-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Toast Notifications */
+  .toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    max-width: none;
+  }
+
+  /* Loading Spinner */
+  .spinner {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Typography */
+  h1 {
+    font-size: 24px;
+  }
+
+  h2 {
+    font-size: 20px;
+  }
+
+  h3 {
+    font-size: 18px;
+  }
+
+  p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Touch-friendly spacing */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Tablet Styles */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .sidebar {
+    width: 240px;
+  }
+
+  .main-content {
+    margin-left: 240px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  table {
+    font-size: 14px;
+  }
+}
+
+/* Mobile-first utility classes */
+.mobile-only {
+  display: none;
+}
+
+.tablet-only {
+  display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .mobile-only {
+    display: block;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .tablet-only {
+    display: block;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: max(0px)) {
+  .header {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .sidebar {
+    padding-left: max(0px, env(safe-area-inset-left));
+  }
+
+  .main-content {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Remove tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Disable user selection on UI elements */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
