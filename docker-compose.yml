@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - JWT_EXPIRES_IN=24h
+      - CORS_ORIGINS=http://localhost:3000
+      - DATABASE_URL=file:/app/prisma/prod.db
+      - SCHEDULER_ENABLED=true
+      - SCHEDULER_INTERVAL_MS=5000
+      - MONITORING_ENABLED=true
+      - MONITORING_INTERVAL_MS=10000
+    volumes:
+      - backend-data:/app/prisma
+    restart: unless-stopped
+    networks:
+      - lsm-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:8080/api
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - lsm-network
+
+volumes:
+  backend-data:
+
+networks:
+  lsm-network:
+    driver: bridge

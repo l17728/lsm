@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sessions  Session[]
+  tasks     Task[]
+  gpuAllocations GpuAllocation[]
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+model Server {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  hostname    String
+  ipAddress   String
+  status      ServerStatus @default(OFFLINE)
+  cpuCores    Int
+  totalMemory Int      // in GB
+  gpuCount    Int      @default(0)
+  gpus        Gpu[]
+  tasks       Task[]
+  metrics     ServerMetric[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum ServerStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ERROR
+}
+
+model Gpu {
+  id          String   @id @default(uuid())
+  serverId    String
+  server      Server   @relation(fields: [serverId], references: [id])
+  deviceId    Int      // GPU device ID on server
+  model       String
+  memory      Int      // in GB
+  status      GpuStatus @default(AVAILABLE)
+  currentAllocationId String?
+  allocations GpuAllocation[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum GpuStatus {
+  AVAILABLE
+  ALLOCATED
+  ERROR
+  MAINTENANCE
+}
+
+model GpuAllocation {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  gpuId     String
+  gpu       Gpu      @relation(fields: [gpuId], references: [id])
+  taskId    String?
+  startTime DateTime @default(now())
+  endTime   DateTime?
+  status    AllocationStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AllocationStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  serverId    String?
+  server      Server?  @relation(fields: [serverId], references: [id])
+  status      TaskStatus @default(PENDING)
+  priority    Int      @default(0)
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  result      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum TaskStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model ServerMetric {
+  id        String   @id @default(uuid())
+  serverId  String
+  server    Server   @relation(fields: [serverId], references: [id])
+  timestamp DateTime @default(now())
+  cpuUsage  Float    // percentage
+  memoryUsage Float  // percentage
+  gpuUsage  Float?   // percentage (average across GPUs)
+  diskUsage Float?   // percentage
+  networkIn Float?   // bytes/sec
+  networkOut Float?  // bytes/sec
+  temperature Float? // in Celsius
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
