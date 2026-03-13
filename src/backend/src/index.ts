@@ -10,6 +10,7 @@ import gpuRoutes from './routes/gpu.routes';
 import taskRoutes from './routes/task.routes';
 import monitoringRoutes from './routes/monitoring.routes';
 import exportRoutes from './routes/export.routes';
+import prometheusRoutes from './routes/prometheus.routes';
 import WebSocketHandler from './utils/websocket';
 import monitoringService from './services/monitoring.service';
 import prisma from './utils/prisma';
@@ -66,6 +67,7 @@ app.use('/api/gpu', gpuRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/prometheus', prometheusRoutes);
 
 // 404 handler
 app.use((req, res) => {

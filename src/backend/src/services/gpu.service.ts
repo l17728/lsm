@@ -1,5 +1,7 @@
 import prisma from '../utils/prisma';
 import { GpuStatus, AllocationStatus } from '@prisma/client';
+import { emailQueueService } from './email-queue.service';
+import { EmailType } from './email.service';
 
 export interface AllocateGpuRequest {
   userId: string;
@@ -20,6 +22,16 @@ export interface GpuAllocationResult {
 }
 
 export class GpuService {
+  /**
+   * Get user email by ID
+   */
+  private async getUserEmail(userId: string): Promise<string | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    return user?.email || null;
+  }
   /**
    * Allocate a GPU to a user
    */
@@ -73,6 +85,25 @@ export class GpuService {
       },
     });
 
+    // Get user email and send notification
+    const userEmail = await this.getUserEmail(userId);
+    if (userEmail) {
+      const taskInfo = taskId ? await this.getTaskName(taskId) : null;
+      await emailQueueService.enqueue(
+        EmailType.GPU_ALLOCATED,
+        userEmail,
+        {
+          userId,
+          username: await this.getUsername(userId),
+          gpuModel: availableGpu.model,
+          memory: availableGpu.memory,
+          serverName: availableGpu.server.name,
+          taskName: taskInfo || 'N/A',
+        },
+        'high'
+      );
+    }
+
     return {
       allocationId: allocation.id,
       gpuId: availableGpu.id,
@@ -86,13 +117,39 @@ export class GpuService {
   }
 
   /**
+   * Get username by ID
+   */
+  private async getUsername(userId: string): Promise<string> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+    return user?.username || 'User';
+  }
+
+  /**
+   * Get task name by ID
+   */
+  private async getTaskName(taskId: string): Promise<string | null> {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: { name: true },
+    });
+    return task?.name || null;
+  }
+
+  /**
    * Release a GPU allocation
    */
   async releaseGpu(allocationId: string, userId: string) {
     const allocation = await prisma.gpuAllocation.findUnique({
       where: { id: allocationId },
       include: {
-        gpu: true,
+        gpu: {
+          include: {
+            server: true,
+          },
+        },
       },
     });
 
@@ -125,6 +182,25 @@ export class GpuService {
         currentAllocationId: null,
       },
     });
+
+    // Send email notification for GPU release
+    const userEmail = await this.getUserEmail(userId);
+    if (userEmail) {
+      await emailQueueService.enqueue(
+        EmailType.GPU_ALLOCATED, // Reuse GPU allocated template with different context
+        userEmail,
+        {
+          userId,
+          username: await this.getUsername(userId),
+          gpuModel: allocation.gpu.model,
+          memory: allocation.gpu.memory,
+          serverName: allocation.gpu.server.name,
+          taskName: 'Released',
+          releaseTime: new Date().toISOString(),
+        },
+        'medium'
+      );
+    }
 
     return { success: true, gpuId: allocation.gpuId };
   }

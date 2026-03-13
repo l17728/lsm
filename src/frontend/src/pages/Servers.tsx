@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Popconfirm } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons'
 import { serverApi } from '../services/api'
+import ExportButton from '../components/ExportButton'
 import type { ColumnsType } from 'antd/es/table'
 
 interface Server {
@@ -161,9 +162,15 @@ const Servers: React.FC = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1>Servers</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Add Server
-        </Button>
+        <Space>
+          <ExportButton
+            endpoint="/export/servers"
+            filename="servers"
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            Add Server
+          </Button>
+        </Space>
       </div>
 
       <Table

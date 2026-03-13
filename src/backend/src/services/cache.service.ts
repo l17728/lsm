@@ -6,6 +6,9 @@ import { Redis } from 'ioredis';
 export class CacheService {
   private redis: Redis;
   private defaultTTL: number = 3600; // 1 hour
+  private hits: number = 0;
+  private misses: number = 0;
+  private size: number = 0;
 
   constructor() {
     this.redis = new Redis({
@@ -34,9 +37,15 @@ export class CacheService {
   async get<T>(key: string): Promise<T | null> {
     try {
       const value = await this.redis.get(key);
-      if (!value) return null;
-      return JSON.parse(value) as T;
+      if (value !== null) {
+        this.hits++;
+        return JSON.parse(value) as T;
+      } else {
+        this.misses++;
+        return null;
+      }
     } catch (error) {
+      this.misses++;
       console.error('[Cache] Get error:', error);
       return null;
     }
@@ -50,6 +59,7 @@ export class CacheService {
       const serialized = JSON.stringify(value);
       const expireTime = ttl || this.defaultTTL;
       await this.redis.setex(key, expireTime, serialized);
+      this.size++;
       return true;
     } catch (error) {
       console.error('[Cache] Set error:', error);
@@ -62,7 +72,10 @@ export class CacheService {
    */
   async delete(key: string): Promise<boolean> {
     try {
-      await this.redis.del(key);
+      const result = await this.redis.del(key);
+      if (result > 0) {
+        this.size--;
+      }
       return true;
     } catch (error) {
       console.error('[Cache] Delete error:', error);
@@ -156,6 +169,30 @@ export class CacheService {
    */
   async close(): Promise<void> {
     await this.redis.quit();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats(): {
+    hits: number;
+    misses: number;
+    size: number;
+  } {
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      size: this.size,
+    };
+  }
+
+  /**
+   * Reset statistics
+   */
+  resetStats(): void {
+    this.hits = 0;
+    this.misses = 0;
+    this.size = 0;
   }
 }
 

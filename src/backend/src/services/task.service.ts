@@ -1,5 +1,7 @@
 import prisma from '../utils/prisma';
 import { TaskStatus } from '@prisma/client';
+import { emailQueueService } from './email-queue.service';
+import { EmailType } from './email.service';
 
 export interface CreateTaskRequest {
   name: string;
@@ -18,6 +20,16 @@ export interface UpdateTaskRequest {
 
 export class TaskService {
   /**
+   * Get user email by ID
+   */
+  private async getUserEmail(userId: string): Promise<string | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    return user?.email || null;
+  }
+  /**
    * Create a new task
    */
   async createTask(data: CreateTaskRequest) {
@@ -35,12 +47,40 @@ export class TaskService {
           select: {
             id: true,
             username: true,
+            email: true,
           },
         },
       },
     });
 
+    // Send email notification for task assignment
+    const user = task.user;
+    if (user && user.email) {
+      await emailQueueService.enqueue(
+        EmailType.TASK_ASSIGNED,
+        user.email,
+        {
+          userId: user.id,
+          username: user.username,
+          taskName: task.name,
+          priority: this.getPriorityLabel(task.priority),
+          taskUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/tasks/${task.id}`,
+        },
+        'high'
+      );
+    }
+
     return task;
+  }
+
+  /**
+   * Get priority label
+   */
+  private getPriorityLabel(priority: number): string {
+    if (priority >= 8) return 'CRITICAL';
+    if (priority >= 6) return 'HIGH';
+    if (priority >= 4) return 'MEDIUM';
+    return 'LOW';
   }
 
   /**
@@ -179,7 +219,32 @@ export class TaskService {
         completedAt: new Date(),
         result,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
+      },
     });
+
+    // Send email notification for task completion
+    if (task.user && task.user.email) {
+      await emailQueueService.enqueue(
+        EmailType.TASK_COMPLETED,
+        task.user.email,
+        {
+          userId: task.user.id,
+          username: task.user.username,
+          taskName: task.name,
+          status: 'COMPLETED',
+          result: result || 'Success',
+        },
+        'medium'
+      );
+    }
 
     return task;
   }
@@ -195,7 +260,32 @@ export class TaskService {
         completedAt: new Date(),
         result: error,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
+      },
     });
+
+    // Send email notification for task failure
+    if (task.user && task.user.email) {
+      await emailQueueService.enqueue(
+        EmailType.TASK_COMPLETED,
+        task.user.email,
+        {
+          userId: task.user.id,
+          username: task.user.username,
+          taskName: task.name,
+          status: 'FAILED',
+          result: error || 'Unknown error',
+        },
+        'high'
+      );
+    }
 
     return task;
   }
