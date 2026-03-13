@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Popconfirm } from 'antd'
-import { PlusOutlined, DeleteOutlined, StopOutlined } from '@ant-design/icons'
+import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Popconfirm, Checkbox, Alert } from 'antd'
+import { PlusOutlined, DeleteOutlined, StopOutlined, CheckSquareOutlined } from '@ant-design/icons'
 import { taskApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import { ExportButton } from '../components/ExportButton'
@@ -21,6 +21,8 @@ const Tasks: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [tasks, setTasks] = useState<Task[]>([])
   const [modalVisible, setModalVisible] = useState(false)
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
+  const [batchActionLoading, setBatchActionLoading] = useState(false)
   const [form] = Form.useForm()
 
   useEffect(() => {
@@ -39,6 +41,72 @@ const Tasks: React.FC = () => {
       wsService.off('task:update', () => {})
     }
   }, [])
+
+  // Batch operation handlers (Day 7)
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select tasks to delete')
+      return
+    }
+
+    setBatchActionLoading(true)
+    try {
+      await taskApi.batchDelete(selectedRowKeys as string[])
+      message.success(`Successfully deleted ${selectedRowKeys.length} tasks`)
+      setSelectedRowKeys([])
+      loadTasks()
+    } catch (error: any) {
+      message.error('Failed to batch delete tasks')
+    } finally {
+      setBatchActionLoading(false)
+    }
+  }
+
+  const handleBatchCancel = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select tasks to cancel')
+      return
+    }
+
+    setBatchActionLoading(true)
+    try {
+      await taskApi.batchCancel(selectedRowKeys as string[])
+      message.success(`Successfully cancelled ${selectedRowKeys.length} tasks`)
+      setSelectedRowKeys([])
+      loadTasks()
+    } catch (error: any) {
+      message.error('Failed to batch cancel tasks')
+    } finally {
+      setBatchActionLoading(false)
+    }
+  }
+
+  const handleBatchStatusChange = async (status: string) => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select tasks to update')
+      return
+    }
+
+    setBatchActionLoading(true)
+    try {
+      await taskApi.batchUpdateStatus(selectedRowKeys as string[], status)
+      message.success(`Successfully updated status for ${selectedRowKeys.length} tasks`)
+      setSelectedRowKeys([])
+      loadTasks()
+    } catch (error: any) {
+      message.error('Failed to batch update status')
+    } finally {
+      setBatchActionLoading(false)
+    }
+  }
+
+  const onSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRowKeys(tasks.map(t => t.id))
+    } else {
+      setSelectedRowKeys([])
+    }
+  }
 
   const loadTasks = async () => {
     setLoading(true)
@@ -102,7 +170,33 @@ const Tasks: React.FC = () => {
     return colorMap[status] || 'default'
   }
 
+  // Batch selection column (Day 7)
+  const batchColumns = {
+    title: (
+      <Checkbox
+        checked={selectedRowKeys.length === tasks.length && tasks.length > 0}
+        onChange={(e) => onSelectAll(e.target.checked)}
+        indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < tasks.length}
+      />
+    ),
+    dataIndex: 'id',
+    key: 'selection',
+    width: 50,
+    render: (_: any, record: Task) => (
+      <Checkbox
+        checked={selectedRowKeys.includes(record.id)}
+        onChange={() => {
+          const newSelected = selectedRowKeys.includes(record.id)
+            ? selectedRowKeys.filter(key => key !== record.id)
+            : [...selectedRowKeys, record.id]
+          setSelectedRowKeys(newSelected)
+        }}
+      />
+    ),
+  }
+
   const columns: ColumnsType<Task> = [
+    batchColumns,
     {
       title: 'Name',
       dataIndex: 'name',
@@ -180,11 +274,55 @@ const Tasks: React.FC = () => {
         </Space>
       </div>
 
+      {/* Batch Operations Toolbar (Day 7) */}
+      {selectedRowKeys.length > 0 && (
+        <Alert
+          message={`${selectedRowKeys.length} task(s) selected`}
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          action={
+            <Space>
+              <Button
+                size="small"
+                danger
+                loading={batchActionLoading}
+                onClick={handleBatchDelete}
+              >
+                Delete Selected
+              </Button>
+              <Button
+                size="small"
+                danger
+                loading={batchActionLoading}
+                onClick={handleBatchCancel}
+              >
+                Cancel Selected
+              </Button>
+              <Button
+                size="small"
+                loading={batchActionLoading}
+                onClick={() => handleBatchStatusChange('COMPLETED')}
+              >
+                Mark Complete
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setSelectedRowKeys([])}
+              >
+                Clear Selection
+              </Button>
+            </Space>
+          }
+        />
+      )}
+
       <Table
         columns={columns}
         dataSource={tasks}
         loading={loading}
         rowKey="id"
+        pagination={{ pageSize: 20 }}
       />
 
       <Modal

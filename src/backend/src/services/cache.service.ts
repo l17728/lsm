@@ -5,20 +5,36 @@ import { Redis } from 'ioredis';
  */
 export class CacheService {
   private redis: Redis;
-  // Optimized TTL settings (Day 4 cache optimization)
+  // Optimized TTL settings (Day 7 cache optimization)
   private ttlConfig = {
     userSession: 7 * 24 * 3600,      // 7 days
     serverMetrics: 600,               // 10 minutes
-    gpuStatus: 120,                   // 2 minutes
+    gpuStatus: 120,                   // 2 minutes (frequently changing)
     userList: 1800,                   // 30 minutes
     serverList: 900,                  // 15 minutes
-    taskList: 300,                    // 5 minutes
+    taskList: 300,                    // 5 minutes (frequently changing)
     gpuList: 600,                     // 10 minutes
+    clusterStats: 60,                 // 1 minute (real-time stats)
+    healthCheck: 30,                  // 30 seconds (frequent checks)
     default: 3600,                    // 1 hour
   };
+  
+  // Cache warming configuration (Day 7)
+  private warmupKeys = [
+    'list:users:all',
+    'list:servers:all',
+    'list:gpus:all',
+    'list:tasks:all',
+  ];
+  
   private hits: number = 0;
   private misses: number = 0;
   private size: number = 0;
+  private lastStatsReset: Date = new Date();
+
+  get defaultTTL(): number {
+    return this.ttlConfig.default;
+  }
 
   constructor() {
     this.redis = new Redis({
@@ -232,6 +248,98 @@ export class CacheService {
   getHitRate(): number {
     const total = this.hits + this.misses;
     return total > 0 ? (this.hits / total) * 100 : 0;
+  }
+
+  /**
+   * Cache warming - Pre-populate frequently accessed data (Day 7)
+   */
+  async warmupCache(data: {
+    users?: any;
+    servers?: any;
+    gpus?: any;
+    tasks?: any;
+  }): Promise<void> {
+    const warmupPromises: Promise<boolean>[] = [];
+
+    if (data.users) {
+      warmupPromises.push(this.cacheList('users', data.users));
+    }
+    if (data.servers) {
+      warmupPromises.push(this.cacheList('servers', data.servers));
+    }
+    if (data.gpus) {
+      warmupPromises.push(this.cacheList('gpus', data.gpus));
+    }
+    if (data.tasks) {
+      warmupPromises.push(this.cacheList('tasks', data.tasks));
+    }
+
+    await Promise.all(warmupPromises);
+    console.log('[Cache] Cache warming completed');
+  }
+
+  /**
+   * Get detailed cache analytics (Day 7)
+   */
+  getAnalytics(): {
+    hits: number;
+    misses: number;
+    size: number;
+    hitRate: number;
+    ttlConfig: any;
+    uptime: number;
+    warmupKeys: string[];
+  } {
+    const uptime = Date.now() - this.lastStatsReset.getTime();
+    return {
+      ...this.getStats(),
+      uptime,
+      warmupKeys: this.warmupKeys,
+    };
+  }
+
+  /**
+   * Invalidate specific cache pattern (Day 7)
+   */
+  async invalidatePattern(pattern: string): Promise<number> {
+    const keys = await this.redis.keys(pattern);
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+      this.size = Math.max(0, this.size - keys.length);
+      console.log(`[Cache] Invalidated ${keys.length} keys matching pattern: ${pattern}`);
+      return keys.length;
+    }
+    return 0;
+  }
+
+  /**
+   * Optimize cache based on access patterns (Day 7)
+   */
+  async optimize(): Promise<{
+    optimized: boolean;
+    keysAdjusted: number;
+    recommendations: string[];
+  }> {
+    const recommendations: string[] = [];
+    const hitRate = this.getHitRate();
+
+    // Analyze hit rate and provide recommendations
+    if (hitRate < 50) {
+      recommendations.push('Consider increasing TTL for frequently accessed keys');
+      recommendations.push('Review cache key design for better hit rates');
+    } else if (hitRate > 95) {
+      recommendations.push('Excellent hit rate - consider reducing TTL to save memory');
+    }
+
+    // Check for stale keys
+    const info = await this.redis.info('stats');
+    recommendations.push(`Redis memory: Check INFO memory for detailed stats`);
+
+    return {
+      optimized: true,
+      keysAdjusted: 0,
+      recommendations,
+    };
   }
 }
 

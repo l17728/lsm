@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body, param } from 'express-validator';
 import serverService from '../services/server.service';
 import { authenticate, requireAdmin, requireManager, AuthRequest } from '../middleware/auth.middleware';
-import { ServerStatus } from '@prisma/client';
+import { server_status as ServerStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -272,6 +272,97 @@ router.get(
       });
     } catch (error: any) {
       res.status(500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   DELETE /api/servers/batch
+ * @desc    Batch delete servers
+ * @access  Private/Admin
+ */
+router.delete(
+  '/batch',
+  requireAdmin,
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Server IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each server ID must be a valid UUID'),
+  ],
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await serverService.deleteServer(id);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch delete completed: ${results.success} succeeded, ${results.failed} failed`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   PATCH /api/servers/batch/status
+ * @desc    Batch update server status
+ * @access  Private/Manager
+ */
+router.patch(
+  '/batch/status',
+  requireManager,
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Server IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each server ID must be a valid UUID'),
+    body('status').isIn(['ONLINE', 'OFFLINE', 'MAINTENANCE', 'ERROR']).withMessage('Invalid status'),
+  ],
+  async (req, res) => {
+    try {
+      const { ids, status } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await serverService.updateServerStatus(id, status as ServerStatus);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch status update completed: ${results.success} succeeded, ${results.failed} failed`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
         success: false,
         error: error.message,
       });

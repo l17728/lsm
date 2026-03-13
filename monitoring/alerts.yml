@@ -1,11 +1,80 @@
 # Prometheus Alert Rules for LSM Project
-# Version: 1.0.0
+# Version: 1.1.0 - Day 7 Enhanced Alerts
 # Date: 2026-03-13
+# Updates: Added response time, error rate, and resource utilization alerts per Day 7 requirements
 
 groups:
   - name: lsm-alerts
     interval: 30s
     rules:
+      # ============================================
+      # Day 7 Enhanced Alerts - Business Requirements
+      # ============================================
+      
+      # API Response Time Alert (>200ms) - Day 7 Requirement
+      - alert: LSMHighAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="lsm-backend"}[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API response time exceeds 200ms threshold"
+          description: "95th percentile API response time is {{ $value | humanizeDuration }} (threshold: 200ms) for the last 5 minutes."
+
+      # API Error Rate Alert (>1%) - Day 7 Requirement
+      - alert: LSMHighAPIErrorRate
+        expr: (sum(rate(http_requests_total{job="lsm-backend", status=~"5.."}[5m])) / sum(rate(http_requests_total{job="lsm-backend"}[5m]))) * 100 > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API error rate exceeds 1% threshold"
+          description: "API error rate is {{ $value | humanizePercentage }} (threshold: 1%) for the last 5 minutes."
+
+      # CPU Usage Alert (>80%) - Day 7 Requirement
+      - alert: LSMHighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage exceeds 80% threshold"
+          description: "CPU usage is {{ $value }}% (threshold: 80%) on {{ $labels.instance }} for the last 5 minutes."
+
+      # Memory Usage Alert (>80%) - Day 7 Requirement
+      - alert: LSMHighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage exceeds 80% threshold"
+          description: "Memory usage is {{ $value }}% (threshold: 80%) on {{ $labels.instance }} for the last 5 minutes."
+
+      # Critical CPU Usage (>90%)
+      - alert: LSMCriticalCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage is {{ $value }}% (critical threshold: 90%) on {{ $labels.instance }} for 2 minutes."
+
+      # Critical Memory Usage (>90%)
+      - alert: LSMCriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage is {{ $value }}% (critical threshold: 90%) on {{ $labels.instance }} for 2 minutes."
+
+      # ============================================
+      # Existing Alerts
+      # ============================================
+      
       # Backend API Health
       - alert: LSMBackendDown
         expr: up{job="lsm-backend"} == 0

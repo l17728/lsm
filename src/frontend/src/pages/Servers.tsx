@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Popconfirm } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons'
+import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Popconfirm, Checkbox, Alert } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined, CheckSquareOutlined, SquareOutlined } from '@ant-design/icons'
 import { serverApi } from '../services/api'
 import ExportButton from '../components/ExportButton'
 import type { ColumnsType } from 'antd/es/table'
@@ -24,11 +24,60 @@ const Servers: React.FC = () => {
   const [servers, setServers] = useState<Server[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [editingServer, setEditingServer] = useState<Server | null>(null)
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
+  const [batchActionLoading, setBatchActionLoading] = useState(false)
   const [form] = Form.useForm()
 
   useEffect(() => {
     loadServers()
   }, [])
+
+  // Batch operation handlers (Day 7)
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select servers to delete')
+      return
+    }
+
+    setBatchActionLoading(true)
+    try {
+      await serverApi.batchDelete(selectedRowKeys as string[])
+      message.success(`Successfully deleted ${selectedRowKeys.length} servers`)
+      setSelectedRowKeys([])
+      loadServers()
+    } catch (error: any) {
+      message.error('Failed to batch delete servers')
+    } finally {
+      setBatchActionLoading(false)
+    }
+  }
+
+  const handleBatchStatusChange = async (status: string) => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select servers to update')
+      return
+    }
+
+    setBatchActionLoading(true)
+    try {
+      await serverApi.batchUpdateStatus(selectedRowKeys as string[], status)
+      message.success(`Successfully updated status for ${selectedRowKeys.length} servers`)
+      setSelectedRowKeys([])
+      loadServers()
+    } catch (error: any) {
+      message.error('Failed to batch update status')
+    } finally {
+      setBatchActionLoading(false)
+    }
+  }
+
+  const onSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRowKeys(servers.map(s => s.id))
+    } else {
+      setSelectedRowKeys([])
+    }
+  }
 
   const loadServers = async () => {
     setLoading(true)
@@ -95,7 +144,33 @@ const Servers: React.FC = () => {
     return colorMap[status] || 'default'
   }
 
+  // Batch selection column (Day 7)
+  const batchColumns = {
+    title: (
+      <Checkbox
+        checked={selectedRowKeys.length === servers.length && servers.length > 0}
+        onChange={(e) => onSelectAll(e.target.checked)}
+        indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < servers.length}
+      />
+    ),
+    dataIndex: 'id',
+    key: 'selection',
+    width: 50,
+    render: (_: any, record: Server) => (
+      <Checkbox
+        checked={selectedRowKeys.includes(record.id)}
+        onChange={() => {
+          const newSelected = selectedRowKeys.includes(record.id)
+            ? selectedRowKeys.filter(key => key !== record.id)
+            : [...selectedRowKeys, record.id]
+          setSelectedRowKeys(newSelected)
+        }}
+      />
+    ),
+  }
+
   const columns: ColumnsType<Server> = [
+    batchColumns,
     {
       title: 'Name',
       dataIndex: 'name',
@@ -173,11 +248,61 @@ const Servers: React.FC = () => {
         </Space>
       </div>
 
+      {/* Batch Operations Toolbar (Day 7) */}
+      {selectedRowKeys.length > 0 && (
+        <Alert
+          message={`${selectedRowKeys.length} server(s) selected`}
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          action={
+            <Space>
+              <Button
+                size="small"
+                danger
+                loading={batchActionLoading}
+                onClick={handleBatchDelete}
+              >
+                Delete Selected
+              </Button>
+              <Button
+                size="small"
+                loading={batchActionLoading}
+                onClick={() => handleBatchStatusChange('ONLINE')}
+              >
+                Set Online
+              </Button>
+              <Button
+                size="small"
+                loading={batchActionLoading}
+                onClick={() => handleBatchStatusChange('OFFLINE')}
+              >
+                Set Offline
+              </Button>
+              <Button
+                size="small"
+                loading={batchActionLoading}
+                onClick={() => handleBatchStatusChange('MAINTENANCE')}
+              >
+                Set Maintenance
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setSelectedRowKeys([])}
+              >
+                Clear Selection
+              </Button>
+            </Space>
+          }
+        />
+      )}
+
       <Table
         columns={columns}
         dataSource={servers}
         loading={loading}
         rowKey="id"
+        pagination={{ pageSize: 20 }}
       />
 
       <Modal

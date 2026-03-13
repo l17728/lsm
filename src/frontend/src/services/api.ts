@@ -65,6 +65,10 @@ export const serverApi = {
   delete: (id: string) => apiClient.delete(`/servers/${id}`),
   getMetrics: (id: string, startTime?: string, endTime?: string) =>
     apiClient.get(`/servers/${id}/metrics`, { params: { startTime, endTime } }),
+  // Batch operations (Day 7)
+  batchDelete: (ids: string[]) => apiClient.delete('/servers/batch', { data: { ids } }),
+  batchUpdateStatus: (ids: string[], status: string) =>
+    apiClient.patch('/servers/batch/status', { ids, status }),
 }
 
 // GPU API
@@ -79,6 +83,10 @@ export const gpuApi = {
   getHistory: (limit?: number) => apiClient.get('/gpu/history', { params: { limit } }),
   terminate: (allocationId: string) =>
     apiClient.post(`/gpu/allocations/${allocationId}/terminate`),
+  // Batch operations (Day 7)
+  batchDelete: (ids: string[]) => apiClient.delete('/gpu/batch', { data: { ids } }),
+  batchUpdateStatus: (ids: string[], status: string) =>
+    apiClient.patch('/gpu/batch/status', { ids, status }),
 }
 
 // Task API
@@ -94,6 +102,11 @@ export const taskApi = {
   update: (id: string, data: any) => apiClient.put(`/tasks/${id}`, data),
   cancel: (id: string) => apiClient.post(`/tasks/${id}/cancel`),
   delete: (id: string) => apiClient.delete(`/tasks/${id}`),
+  // Batch operations (Day 7)
+  batchDelete: (ids: string[]) => apiClient.delete('/tasks/batch', { data: { ids } }),
+  batchUpdateStatus: (ids: string[], status: string) =>
+    apiClient.patch('/tasks/batch/status', { ids, status }),
+  batchCancel: (ids: string[]) => apiClient.post('/tasks/batch/cancel', { ids }),
 }
 
 // Monitoring API
