@@ -142,6 +142,8 @@ model Task {
   userId         String       @map("user_id") @db.Uuid
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   gpuRequirements Json?       @map("gpu_requirements") @db.JsonB
+  result         String?      @db.Text
+  scheduledAt    DateTime?    @map("scheduled_at")
   startedAt      DateTime?    @map("started_at")
   completedAt    DateTime?    @map("completed_at")
   failedAt       DateTime?    @map("failed_at")
