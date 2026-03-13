@@ -106,6 +106,76 @@ groups:
           summary: "Low disk space on node"
           description: "Disk usage is above 85% on {{ $labels.instance }} ({{ $labels.mountpoint }})."
 
+      # LSM Cache Hit Rate Low
+      - alert: LSMCacheHitRateLow
+        expr: lsm_cache_hit_rate_percent < 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LSM cache hit rate below target"
+          description: "Cache hit rate is {{ $value }}% (target: 85%) for the last 5 minutes."
+
+      # LSM Health Unhealthy
+      - alert: LSMHealthUnhealthy
+        expr: lsm_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LSM application is unhealthy"
+          description: "LSM application health check has failed for more than 1 minute."
+
+      # LSM Database Unhealthy
+      - alert: LSMDatabaseUnhealthy
+        expr: lsm_health_database == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LSM database connection unhealthy"
+          description: "LSM database health check has failed for more than 1 minute."
+
+      # LSM Redis Unhealthy
+      - alert: LSMRedisUnhealthy
+        expr: lsm_health_redis == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LSM Redis connection unhealthy"
+          description: "LSM Redis health check has failed for more than 1 minute."
+
+      # LSM High Failed Tasks
+      - alert: LSMHighFailedTasks
+        expr: lsm_db_tasks_failed > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of failed tasks"
+          description: "There are {{ $value }} failed tasks in the system."
+
+      # LSM Email Queue Backlog
+      - alert: LSMEmailQueueBacklog
+        expr: lsm_email_queue_pending > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Email queue backlog detected"
+          description: "There are {{ $value }} pending emails in the queue."
+
+      # LSM GPU Allocation High
+      - alert: LSMGPUAllocationHigh
+        expr: (lsm_db_gpus_allocated / lsm_db_gpus_total) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU allocation rate high"
+          description: "GPU allocation rate is {{ $value }}% (> 90%)."
+
   - name: recording-rules
     interval: 30s
     rules:
