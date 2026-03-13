@@ -3,6 +3,7 @@ import { Table, Tag, Button, Space, Modal, Form, Input, Select, message, Popconf
 import { UserOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { authApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
+import { ExportButton } from '../components/ExportButton'
 import type { ColumnsType } from 'antd/es/table'
 
 interface User {
@@ -156,7 +157,10 @@ const Users: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 16 }}>User Management</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h1>User Management</h1>
+        <ExportButton endpoint="/api/export/users" filename="users" formats={[{ key: 'excel', label: 'Excel', extension: 'xlsx' }]} />
+      </div>
 
       <Table
         columns={columns}

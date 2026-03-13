@@ -5,7 +5,17 @@ import { Redis } from 'ioredis';
  */
 export class CacheService {
   private redis: Redis;
-  private defaultTTL: number = 3600; // 1 hour
+  // Optimized TTL settings (Day 4 cache optimization)
+  private ttlConfig = {
+    userSession: 7 * 24 * 3600,      // 7 days
+    serverMetrics: 600,               // 10 minutes
+    gpuStatus: 120,                   // 2 minutes
+    userList: 1800,                   // 30 minutes
+    serverList: 900,                  // 15 minutes
+    taskList: 300,                    // 5 minutes
+    gpuList: 600,                     // 10 minutes
+    default: 3600,                    // 1 hour
+  };
   private hits: number = 0;
   private misses: number = 0;
   private size: number = 0;
@@ -115,10 +125,10 @@ export class CacheService {
   }
 
   /**
-   * Cache user session
+   * Cache user session (optimized TTL: 7 days)
    */
-  async cacheUserSession(userId: string, session: any, ttl: number = 7 * 24 * 3600): Promise<boolean> {
-    return this.set(`session:${userId}`, session, ttl);
+  async cacheUserSession(userId: string, session: any): Promise<boolean> {
+    return this.set(`session:${userId}`, session, this.ttlConfig.userSession);
   }
 
   /**
@@ -129,10 +139,10 @@ export class CacheService {
   }
 
   /**
-   * Cache server metrics
+   * Cache server metrics (optimized TTL: 10 minutes)
    */
-  async cacheServerMetrics(serverId: string, metrics: any, ttl: number = 300): Promise<boolean> {
-    return this.set(`metrics:server:${serverId}`, metrics, ttl);
+  async cacheServerMetrics(serverId: string, metrics: any): Promise<boolean> {
+    return this.set(`metrics:server:${serverId}`, metrics, this.ttlConfig.serverMetrics);
   }
 
   /**
@@ -143,10 +153,10 @@ export class CacheService {
   }
 
   /**
-   * Cache GPU status
+   * Cache GPU status (optimized TTL: 2 minutes)
    */
-  async cacheGpuStatus(gpuId: string, status: any, ttl: number = 60): Promise<boolean> {
-    return this.set(`gpu:status:${gpuId}`, status, ttl);
+  async cacheGpuStatus(gpuId: string, status: any): Promise<boolean> {
+    return this.set(`gpu:status:${gpuId}`, status, this.ttlConfig.gpuStatus);
   }
 
   /**
@@ -154,6 +164,21 @@ export class CacheService {
    */
   async getGpuStatus(gpuId: string): Promise<any | null> {
     return this.get(`gpu:status:${gpuId}`);
+  }
+
+  /**
+   * Cache list data with optimized TTL
+   */
+  async cacheList(type: 'users' | 'servers' | 'tasks' | 'gpus', data: any): Promise<boolean> {
+    const ttl = this.ttlConfig[`${type}List` as keyof typeof this.ttlConfig] || this.ttlConfig.default;
+    return this.set(`list:${type}:all`, data, ttl);
+  }
+
+  /**
+   * Get cached list data
+   */
+  async getList(type: 'users' | 'servers' | 'tasks' | 'gpus'): Promise<any | null> {
+    return this.get(`list:${type}:all`);
   }
 
   /**
@@ -178,11 +203,17 @@ export class CacheService {
     hits: number;
     misses: number;
     size: number;
+    hitRate: number;
+    ttlConfig: any;
   } {
+    const total = this.hits + this.misses;
+    const hitRate = total > 0 ? (this.hits / total) * 100 : 0;
     return {
       hits: this.hits,
       misses: this.misses,
       size: this.size,
+      hitRate: Math.round(hitRate * 100) / 100,
+      ttlConfig: this.ttlConfig,
     };
   }
 
@@ -193,6 +224,14 @@ export class CacheService {
     this.hits = 0;
     this.misses = 0;
     this.size = 0;
+  }
+
+  /**
+   * Get current hit rate percentage
+   */
+  getHitRate(): number {
+    const total = this.hits + this.misses;
+    return total > 0 ? (this.hits / total) * 100 : 0;
   }
 }
 

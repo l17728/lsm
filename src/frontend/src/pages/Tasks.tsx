@@ -3,6 +3,7 @@ import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, mes
 import { PlusOutlined, DeleteOutlined, StopOutlined } from '@ant-design/icons'
 import { taskApi } from '../services/api'
 import { wsService } from '../services/websocket'
+import { ExportButton } from '../components/ExportButton'
 import type { ColumnsType } from 'antd/es/table'
 
 interface Task {
@@ -169,11 +170,14 @@ const Tasks: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h1>Tasks</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Create Task
-        </Button>
+        <Space>
+          <ExportButton endpoint="/api/export/tasks" filename="tasks" />
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            Create Task
+          </Button>
+        </Space>
       </div>
 
       <Table

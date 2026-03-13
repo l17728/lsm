@@ -3,6 +3,7 @@ import { Table, Tag, Button, Space, Card, Row, Col, Statistic, message, Modal } 
 import { GpuOutlined, PlusOutlined, ReleaseOutlined } from '@ant-design/icons'
 import { gpuApi } from '../services/api'
 import { wsService } from '../services/websocket'
+import { ExportButton } from '../components/ExportButton'
 import type { ColumnsType } from 'antd/es/table'
 
 interface GpuAllocation {
@@ -128,15 +129,18 @@ const GPUs: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h1>GPU Resources</h1>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setAllocateModalVisible(true)}
-        >
-          Allocate GPU
-        </Button>
+        <Space>
+          <ExportButton endpoint="/api/export/gpus" filename="gpus" formats={[{ key: 'excel', label: 'Excel', extension: 'xlsx' }]} />
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setAllocateModalVisible(true)}
+          >
+            Allocate GPU
+          </Button>
+        </Space>
       </div>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
