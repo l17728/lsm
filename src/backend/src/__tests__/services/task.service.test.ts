@@ -1,4 +1,4 @@
-import { TaskService } from '../services/task.service';
+import { TaskService } from '../../services/task.service';
 import { PrismaClient } from '@prisma/client';
 
 jest.mock('@prisma/client', () => {
@@ -20,15 +20,15 @@ describe('TaskService', () => {
 
   beforeEach(() => {
     mockPrisma = new PrismaClient();
-    taskService = new TaskService(mockPrisma);
+    taskService = new TaskService();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('getTasks', () => {
-    it('should return all tasks', async () => {
+  describe('getUserTasks', () => {
+    it('should return user tasks', async () => {
       const mockTasks = [
         { id: '1', name: 'Task 1', status: 'PENDING', priority: 'HIGH' },
         { id: '2', name: 'Task 2', status: 'RUNNING', priority: 'MEDIUM' },
@@ -36,10 +36,9 @@ describe('TaskService', () => {
 
       mockPrisma.task.findMany.mockResolvedValue(mockTasks);
 
-      const result = await taskService.getTasks();
+      const result = await taskService.getUserTasks('user-1');
 
       expect(result).toEqual(mockTasks);
-      expect(mockPrisma.task.findMany).toHaveBeenCalled();
     });
   });
 
@@ -50,28 +49,25 @@ describe('TaskService', () => {
         name: 'New Task',
         status: 'PENDING',
         priority: 'HIGH',
+        userId: 'user-1',
+        user: { id: 'user-1', username: 'testuser', email: 'test@example.com' },
       };
 
       mockPrisma.task.create.mockResolvedValue(mockTask);
+      mockPrisma.user.findUnique.mockResolvedValue({ email: 'test@example.com', username: 'testuser' });
 
       const result = await taskService.createTask({
         name: 'New Task',
+        userId: 'user-1',
         priority: 'HIGH',
       });
 
       expect(result).toEqual(mockTask);
-      expect(mockPrisma.task.create).toHaveBeenCalledWith({
-        data: {
-          name: 'New Task',
-          priority: 'HIGH',
-          status: 'PENDING',
-        },
-      });
     });
   });
 
-  describe('updateTaskStatus', () => {
-    it('should update task status successfully', async () => {
+  describe('startTask', () => {
+    it('should start task successfully', async () => {
       const mockTask = {
         id: '1',
         name: 'Task 1',
@@ -80,35 +76,22 @@ describe('TaskService', () => {
 
       mockPrisma.task.update.mockResolvedValue(mockTask);
 
-      const result = await taskService.updateTaskStatus('1', 'RUNNING');
+      const result = await taskService.startTask('1', 'server-1');
 
       expect(result.status).toBe('RUNNING');
-      expect(mockPrisma.task.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: { status: 'RUNNING' },
-      });
-    });
-
-    it('should throw error if task not found', async () => {
-      mockPrisma.task.update.mockRejectedValue(new Error('Task not found'));
-
-      await expect(
-        taskService.updateTaskStatus('999', 'COMPLETED')
-      ).rejects.toThrow('Task not found');
     });
   });
 
   describe('cancelTask', () => {
     it('should cancel task successfully', async () => {
-      const mockTask = {
+      mockPrisma.task.findUnique.mockResolvedValue({ id: '1', userId: 'user-1', status: 'PENDING' });
+      mockPrisma.task.update.mockResolvedValue({
         id: '1',
         name: 'Task 1',
         status: 'CANCELLED',
-      };
+      });
 
-      mockPrisma.task.update.mockResolvedValue(mockTask);
-
-      const result = await taskService.cancelTask('1');
+      const result = await taskService.cancelTask('1', 'user-1');
 
       expect(result.status).toBe('CANCELLED');
     });

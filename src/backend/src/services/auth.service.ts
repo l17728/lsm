@@ -1,10 +1,13 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '../utils/prisma';
 import config from '../config';
-import { Role } from '@prisma/client';
+import { user_role as UserRole } from '@prisma/client';
 import { emailService } from './email.service';
+
+// Re-export UserRole for use in other modules
+export { UserRole };
 
 export interface LoginRequest {
   username: string;
@@ -15,13 +18,13 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
-  role?: Role;
+  role?: UserRole;
 }
 
 export interface TokenPayload {
   userId: string;
   username: string;
-  role: Role;
+  role: UserRole;
 }
 
 export class AuthService {
@@ -29,7 +32,7 @@ export class AuthService {
    * Register a new user
    */
   async register(data: RegisterRequest) {
-    const { username, email, password, role = Role.USER } = data;
+    const { username, email, password, role = UserRole.USER } = data;
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
@@ -51,7 +54,7 @@ export class AuthService {
       data: {
         username,
         email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         role,
       },
       select: {
@@ -87,7 +90,7 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       throw new Error('Invalid credentials');
@@ -101,7 +104,7 @@ export class AuthService {
     };
 
     const token = jwt.sign(tokenPayload, config.jwtSecret, {
-      expiresIn: config.jwtExpiresIn,
+      expiresIn: config.jwtExpiresIn as any,
     });
 
     // Create session
@@ -182,7 +185,7 @@ export class AuthService {
       throw new Error('User not found');
     }
 
-    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.passwordHash);
 
     if (!isPasswordValid) {
       throw new Error('Invalid current password');
@@ -193,7 +196,7 @@ export class AuthService {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { passwordHash: hashedPassword },
     });
   }
 
@@ -218,7 +221,7 @@ export class AuthService {
   /**
    * Update user role (admin only)
    */
-  async updateUserRole(userId: string, role: Role) {
+  async updateUserRole(userId: string, role: UserRole) {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { role },

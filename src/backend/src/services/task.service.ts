@@ -1,5 +1,5 @@
 import prisma from '../utils/prisma';
-import { TaskStatus } from '@prisma/client';
+import { task_status as TaskStatus, task_priority as TaskPriority } from '@prisma/client';
 import { emailQueueService } from './email-queue.service';
 import { EmailType } from './email.service';
 
@@ -7,14 +7,14 @@ export interface CreateTaskRequest {
   name: string;
   description?: string;
   userId: string;
-  priority?: number;
+  priority?: TaskPriority;
   scheduledAt?: Date;
 }
 
 export interface UpdateTaskRequest {
   name?: string;
   description?: string;
-  priority?: number;
+  priority?: TaskPriority;
   scheduledAt?: Date;
 }
 
@@ -38,7 +38,7 @@ export class TaskService {
         name: data.name,
         description: data.description,
         userId: data.userId,
-        priority: data.priority ?? 0,
+        priority: data.priority ?? TaskPriority.MEDIUM,
         scheduledAt: data.scheduledAt,
         status: TaskStatus.PENDING,
       },
@@ -76,11 +76,8 @@ export class TaskService {
   /**
    * Get priority label
    */
-  private getPriorityLabel(priority: number): string {
-    if (priority >= 8) return 'CRITICAL';
-    if (priority >= 6) return 'HIGH';
-    if (priority >= 4) return 'MEDIUM';
-    return 'LOW';
+  private getPriorityLabel(priority: TaskPriority): string {
+    return priority;
   }
 
   /**

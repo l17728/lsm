@@ -13,7 +13,7 @@ describe('LSM API Integration Tests', () => {
 
   beforeAll(async () => {
     // Import app dynamically
-    app = require('../src/index').app;
+    app = require('../../index').app;
   });
 
   beforeEach(async () => {

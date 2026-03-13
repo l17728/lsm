@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 /**
  * Touch gesture hook for mobile interactions
@@ -38,16 +38,16 @@ export function useTouchGestures() {
     if (Math.abs(distanceX) > Math.abs(distanceY)) {
       // Horizontal swipe
       if (isLeftSwipe) {
-        onSwipeLeft?.();
+        console.log('Swipe left');
       } else if (isRightSwipe) {
-        onSwipeRight?.();
+        console.log('Swipe right');
       }
     } else {
       // Vertical swipe
       if (isUpSwipe) {
-        onSwipeUp?.();
+        console.log('Swipe up');
       } else if (isDownSwipe) {
-        onSwipeDown?.();
+        console.log('Swipe down');
       }
     }
   };
@@ -60,73 +60,7 @@ export function useTouchGestures() {
 }
 
 /**
- * Swipe gesture callbacks
- */
-interface SwipeCallbacks {
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
-  onSwipeUp?: () => void;
-  onSwipeDown?: () => void;
-}
-
-/**
- * Swipe gesture hook with callbacks
- */
-export function useSwipe({ onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown }: SwipeCallbacks) {
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
-  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
-
-  const minSwipeDistance = 50;
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    });
-  }, []);
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    setTouchEnd({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    });
-  }, []);
-
-  const onTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd) return;
-
-    const distanceX = touchStart.x - touchEnd.x;
-    const distanceY = touchStart.y - touchEnd.y;
-    const isLeftSwipe = distanceX > minSwipeDistance;
-    const isRightSwipe = distanceX < -minSwipeDistance;
-    const isUpSwipe = distanceY > minSwipeDistance;
-    const isDownSwipe = distanceY < -minSwipeDistance;
-
-    if (Math.abs(distanceX) > Math.abs(distanceY)) {
-      if (isLeftSwipe && onSwipeLeft) {
-        onSwipeLeft();
-      } else if (isRightSwipe && onSwipeRight) {
-        onSwipeRight();
-      }
-    } else {
-      if (isUpSwipe && onSwipeUp) {
-        onSwipeUp();
-      } else if (isDownSwipe && onSwipeDown) {
-        onSwipeDown();
-      }
-    }
-  }, [touchStart, touchEnd, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown]);
-
-  return {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
-  };
-}
-
-/**
- * Pinch to zoom hook
+ * Pinch zoom hook
  */
 export function usePinchZoom() {
   const [scale, setScale] = useState(1);
@@ -140,15 +74,15 @@ export function usePinchZoom() {
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
-      setInitialDistance(getDistance(e.touches));
+      setInitialDistance(getDistance(e.touches as unknown as TouchList));
     }
   }, []);
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2 && initialDistance !== null) {
-      const newDistance = getDistance(e.touches);
+      const newDistance = getDistance(e.touches as unknown as TouchList);
       const newScale = (newDistance / initialDistance) * scale;
-      setScale(Math.min(Math.max(newScale, 0.5), 3)); // Limit scale between 0.5 and 3
+      setScale(Math.min(Math.max(newScale, 0.5), 3));
     }
   }, [initialDistance, scale]);
 
@@ -191,39 +125,28 @@ export function useDoubleTap(callback: () => void, delay = 300) {
  */
 export function useLongPress(callback: () => void, delay = 500) {
   const [isPressed, setIsPressed] = useState(false);
-  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useState<ReturnType<typeof setTimeout> | null>(null)[0];
 
   const start = useCallback(() => {
     setIsPressed(true);
-    timerRef.current = setTimeout(() => {
+    const timer = setTimeout(() => {
       callback();
       setIsPressed(false);
     }, delay);
+    return timer;
   }, [callback, delay]);
 
   const end = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
+    if (timerRef) {
+      clearTimeout(timerRef);
     }
     setIsPressed(false);
-  }, []);
-
-  React.useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+  }, [timerRef]);
 
   return {
     isPressed,
     onTouchStart: start,
     onTouchEnd: end,
     onTouchCancel: end,
-    onMouseDown: start,
-    onMouseUp: end,
-    onMouseLeave: end,
   };
 }

@@ -119,18 +119,29 @@ export class TaskExecutorService {
         });
       }, 5 * 60 * 1000);
 
-      // Wait for connection to close
-      const checkInterval = setInterval(() => {
-        if (!conn._sock?.readable) {
-          clearInterval(checkInterval);
-          resolve({
+      // Wait for stream to close
+      let resolved = false;
+      const resolveOnce = (result: ExecutionResult) => {
+        if (!resolved) {
+          resolved = true;
+          resolve(result);
+        }
+      };
+
+      // Check for completion
+      const checkCompletion = () => {
+        if (exitCode !== undefined && !resolved) {
+          resolveOnce({
             success: exitCode === 0,
             output,
             exitCode,
             duration: Date.now() - startTime,
           });
         }
-      }, 100);
+      };
+
+      // Poll for exit code
+      const checkInterval = setInterval(checkCompletion, 100);
     });
   }
 
@@ -200,17 +211,6 @@ export class TaskExecutorService {
   async getTaskLogs(taskId: string): Promise<string> {
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },
-      include: {
-        allocations: {
-          include: {
-            gpu: {
-              include: {
-                server: true,
-              },
-            },
-          },
-        },
-      },
     });
 
     if (!task) {

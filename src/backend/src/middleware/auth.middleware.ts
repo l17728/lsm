@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import authService, { TokenPayload, Role } from '../services/auth.service';
+import authService, { TokenPayload, UserRole } from '../services/auth.service';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
@@ -33,7 +33,7 @@ export const authenticate = (
 /**
  * Middleware to check if user has required role
  */
-export const authorize = (...allowedRoles: Role[]) => {
+export const authorize = (...allowedRoles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -50,9 +50,9 @@ export const authorize = (...allowedRoles: Role[]) => {
 /**
  * Convenience middleware for admin-only routes
  */
-export const requireAdmin = authorize(Role.ADMIN);
+export const requireAdmin = authorize(UserRole.ADMIN);
 
 /**
  * Convenience middleware for manager and admin routes
  */
-export const requireManager = authorize(Role.MANAGER, Role.ADMIN);
+export const requireManager = authorize(UserRole.MANAGER, UserRole.ADMIN);

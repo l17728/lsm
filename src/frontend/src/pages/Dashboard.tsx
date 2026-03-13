@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Table, Tag, Spin, Alert } from 'antd'
+import { Card, Row, Col, Statistic, Tag, Spin, Alert } from 'antd'
 import {
-  ServerOutlined,
-  GpuOutlined,
-  TaskOutlined,
+  ApiOutlined,
+  RocketOutlined,
+  ClockCircleOutlined,
   UserOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons'
+
+// Icon aliases for compatibility
+const ServerOutlined = ApiOutlined;
+const GpuOutlined = RocketOutlined;
+const TaskOutlined = ClockCircleOutlined;
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { serverApi, gpuApi, taskApi, monitoringApi } from '../services/api'
 import { wsService } from '../services/websocket'

@@ -1,5 +1,5 @@
 import prisma from '../utils/prisma';
-import { GpuStatus, AllocationStatus } from '@prisma/client';
+import { gpu_status as GpuStatus } from '@prisma/client';
 import { emailQueueService } from './email-queue.service';
 import { EmailType } from './email.service';
 
@@ -17,8 +17,8 @@ export interface GpuAllocationResult {
   serverName: string;
   gpuModel: string;
   gpuMemory: number;
-  deviceId: number;
-  startTime: Date;
+  deviceId?: string;
+  startTime?: Date;
 }
 
 export class GpuService {
@@ -104,15 +104,21 @@ export class GpuService {
       );
     }
 
+    // Update allocation with start time
+    const updatedAllocation = await prisma.gpuAllocation.update({
+      where: { id: allocation.id },
+      data: { startTime: new Date() },
+    });
+
     return {
-      allocationId: allocation.id,
+      allocationId: updatedAllocation.id,
       gpuId: availableGpu.id,
       serverId: availableGpu.serverId,
       serverName: availableGpu.server.name,
       gpuModel: availableGpu.model,
       gpuMemory: availableGpu.memory,
-      deviceId: availableGpu.deviceId,
-      startTime: allocation.startTime,
+      deviceId: availableGpu.deviceId || undefined,
+      startTime: updatedAllocation.startTime || new Date(),
     };
   }
 
@@ -248,7 +254,7 @@ export class GpuService {
           },
         },
       },
-      orderBy: { startTime: 'desc' },
+      orderBy: { allocatedAt: 'desc' },
     });
 
     return allocations;
@@ -267,7 +273,7 @@ export class GpuService {
           },
         },
       },
-      orderBy: { startTime: 'desc' },
+      orderBy: { allocatedAt: 'desc' },
       take: limit,
     });
 

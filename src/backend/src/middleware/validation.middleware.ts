@@ -163,7 +163,7 @@ export function validate<T extends z.ZodTypeAny>(
   const result = schema.safeParse(data);
 
   if (!result.success) {
-    const errors = result.error.errors.map((err) => ({
+    const errors = result.error.issues.map((err) => ({
       field: err.path.join('.'),
       message: err.message,
     }));

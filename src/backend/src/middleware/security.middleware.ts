@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import { App } from 'express';
+import { Express } from 'express';
 
 /**
  * Security configuration for the application
@@ -43,7 +43,7 @@ export const authRateLimiter = rateLimit({
 /**
  * Helmet security headers configuration
  */
-export function applyHelmet(app: App) {
+export function applyHelmet(app: Express) {
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -83,7 +83,7 @@ export function applyHelmet(app: App) {
 /**
  * Apply security middleware to the application
  */
-export function applySecurity(app: App) {
+export function applySecurity(app: Express) {
   // Apply Helmet security headers
   applyHelmet(app);
 

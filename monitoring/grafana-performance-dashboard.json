@@ -1,0 +1,484 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "lsm-performance-dashboard",
+    "title": "LSM Project - Performance & Batch Operations",
+    "tags": ["lsm", "performance", "batch-operations"],
+    "timezone": "Asia/Shanghai",
+    "schemaVersion": 38,
+    "version": 2,
+    "refresh": "5s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "type": "stat",
+        "title": "API Response Time (P95)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"lsm-backend\"}[5m])) * 1000",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 0,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 200 },
+                { "color": "red", "value": 500 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto"
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+        "type": "stat",
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "(sum(rate(http_requests_total{job=\"lsm-backend\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"lsm-backend\"}[5m]))) * 100",
+            "legendFormat": "%"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 2,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 5 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto"
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "type": "stat",
+        "title": "Cache Hit Rate",
+        "targets": [
+          {
+            "expr": "lsm_cache_hit_rate_percent",
+            "legendFormat": "%"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 70 },
+                { "color": "green", "value": 85 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto"
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "type": "stat",
+        "title": "Throughput",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job=\"lsm-backend\"}[5m]))",
+            "legendFormat": "req/s"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "decimals": 1,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "yellow", "value": null },
+                { "color": "green", "value": 10 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto"
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "type": "timeseries",
+        "title": "API Response Time Trends",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"lsm-backend\"}[5m])) * 1000",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(http_request_duration_seconds_bucket{job=\"lsm-backend\"}[5m])) * 1000",
+            "legendFormat": "P90"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"lsm-backend\"}[5m])) * 1000",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"lsm-backend\"}[5m])) * 1000",
+            "legendFormat": "P99"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right" },
+          "tooltip": { "mode": "multi" }
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "type": "timeseries",
+        "title": "Request Rate & Errors",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job=\"lsm-backend\"}[5m]))",
+            "legendFormat": "Total Requests"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{job=\"lsm-backend\", status=~\"5..\"}[5m]))",
+            "legendFormat": "5xx Errors"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{job=\"lsm-backend\", status=~\"4..\"}[5m]))",
+            "legendFormat": "4xx Errors"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right" },
+          "tooltip": { "mode": "multi" }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "type": "timeseries",
+        "title": "Batch Operations - Success Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(lsm_batch_operations_total{status=\"success\"}[5m])) / sum(rate(lsm_batch_operations_total[5m])) * 100",
+            "legendFormat": "Success Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 90 },
+                { "color": "green", "value": 95 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right" },
+          "tooltip": { "mode": "multi" }
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "type": "timeseries",
+        "title": "Batch Operations - Volume",
+        "targets": [
+          {
+            "expr": "sum(rate(lsm_batch_operations_total{operation=\"delete\"}[5m]))",
+            "legendFormat": "Batch Delete"
+          },
+          {
+            "expr": "sum(rate(lsm_batch_operations_total{operation=\"status_update\"}[5m]))",
+            "legendFormat": "Batch Status Update"
+          },
+          {
+            "expr": "sum(rate(lsm_batch_operations_total{operation=\"cancel\"}[5m]))",
+            "legendFormat": "Batch Cancel"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right" },
+          "tooltip": { "mode": "multi" }
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+        "type": "timeseries",
+        "title": "Batch Operations - Items Processed",
+        "targets": [
+          {
+            "expr": "sum(rate(lsm_batch_items_processed_total{status=\"success\"}[5m]))",
+            "legendFormat": "Success"
+          },
+          {
+            "expr": "sum(rate(lsm_batch_items_processed_total{status=\"failed\"}[5m]))",
+            "legendFormat": "Failed"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right" },
+          "tooltip": { "mode": "multi" }
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "type": "timeseries",
+        "title": "Batch Operations - Response Time",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(lsm_batch_operation_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(lsm_batch_operation_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P90"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(lsm_batch_operation_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right" },
+          "tooltip": { "mode": "multi" }
+        }
+      },
+      {
+        "id": 11,
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 28 },
+        "type": "gauge",
+        "title": "Cache Hit Rate",
+        "targets": [
+          {
+            "expr": "lsm_cache_hit_rate_percent",
+            "legendFormat": "%"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 70 },
+                { "color": "green", "value": 85 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 12,
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 28 },
+        "type": "gauge",
+        "title": "CPU Usage",
+        "targets": [
+          {
+            "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "%"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 80 },
+                { "color": "red", "value": 90 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 28 },
+        "type": "gauge",
+        "title": "Memory Usage",
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "%"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 80 },
+                { "color": "red", "value": 90 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 14,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+        "type": "table",
+        "title": "API Endpoint Performance",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"lsm-backend\"}[5m])) * 1000",
+            "legendFormat": "{{endpoint}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 200 },
+                { "color": "red", "value": 500 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{ "displayName": "P95", "desc": true }]
+        }
+      },
+      {
+        "id": 15,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+        "type": "stat",
+        "title": "System Health",
+        "targets": [
+          {
+            "expr": "up{job=\"lsm-backend\"}",
+            "legendFormat": "Backend"
+          },
+          {
+            "expr": "up{job=\"lsm-frontend\"}",
+            "legendFormat": "Frontend"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "options": { "0": { "text": "Down" }, "1": { "text": "Up" } }, "type": "value" }
+            ],
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "justifyMode": "auto"
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "query": "label_values(up, environment)",
+          "refresh": 1,
+          "current": { "text": "production", "value": "production" }
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    }
+  }
+}

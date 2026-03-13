@@ -1,5 +1,5 @@
 import prisma from '../utils/prisma';
-import { ServerStatus, GpuStatus } from '@prisma/client';
+import { server_status as ServerStatus, gpu_status as GpuStatus } from '@prisma/client';
 import serverService from './server.service';
 
 export interface ServerHealth {
@@ -119,10 +119,10 @@ export class MonitoringService {
         serverId: server.id,
         serverName: server.name,
         status: server.status,
-        cpuUsage: latestMetric?.cpuUsage ?? 0,
-        memoryUsage: latestMetric?.memoryUsage ?? 0,
-        gpuUsage: latestMetric?.gpuUsage ?? null,
-        temperature: latestMetric?.temperature ?? null,
+        cpuUsage: Number(latestMetric?.cpuUsage ?? 0),
+        memoryUsage: Number(latestMetric?.memoryUsage ?? 0),
+        gpuUsage: latestMetric?.gpuUsage ? Number(latestMetric.gpuUsage) : null,
+        temperature: latestMetric?.temperature ? Number(latestMetric.temperature) : null,
         lastUpdate: latestMetric?.timestamp ?? server.updatedAt,
       };
     });
@@ -147,7 +147,7 @@ export class MonitoringService {
     const onlineServers = servers.filter((s) => s.status === ServerStatus.ONLINE);
 
     const totalCpuCores = onlineServers.reduce((sum, s) => sum + s.cpuCores, 0);
-    const totalMemory = onlineServers.reduce((sum, s) => sum + s.totalMemory, 0);
+    const totalMemory = onlineServers.reduce((sum, s) => sum + Number(s.totalMemory), 0);
     const totalGpus = onlineServers.reduce((sum, s) => sum + s.gpus.length, 0);
     const availableGpus = onlineServers.reduce(
       (sum, s) => sum + s.gpus.filter((g) => g.status === GpuStatus.AVAILABLE).length,
@@ -156,13 +156,13 @@ export class MonitoringService {
 
     // Calculate average resource usage
     const avgCpuUsage =
-      onlineServers.reduce((sum, s) => sum + (s.metrics[0]?.cpuUsage ?? 0), 0) /
+      onlineServers.reduce((sum, s) => sum + Number(s.metrics[0]?.cpuUsage ?? 0), 0) /
       (onlineServers.length || 1);
     const avgMemoryUsage =
-      onlineServers.reduce((sum, s) => sum + (s.metrics[0]?.memoryUsage ?? 0), 0) /
+      onlineServers.reduce((sum, s) => sum + Number(s.metrics[0]?.memoryUsage ?? 0), 0) /
       (onlineServers.length || 1);
     const avgGpuUsage =
-      onlineServers.reduce((sum, s) => sum + (s.metrics[0]?.gpuUsage ?? 0), 0) /
+      onlineServers.reduce((sum, s) => sum + Number(s.metrics[0]?.gpuUsage ?? 0), 0) /
       (onlineServers.length || 1);
 
     return {

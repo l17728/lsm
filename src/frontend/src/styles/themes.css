@@ -1,0 +1,250 @@
+/**
+ * LSM Project - Theme System
+ * Dark Mode & Light Mode Support
+ * Generated: 2026-03-13
+ */
+
+/* ============================================
+   CSS Custom Properties (CSS Variables)
+   ============================================ */
+
+:root {
+  /* Light Theme (Default) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e0e0e0;
+  
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #8a8a8a;
+  
+  --border-color: #e0e0e0;
+  --divider-color: #f0f0f0;
+  
+  --primary-color: #1890ff;
+  --primary-hover: #40a9ff;
+  --primary-active: #096dd9;
+  
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #f5222d;
+  --info-color: #1890ff;
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  
+  /* Component-specific */
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --input-border: #d9d9d9;
+  --input-hover-border: #40a9ff;
+  
+  --table-header-bg: #fafafa;
+  --table-row-hover: #f5f5f5;
+  
+  --scrollbar-thumb: #c1c1c1;
+  --scrollbar-track: #f1f1f1;
+}
+
+/* Dark Theme */
+[data-theme='dark'] {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2a2a2a;
+  --bg-tertiary: #3a3a3a;
+  
+  --text-primary: #ffffff;
+  --text-secondary: #d0d0d0;
+  --text-tertiary: #a0a0a0;
+  
+  --border-color: #404040;
+  --divider-color: #303030;
+  
+  --primary-color: #40a9ff;
+  --primary-hover: #69c0ff;
+  --primary-active: #096dd9;
+  
+  --success-color: #73d13d;
+  --warning-color: #ffc53d;
+  --error-color: #ff7875;
+  --info-color: #40a9ff;
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+  
+  /* Component-specific */
+  --card-bg: #2a2a2a;
+  --input-bg: #2a2a2a;
+  --input-border: #404040;
+  --input-hover-border: #40a9ff;
+  
+  --table-header-bg: #262626;
+  --table-row-hover: #303030;
+  
+  --scrollbar-thumb: #505050;
+  --scrollbar-track: #1a1a1a;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ============================================
+   Component Styles
+   ============================================ */
+
+/* Cards */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--primary-active);
+}
+
+/* Inputs */
+.input {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+
+.input:hover {
+  border-color: var(--input-hover-border);
+}
+
+.input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+/* Tables */
+.table {
+  background-color: var(--card-bg);
+}
+
+.table thead {
+  background-color: var(--table-header-bg);
+  color: var(--text-primary);
+}
+
+.table tbody tr:hover {
+  background-color: var(--table-row-hover);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.bg-primary {
+  background-color: var(--bg-primary);
+}
+
+.bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.border-primary {
+  border-color: var(--border-color);
+}
+
+/* ============================================
+   Theme Toggle Button
+   ============================================ */
+
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--card-bg);
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-lg);
+}
+
+.theme-toggle svg {
+  width: 24px;
+  height: 24px;
+  fill: var(--text-primary);
+}
+
+/* Sun icon (shown in dark mode) */
+.theme-toggle .sun-icon {
+  display: none;
+}
+
+/* Moon icon (shown in light mode) */
+.theme-toggle .moon-icon {
+  display: block;
+}
+
+[data-theme='dark'] .theme-toggle .sun-icon {
+  display: block;
+}
+
+[data-theme='dark'] .theme-toggle .moon-icon {
+  display: none;
+}

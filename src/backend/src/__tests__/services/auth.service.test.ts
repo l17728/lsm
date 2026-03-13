@@ -1,4 +1,4 @@
-import { AuthService } from '../services/auth.service';
+import { AuthService } from '../../services/auth.service';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
@@ -26,7 +26,7 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     mockPrisma = new PrismaClient();
-    authService = new AuthService(mockPrisma);
+    authService = new AuthService();
   });
 
   afterEach(() => {
@@ -71,7 +71,7 @@ describe('AuthService', () => {
           email: 'new@example.com',
           password: 'password123',
         })
-      ).rejects.toThrow('User already exists');
+      ).rejects.toThrow('Username or email already exists');
     });
   });
 
@@ -89,7 +89,7 @@ describe('AuthService', () => {
       mockPrisma.session.create.mockResolvedValue({ token: 'mock-token' });
 
       const result = await authService.login({
-        email: 'test@example.com',
+        username: 'testuser',
         password: 'password123',
       });
 
@@ -103,7 +103,7 @@ describe('AuthService', () => {
 
       await expect(
         authService.login({
-          email: 'notfound@example.com',
+          username: 'notfound',
           password: 'wrongpassword',
         })
       ).rejects.toThrow('Invalid credentials');

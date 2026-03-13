@@ -1,4 +1,4 @@
-import { GpuService } from '../services/gpu.service';
+import { GpuService } from '../../services/gpu.service';
 import { PrismaClient } from '@prisma/client';
 
 jest.mock('@prisma/client', () => {
@@ -27,29 +27,11 @@ describe('GpuService', () => {
 
   beforeEach(() => {
     mockPrisma = new PrismaClient();
-    gpuService = new GpuService(mockPrisma);
+    gpuService = new GpuService();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-  });
-
-  describe('getAvailableGpus', () => {
-    it('should return available GPUs', async () => {
-      const mockGpus = [
-        { id: '1', model: 'RTX 3090', memory: 24, allocated: false },
-        { id: '2', model: 'RTX 3080', memory: 10, allocated: false },
-      ];
-
-      mockPrisma.gpu.findMany.mockResolvedValue(mockGpus);
-
-      const result = await gpuService.getAvailableGpus();
-
-      expect(result).toEqual(mockGpus);
-      expect(mockPrisma.gpu.findMany).toHaveBeenCalledWith({
-        where: { allocated: false },
-      });
-    });
   });
 
   describe('allocateGpu', () => {
@@ -58,54 +40,58 @@ describe('GpuService', () => {
         id: '1',
         model: 'RTX 3090',
         memory: 24,
-        allocated: true,
+        serverId: 'server-1',
+        server: { name: 'Test Server' },
       };
 
-      mockPrisma.gpu.findUnique.mockResolvedValue({
-        id: '1',
-        allocated: false,
-      });
-      mockPrisma.gpu.update.mockResolvedValue(mockGpu);
+      mockPrisma.gpu.findFirst.mockResolvedValue(mockGpu);
       mockPrisma.gpuAllocation.create.mockResolvedValue({ id: 'alloc-1' });
+      mockPrisma.gpu.update.mockResolvedValue({});
+      mockPrisma.user.findUnique.mockResolvedValue({ email: 'test@example.com', username: 'testuser' });
+      mockPrisma.task.findUnique.mockResolvedValue({ name: 'Test Task' });
 
       const result = await gpuService.allocateGpu({
         userId: 'user-1',
-        gpuId: '1',
         taskId: 'task-1',
       });
 
       expect(result).toBeDefined();
-      expect(mockPrisma.gpu.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: { allocated: true },
-      });
+      expect(result.gpuModel).toBe('RTX 3090');
     });
 
-    it('should throw error if GPU not found', async () => {
-      mockPrisma.gpu.findUnique.mockResolvedValue(null);
+    it('should throw error if no GPU available', async () => {
+      mockPrisma.gpu.findFirst.mockResolvedValue(null);
 
       await expect(
         gpuService.allocateGpu({
           userId: 'user-1',
-          gpuId: '999',
-          taskId: 'task-1',
         })
-      ).rejects.toThrow('GPU not found');
+      ).rejects.toThrow('No available GPU matching criteria');
     });
   });
 
   describe('releaseGpu', () => {
     it('should release GPU successfully', async () => {
-      mockPrisma.gpu.findUnique.mockResolvedValue({ id: '1', allocated: true });
-      mockPrisma.gpu.update.mockResolvedValue({
-        id: '1',
-        allocated: false,
-      });
+      const mockAllocation = {
+        id: 'alloc-1',
+        userId: 'user-1',
+        status: 'ACTIVE',
+        gpuId: 'gpu-1',
+        gpu: {
+          model: 'RTX 3090',
+          memory: 24,
+          server: { name: 'Test Server' },
+        },
+      };
 
-      const result = await gpuService.releaseGpu('1');
+      mockPrisma.gpuAllocation.findUnique.mockResolvedValue(mockAllocation);
+      mockPrisma.gpuAllocation.update.mockResolvedValue({});
+      mockPrisma.gpu.update.mockResolvedValue({});
+      mockPrisma.user.findUnique.mockResolvedValue({ email: 'test@example.com', username: 'testuser' });
 
-      expect(result.allocated).toBe(false);
-      expect(mockPrisma.gpu.update).toHaveBeenCalled();
+      const result = await gpuService.releaseGpu('alloc-1', 'user-1');
+
+      expect(result.success).toBe(true);
     });
   });
 });

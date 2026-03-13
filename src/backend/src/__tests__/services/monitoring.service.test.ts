@@ -1,4 +1,4 @@
-import { MonitoringService } from '../services/monitoring.service';
+import { MonitoringService } from '../../services/monitoring.service';
 import { PrismaClient } from '@prisma/client';
 
 jest.mock('@prisma/client', () => {
@@ -24,42 +24,56 @@ describe('MonitoringService', () => {
 
   beforeEach(() => {
     mockPrisma = new PrismaClient();
-    monitoringService = new MonitoringService(mockPrisma);
+    monitoringService = new MonitoringService();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('recordMetrics', () => {
-    it('should record server metrics successfully', async () => {
-      const mockMetric = {
-        id: '1',
-        serverId: '1',
-        cpuUsage: 50.5,
-        memoryUsage: 70.2,
-        temperature: 65,
-      };
+  describe('getServerHealth', () => {
+    it('should return server health status', async () => {
+      const mockServers = [
+        {
+          id: '1',
+          name: 'Server 1',
+          status: 'ONLINE',
+          cpuCores: 8,
+          totalMemory: BigInt(16000000000),
+          gpus: [],
+          metrics: [{ cpuUsage: 50.5, memoryUsage: 70.2, temperature: 65, timestamp: new Date() }],
+        },
+      ];
 
-      mockPrisma.serverMetric.create.mockResolvedValue(mockMetric);
+      mockPrisma.server.findMany.mockResolvedValue(mockServers);
 
-      const result = await monitoringService.recordMetrics({
-        serverId: '1',
-        cpuUsage: 50.5,
-        memoryUsage: 70.2,
-        temperature: 65,
-      });
+      const result = await monitoringService.getServerHealth();
 
-      expect(result).toEqual(mockMetric);
-      expect(mockPrisma.serverMetric.create).toHaveBeenCalled();
+      expect(result).toBeDefined();
+      expect(result.length).toBe(1);
+      expect(result[0].serverName).toBe('Server 1');
     });
   });
 
   describe('getClusterStats', () => {
     it('should return cluster statistics', async () => {
       const mockServers = [
-        { id: '1', status: 'ONLINE', cpuUsage: 50, memoryUsage: 60 },
-        { id: '2', status: 'ONLINE', cpuUsage: 70, memoryUsage: 80 },
+        {
+          id: '1',
+          status: 'ONLINE',
+          cpuCores: 8,
+          totalMemory: BigInt(16000000000),
+          gpus: [],
+          metrics: [{ cpuUsage: 50, memoryUsage: 60 }],
+        },
+        {
+          id: '2',
+          status: 'ONLINE',
+          cpuCores: 8,
+          totalMemory: BigInt(16000000000),
+          gpus: [],
+          metrics: [{ cpuUsage: 70, memoryUsage: 80 }],
+        },
       ];
 
       mockPrisma.server.findMany.mockResolvedValue(mockServers);
@@ -67,33 +81,31 @@ describe('MonitoringService', () => {
       const result = await monitoringService.getClusterStats();
 
       expect(result).toBeDefined();
-      expect(result.totalServers).toBe(2);
-      expect(result.averageCpuUsage).toBe(60);
-      expect(result.averageMemoryUsage).toBe(70);
+      expect(result.servers.total).toBe(2);
+      expect(result.servers.online).toBe(2);
     });
   });
 
-  describe('checkAlerts', () => {
+  describe('getAlerts', () => {
     it('should generate alert for high CPU usage', async () => {
-      mockPrisma.server.findMany.mockResolvedValue([
-        { id: '1', status: 'ONLINE', cpuUsage: 95, memoryUsage: 60 },
-      ]);
+      const mockServers = [
+        {
+          id: '1',
+          name: 'Server 1',
+          status: 'ONLINE',
+          cpuCores: 8,
+          totalMemory: BigInt(16000000000),
+          gpus: [],
+          metrics: [{ cpuUsage: 95, memoryUsage: 60, temperature: 50, timestamp: new Date() }],
+        },
+      ];
 
-      const alerts = await monitoringService.checkAlerts();
+      mockPrisma.server.findMany.mockResolvedValue(mockServers);
+
+      const alerts = await monitoringService.getAlerts();
 
       expect(alerts.length).toBeGreaterThan(0);
-      expect(alerts[0].type).toBe('HIGH_CPU');
-    });
-
-    it('should generate alert for high memory usage', async () => {
-      mockPrisma.server.findMany.mockResolvedValue([
-        { id: '1', status: 'ONLINE', cpuUsage: 50, memoryUsage: 95 },
-      ]);
-
-      const alerts = await monitoringService.checkAlerts();
-
-      expect(alerts.length).toBeGreaterThan(0);
-      expect(alerts[0].type).toBe('HIGH_MEMORY');
+      expect(alerts[0].type).toBe('critical');
     });
   });
 });

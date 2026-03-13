@@ -8,6 +8,8 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authApi } from '../services/api'
+import ThemeToggle from './ThemeToggle'
+import LanguageSwitcher from './LanguageSwitcher'
 
 const { Header: AntHeader } = Layout
 
@@ -57,11 +59,20 @@ const Header: React.FC<HeaderProps> = ({ collapsed, setCollapsed }) => {
         style={{ fontSize: '16px', width: 64, height: 64 }}
       />
 
-      <Space>
-        <span>{user?.username}</span>
-        <Dropdown menu={{ items: menuItems }} placement="bottomRight">
-          <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff', cursor: 'pointer' }} />
-        </Dropdown>
+      <Space size="middle">
+        {/* Theme Toggle */}
+        <ThemeToggle />
+        
+        {/* Language Switcher */}
+        <LanguageSwitcher />
+        
+        {/* User Info & Avatar */}
+        <Space>
+          <span>{user?.username}</span>
+          <Dropdown menu={{ items: menuItems }} placement="bottomRight">
+            <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff', cursor: 'pointer' }} />
+          </Dropdown>
+        </Space>
       </Space>
     </AntHeader>
   )

@@ -20,15 +20,15 @@ export class EmailTemplateService {
   } {
     switch (type) {
       case EmailType.WELCOME:
-        return this.getWelcomeTemplate(data);
+        return this.getWelcomeTemplate(data as any);
       case EmailType.TASK_ASSIGNED:
-        return this.getTaskAssignedTemplate(data);
+        return this.getTaskAssignedTemplate(data as any);
       case EmailType.TASK_COMPLETED:
-        return this.getTaskCompletedTemplate(data);
+        return this.getTaskCompletedTemplate(data as any);
       case EmailType.ALERT:
-        return this.getAlertTemplate(data);
+        return this.getAlertTemplate(data as any);
       case EmailType.GPU_ALLOCATED:
-        return this.getGpuAllocatedTemplate(data);
+        return this.getGpuAllocatedTemplate(data as any);
       default:
         throw new Error(`Unknown email type: ${type}`);
     }
@@ -134,6 +134,51 @@ export class EmailTemplateService {
         </html>
       `,
       text: `您有一个新任务：${data.taskName}（优先级：${data.priority}）。查看详情：${data.taskUrl}`,
+    };
+  }
+
+  /**
+   * Task completed email template
+   */
+  private getTaskCompletedTemplate(data: {
+    username: string;
+    taskName: string;
+    status: string;
+    result: string;
+  }): { subject: string; html: string; text: string } {
+    return {
+      subject: `任务完成：${data.taskName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #667eea; color: white; padding: 20px; }
+            .content { padding: 30px; background: #f9f9f9; }
+            .status { display: inline-block; padding: 4px 12px; background: ${data.status === 'COMPLETED' ? '#28a745' : '#dc3545'}; color: white; border-radius: 3px; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h2>✅ 任务完成</h2>
+            </div>
+            <div class="content">
+              <p>${data.username}，您好！</p>
+              <p>您的任务已完成：</p>
+              <ul>
+                <li><strong>任务名称：</strong>${data.taskName}</li>
+                <li><strong>状态：</strong><span class="status">${data.status}</span></li>
+                <li><strong>结果：</strong>${data.result}</li>
+              </ul>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `任务完成：${data.taskName}（状态：${data.status}，结果：${data.result}）`,
     };
   }
 

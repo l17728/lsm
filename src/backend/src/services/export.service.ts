@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { Parser } from 'json2csv';
-import * as xlsx from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const prisma = new PrismaClient();
 
@@ -22,19 +22,55 @@ export async function exportToCSV<T>(
 }
 
 /**
- * Export data to Excel
+ * Export data to Excel using exceljs (secure alternative to xlsx)
  */
 export async function exportToExcel<T>(
   data: T[],
-  sheetName: string = 'Sheet1'
+  sheetName: string = 'Sheet1',
+  title?: string
 ): Promise<Buffer> {
   try {
-    const workbook = xlsx.utils.book_new();
-    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'LSM System';
+    workbook.created = new Date();
     
-    xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+    const worksheet = workbook.addWorksheet(sheetName);
     
-    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    if (data.length === 0) {
+      return await workbook.xlsx.writeBuffer();
+    }
+    
+    // Add title if provided
+    if (title) {
+      worksheet.mergeCells('A1', `${String.fromCharCode(65 + Object.keys(data[0]).length - 1)}1`);
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = title;
+      titleCell.font = { bold: true, size: 16 };
+      titleCell.alignment = { horizontal: 'center' };
+    }
+    
+    // Add headers
+    const headers = Object.keys(data[0]);
+    const headerRow = worksheet.addRow(headers);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+    
+    // Add data rows
+    data.forEach((item: any) => {
+      const row = headers.map(header => item[header]);
+      worksheet.addRow(row);
+    });
+    
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = 20;
+    });
+    
+    const buffer = await workbook.xlsx.writeBuffer();
     return buffer;
   } catch (error) {
     console.error('[Export] Excel export error:', error);
@@ -99,15 +135,15 @@ export async function exportGpusToExcel(): Promise<Buffer> {
   });
 
   const data = gpus.map((gpu) => ({
-    id: gpu.id,
-    model: gpu.model,
-    memory: gpu.memory,
-    allocated: gpu.allocated,
-    serverName: gpu.server.name,
-    allocationCount: gpu.allocations.length,
+    ID: gpu.id,
+    Model: gpu.model,
+    Memory: `${gpu.memory}GB`,
+    Allocated: gpu.allocated ? 'Yes' : 'No',
+    Server: gpu.server.name,
+    Allocations: gpu.allocations.length,
   }));
 
-  return exportToExcel(data, 'GPUs');
+  return exportToExcel(data, 'GPUs', 'GPU Resource Report');
 }
 
 /**
@@ -122,16 +158,16 @@ export async function exportUsersToExcel(): Promise<Buffer> {
   });
 
   const data = users.map((user) => ({
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    role: user.role,
-    taskCount: user.tasks.length,
-    allocationCount: user.allocations.length,
-    createdAt: user.createdAt.toISOString(),
+    ID: user.id,
+    Username: user.username,
+    Email: user.email,
+    Role: user.role,
+    Tasks: user.tasks.length,
+    Allocations: user.allocations.length,
+    Created: user.createdAt.toISOString().split('T')[0],
   }));
 
-  return exportToExcel(data, 'Users');
+  return exportToExcel(data, 'Users', 'User Management Report');
 }
 
 /**

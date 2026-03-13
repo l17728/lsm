@@ -1,4 +1,4 @@
-import { TaskExecutorService, ExecutionResult } from '../services/task-executor.service';
+import { TaskExecutorService, ExecutionResult } from '../../services/task-executor.service';
 import { Client } from 'ssh2';
 
 jest.mock('ssh2', () => {

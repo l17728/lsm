@@ -1,6 +1,6 @@
 # LSM 项目部署指南
 
-**版本**: 3.1.0  
+**版本**: 3.2.0  
 **最后更新**: 2026-03-13  
 **状态**: 生产就绪
 
@@ -709,6 +709,142 @@ docker-compose exec backend npx prisma generate
 - [ ] 数据库自动备份已配置
 - [ ] 备份恢复测试已通过
 - [ ] 灾难恢复计划已制定
+
+---
+
+## 数据库迁移步骤
+
+### 1. 准备迁移
+
+```bash
+# 进入后端目录
+cd backend
+
+# 备份当前数据库
+pg_dump -U lsm -h localhost lsm > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 检查当前迁移状态
+npx prisma migrate status
+```
+
+### 2. 执行迁移
+
+```bash
+# 开发环境迁移
+npx prisma migrate dev
+
+# 生产环境迁移
+npx prisma migrate deploy
+
+# 生成 Prisma 客户端
+npx prisma generate
+```
+
+### 3. 验证迁移
+
+```bash
+# 检查数据库 Schema
+npx prisma db pull
+
+# 验证数据完整性
+npx prisma db seed
+```
+
+### 4. 回滚迁移 (如需要)
+
+```bash
+# 回滚到上一个迁移
+npx prisma migrate resolve --rolled-back
+
+# 或者回滚特定步骤
+npx prisma migrate resolve --applied <migration_name>
+```
+
+---
+
+## 回滚和备份策略
+
+### 备份策略
+
+#### 数据库备份
+
+```bash
+# 每日自动备份 (crontab)
+0 2 * * * pg_dump -U lsm -h localhost lsm | gzip > /backups/lsm_$(date +\%Y\%m\%d).sql.gz
+
+# 手动备份
+pg_dump -U lsm -h localhost lsm | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+
+# 验证备份
+gunzip -c backup_20260313_020000.sql.gz | psql -U lsm -h localhost -d lsm_test
+```
+
+#### 应用备份
+
+```bash
+# 备份应用代码
+tar -czf lsm-app-$(date +%Y%m%d).tar.gz /path/to/lsm-project
+
+# 备份配置文件
+cp -r /path/to/lsm-project/config /backups/config_$(date +%Y%m%d)
+
+# 备份环境变量
+cp /path/to/lsm-project/.env /backups/env_$(date +%Y%m%d)
+```
+
+### 恢复策略
+
+#### 数据库恢复
+
+```bash
+# 从备份恢复
+gunzip -c backup_20260313_020000.sql.gz | psql -U lsm -h localhost lsm
+
+# 验证恢复
+psql -U lsm -h localhost -c "SELECT COUNT(*) FROM users;" -d lsm
+```
+
+#### 应用回滚
+
+```bash
+# 停止当前服务
+docker-compose down
+
+# 恢复代码
+tar -xzf lsm-app-20260312.tar.gz -C /path/to/
+
+# 恢复配置
+cp /backups/env_20260312 /path/to/lsm-project/.env
+
+# 重启服务
+docker-compose up -d
+```
+
+### 灾难恢复计划
+
+#### 1. 评估损害
+
+- 确定问题范围
+- 检查备份可用性
+- 评估恢复时间目标 (RTO)
+
+#### 2. 通知相关人员
+
+- 发送事故通知
+- 建立沟通渠道
+- 更新状态页面
+
+#### 3. 执行恢复
+
+- 按优先级恢复服务
+- 验证数据完整性
+- 监控系统状态
+
+#### 4. 事后总结
+
+- 记录事故原因
+- 更新应急预案
+- 实施预防措施
 
 ---
 

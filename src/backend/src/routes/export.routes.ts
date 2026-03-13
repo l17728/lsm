@@ -1,5 +1,6 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth.middleware';
+import rateLimit from 'express-rate-limit';
 import {
   exportServersToCSV,
   exportTasksToCSV,
@@ -10,8 +11,24 @@ import {
 
 const router = Router();
 
-// All export routes require authentication
+// Rate limiter for export endpoints (prevent data exfiltration)
+const exportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per window
+  message: {
+    success: false,
+    error: {
+      code: 'ERR_RATE_LIMIT',
+      message: '导出请求频率超限，请稍后重试',
+    },
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// All export routes require authentication and rate limiting
 router.use(authenticate);
+router.use(exportLimiter);
 
 /**
  * @route   GET /api/export/servers/csv
@@ -81,15 +98,29 @@ router.get('/gpus/excel', async (req: AuthRequest, res) => {
 
 /**
  * @route   GET /api/export/users/excel
- * @desc    Export users to Excel
+ * @desc    Export users to Excel (Admin only - sensitive data)
  * @access  Private/Admin
  */
 router.get('/users/excel', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Additional permission check: only admins can export user data
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ERR_PERMISSION_DENIED',
+          message: '权限不足：仅管理员可导出用户数据',
+        },
+      });
+    }
+
     const buffer = await exportUsersToExcel();
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=users.xlsx');
+
+    // Log sensitive export
+    console.log(`[Audit] User data exported by admin: ${req.user.userId}`);
 
     res.send(buffer);
   } catch (error: any) {
@@ -131,6 +162,9 @@ router.get('/metrics/csv', async (req: AuthRequest, res) => {
  */
 router.get('/summary', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Log sensitive access
+    console.log(`[Audit] Export summary accessed by admin: ${req.user.userId}`);
+
     // Return summary JSON
     res.json({
       success: true,

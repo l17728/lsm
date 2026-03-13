@@ -181,6 +181,38 @@ export class WebSocketHandler {
   getIO() {
     return this.io;
   }
+
+  /**
+   * Broadcast message to all connected clients
+   */
+  broadcast(message: any) {
+    this.io.emit('message', message);
+  }
+
+  /**
+   * Broadcast alert to all clients
+   */
+  broadcastAlert(alert: {
+    id: string;
+    type: string;
+    severity: string;
+    title: string;
+    message: string;
+    timestamp: string;
+    metadata?: any;
+  }) {
+    this.io.emit('alert', alert);
+    this.io.to('servers').emit('alerts:new', [alert]);
+  }
+}
+
+// Export singleton instance for global access
+let websocketInstance: WebSocketHandler | null = null;
+
+export function initializeWebSocket(httpServer: HttpServer): WebSocketHandler {
+  websocketInstance = new WebSocketHandler(httpServer);
+  (global as any).websocketServer = websocketInstance;
+  return websocketInstance;
 }
 
 export default WebSocketHandler;

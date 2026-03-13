@@ -87,12 +87,13 @@ export function errorHandler(
 
   // Handle validation errors
   if (err.name === 'ZodError') {
+    const zodError = err as any;
     const response: ErrorResponse = {
       success: false,
       error: {
         code: ErrorTypes.VALIDATION_ERROR,
         message: 'Validation failed',
-        details: err.errors,
+        details: zodError.errors,
         timestamp: new Date().toISOString(),
       },
     };

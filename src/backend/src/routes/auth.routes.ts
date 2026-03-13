@@ -3,7 +3,7 @@ import { body } from 'express-validator';
 import authService from '../services/auth.service';
 import { authenticate } from '../middleware/auth.middleware';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { Role } from '@prisma/client';
+import { user_role as UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -156,7 +156,7 @@ router.put(
  */
 router.get('/users', authenticate, async (req: AuthRequest, res) => {
   try {
-    if (req.user!.role !== Role.ADMIN) {
+    if (req.user!.role !== UserRole.ADMIN) {
       return res.status(403).json({
         success: false,
         error: 'Admin access required',
@@ -188,7 +188,7 @@ router.put(
   [body('role').isIn(['ADMIN', 'MANAGER', 'USER']).withMessage('Invalid role')],
   async (req: AuthRequest, res) => {
     try {
-      if (req.user!.role !== Role.ADMIN) {
+      if (req.user!.role !== UserRole.ADMIN) {
         return res.status(403).json({
           success: false,
           error: 'Admin access required',
@@ -198,7 +198,7 @@ router.put(
       const { id } = req.params;
       const { role } = req.body;
 
-      const user = await authService.updateUserRole(id, role as Role);
+      const user = await authService.updateUserRole(id, role as UserRole);
 
       res.json({
         success: true,
@@ -220,7 +220,7 @@ router.put(
  */
 router.delete('/users/:id', authenticate, async (req: AuthRequest, res) => {
   try {
-    if (req.user!.role !== Role.ADMIN) {
+    if (req.user!.role !== UserRole.ADMIN) {
       return res.status(403).json({
         success: false,
         error: 'Admin access required',

@@ -1,0 +1,406 @@
+# Performance Test Automation CI/CD Workflow
+# Day 8: 挺进中原 - 集成测试与自动化
+
+name: Performance Test Automation
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Update performance baseline'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  NODE_VERSION: '20'
+  API_URL: http://localhost:8080
+  TEST_USERNAME: admin
+  TEST_PASSWORD: admin123
+
+jobs:
+  # ============================================
+  # Performance Tests
+  # ============================================
+  performance-test:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: lsm_perf
+          POSTGRES_PASSWORD: lsm_perf_password
+          POSTGRES_DB: lsm_perf
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://lsm_perf:lsm_perf_password@localhost:5432/lsm_perf
+      
+      - name: Setup test database
+        working-directory: ./backend
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://lsm_perf:lsm_perf_password@localhost:5432/lsm_perf
+      
+      - name: Start backend server
+        working-directory: ./backend
+        run: npm run dev &
+        env:
+          DATABASE_URL: postgresql://lsm_perf:lsm_perf_password@localhost:5432/lsm_perf
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          PORT: 8080
+          JWT_SECRET: test-secret-key-for-performance
+      
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+      
+      - name: Download performance baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: performance-baseline
+          path: ./tests/
+        continue-on-error: true
+      
+      - name: Run performance automation tests
+        working-directory: ./tests
+        run: node performance-automation.js
+        env:
+          API_URL: ${{ env.API_URL }}
+          TEST_USERNAME: ${{ env.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
+          CI_BUILD_ID: ${{ github.run_id }}
+          CI_BRANCH: ${{ github.ref_name }}
+          CI_COMMIT: ${{ github.sha }}
+      
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-report
+          path: docs/performance-reports/
+          retention-days: 30
+      
+      - name: Upload performance baseline
+        uses: actions/upload-artifact@v4
+        if: success() && github.ref == 'refs/heads/main'
+        with:
+          name: performance-baseline
+          path: tests/performance-baseline.json
+          retention-days: 90
+      
+      - name: Publish performance report to PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            ## 📊 Performance Test Results
+            
+            Performance tests have completed for this PR.
+            
+            **Status**: ${{ job.status }}
+            **Build**: ${{ github.run_id }}
+            **Commit**: ${{ github.sha }}
+            
+            See artifacts for detailed reports.
+          comment_tag: performance-test
+
+  # ============================================
+  # Batch Operation Integration Tests
+  # ============================================
+  batch-operation-test:
+    name: Batch Operation Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: lsm_batch
+          POSTGRES_PASSWORD: lsm_batch_password
+          POSTGRES_DB: lsm_batch
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://lsm_batch:lsm_batch_password@localhost:5432/lsm_batch
+      
+      - name: Setup test database
+        working-directory: ./backend
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://lsm_batch:lsm_batch_password@localhost:5432/lsm_batch
+      
+      - name: Start backend server
+        working-directory: ./backend
+        run: npm run dev &
+        env:
+          DATABASE_URL: postgresql://lsm_batch:lsm_batch_password@localhost:5432/lsm_batch
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          PORT: 8080
+          JWT_SECRET: test-secret-key
+      
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+      
+      - name: Run batch operation integration tests
+        working-directory: ./tests
+        run: node batch-operation-integration-test.js
+        env:
+          API_URL: ${{ env.API_URL }}
+          TEST_USERNAME: ${{ env.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
+      
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: batch-operation-report
+          path: docs/BATCH_OPERATION_TEST_REPORT.md
+          retention-days: 30
+
+  # ============================================
+  # E2E Tests
+  # ============================================
+  e2e-automated-test:
+    name: E2E Automated Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: lsm_e2e_auto
+          POSTGRES_PASSWORD: lsm_e2e_auto_password
+          POSTGRES_DB: lsm_e2e_auto
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://lsm_e2e_auto:lsm_e2e_auto_password@localhost:5432/lsm_e2e_auto
+      
+      - name: Setup test database
+        working-directory: ./backend
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://lsm_e2e_auto:lsm_e2e_auto_password@localhost:5432/lsm_e2e_auto
+      
+      - name: Start backend server
+        working-directory: ./backend
+        run: npm run dev &
+        env:
+          DATABASE_URL: postgresql://lsm_e2e_auto:lsm_e2e_auto_password@localhost:5432/lsm_e2e_auto
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          PORT: 8080
+          JWT_SECRET: test-secret-key
+      
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/health > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          exit 1
+      
+      - name: Run E2E tests
+        working-directory: ./tests
+        run: node e2e-test.js
+        env:
+          API_URL: ${{ env.API_URL }}
+          FRONTEND_URL: http://localhost:3000
+          TEST_USERNAME: ${{ env.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ env.TEST_PASSWORD }}
+      
+      - name: Upload E2E report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-report
+          path: docs/E2E_TEST_REPORT.md
+          retention-days: 30
+
+  # ============================================
+  # Performance Monitoring (Scheduled)
+  # ============================================
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.update_baseline == 'true')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Download baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: performance-baseline
+          path: ./tests/
+        continue-on-error: true
+      
+      - name: Run performance monitoring
+        working-directory: ./tests
+        run: node performance-automation.js
+        env:
+          API_URL: ${{ secrets.PRODUCTION_API_URL || 'https://api.lsm-project.com' }}
+          TEST_USERNAME: ${{ secrets.PROD_TEST_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.PROD_TEST_PASSWORD }}
+          CI_BUILD_ID: monitoring-${{ github.run_id }}
+          CI_BRANCH: ${{ github.ref_name }}
+          CI_COMMIT: ${{ github.sha }}
+      
+      - name: Upload monitoring report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-monitoring-report
+          path: docs/performance-reports/
+          retention-days: 90
+      
+      - name: Notify on regression
+        if: failure()
+        run: |
+          echo "⚠️ Performance regression detected!"
+          echo "Check the monitoring report for details."
+          # Add notification logic (Slack, email, etc.)

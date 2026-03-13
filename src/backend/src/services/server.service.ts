@@ -1,16 +1,16 @@
 import prisma from '../utils/prisma';
-import { ServerStatus, GpuStatus } from '@prisma/client';
+import { server_status as ServerStatus, gpu_status as GpuStatus } from '@prisma/client';
 import { cacheService } from './cache.service';
 
 export interface CreateServerRequest {
   name: string;
-  hostname: string;
-  ipAddress: string;
-  cpuCores: number;
-  totalMemory: number;
+  hostname?: string;
+  ipAddress?: string;
+  cpuCores?: number;
+  totalMemory?: number;
   gpuCount?: number;
   gpus?: Array<{
-    deviceId: number;
+    deviceId?: string;
     model: string;
     memory: number;
   }>;
@@ -30,19 +30,19 @@ export class ServerService {
    * Create a new server with optional GPU configuration
    */
   async createServer(data: CreateServerRequest) {
-    const { name, hostname, ipAddress, cpuCores, totalMemory, gpuCount = 0, gpus = [] } = data;
+    const { name, hostname, ipAddress, cpuCores = 0, totalMemory = 0, gpuCount = 0, gpus = [] } = data;
 
     const server = await prisma.server.create({
       data: {
         name,
-        hostname,
-        ipAddress,
+        hostname: hostname || null,
+        ipAddress: ipAddress || null,
         cpuCores,
-        totalMemory,
+        totalMemory: BigInt(totalMemory),
         gpuCount,
         gpus: {
           create: gpus.map((gpu) => ({
-            deviceId: gpu.deviceId,
+            deviceId: gpu.deviceId || null,
             model: gpu.model,
             memory: gpu.memory,
             status: GpuStatus.AVAILABLE,

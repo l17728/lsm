@@ -11,8 +11,12 @@ import taskRoutes from './routes/task.routes';
 import monitoringRoutes from './routes/monitoring.routes';
 import exportRoutes from './routes/export.routes';
 import prometheusRoutes from './routes/prometheus.routes';
-import WebSocketHandler from './utils/websocket';
+import notificationRoutes from './routes/notification.routes';
+import alertRulesRoutes from './routes/alert-rules.routes';
+import cacheWarmupRoutes from './routes/cache-warmup.routes';
+import WebSocketHandler, { initializeWebSocket } from './utils/websocket';
 import monitoringService from './services/monitoring.service';
+import { cacheWarmupService } from './services/cache-warmup.service';
 import prisma from './utils/prisma';
 
 // Import generated Swagger docs (will be created by build)
@@ -23,7 +27,7 @@ const app = express();
 const httpServer = createServer(app);
 
 // Initialize WebSocket
-const wsHandler = new WebSocketHandler(httpServer);
+const wsHandler = initializeWebSocket(httpServer);
 
 // Middleware
 app.use(helmet());
@@ -68,6 +72,9 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/prometheus', prometheusRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/alert-rules', alertRulesRoutes);
+app.use('/api/cache-warmup', cacheWarmupRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -92,6 +99,7 @@ const gracefulShutdown = async (signal: string) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
 
   wsHandler.stop();
+  cacheWarmupService.destroy();
 
   httpServer.close(async () => {
     console.log('HTTP server closed');
@@ -137,6 +145,9 @@ httpServer.listen(config.port, () => {
     // Initial metrics collection
     monitoringService.collectMetrics().catch(console.error);
   }
+
+  // Initialize cache warmup service
+  cacheWarmupService.initialize().catch(console.error);
 });
 
 export default app;

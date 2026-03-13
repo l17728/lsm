@@ -1,9 +1,9 @@
 import { Menu } from 'antd'
 import {
   DashboardOutlined,
-  ServerOutlined,
-  GpuOutlined,
-  TaskOutlined,
+  ApiOutlined,
+  RocketOutlined,
+  ClockCircleOutlined,
   MonitorOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
@@ -27,17 +27,17 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
     },
     {
       key: '/servers',
-      icon: <ServerOutlined />,
+      icon: <ApiOutlined />,
       label: 'Servers',
     },
     {
       key: '/gpus',
-      icon: <GpuOutlined />,
+      icon: <RocketOutlined />,
       label: 'GPUs',
     },
     {
       key: '/tasks',
-      icon: <TaskOutlined />,
+      icon: <ClockCircleOutlined />,
       label: 'Tasks',
     },
     {

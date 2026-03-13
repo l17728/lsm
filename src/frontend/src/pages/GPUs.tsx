@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Table, Tag, Button, Space, Card, Row, Col, Statistic, message, Modal } from 'antd'
-import { GpuOutlined, PlusOutlined, ReleaseOutlined } from '@ant-design/icons'
+import { RocketOutlined, PlusOutlined, LogoutOutlined } from '@ant-design/icons'
+
+// Icon aliases for compatibility
+const GpuOutlined = RocketOutlined;
+const ReleaseOutlined = LogoutOutlined;
 import { gpuApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import { ExportButton } from '../components/ExportButton'

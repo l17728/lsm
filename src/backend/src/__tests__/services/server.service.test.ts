@@ -1,4 +1,4 @@
-import { ServerService } from '../services/server.service';
+import { ServerService } from '../../services/server.service';
 import { PrismaClient } from '@prisma/client';
 
 jest.mock('@prisma/client', () => {
@@ -27,7 +27,7 @@ describe('ServerService', () => {
 
   beforeEach(() => {
     mockPrisma = new PrismaClient();
-    serverService = new ServerService(mockPrisma);
+    serverService = new ServerService();
   });
 
   afterEach(() => {
