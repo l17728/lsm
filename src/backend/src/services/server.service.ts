@@ -1,5 +1,6 @@
 import prisma from '../utils/prisma';
 import { ServerStatus, GpuStatus } from '@prisma/client';
+import { cacheService } from './cache.service';
 
 export interface CreateServerRequest {
   name: string;
@@ -53,6 +54,10 @@ export class ServerService {
       },
     });
 
+    // Invalidate cache
+    await cacheService.delete('servers:all');
+    await cacheService.delete('servers:stats');
+
     return server;
   }
 
@@ -60,39 +65,47 @@ export class ServerService {
    * Get all servers with their GPUs
    */
   async getAllServers() {
-    const servers = await prisma.server.findMany({
-      include: {
-        gpus: true,
-        _count: {
-          select: { tasks: true },
+    const cacheKey = 'servers:all';
+    
+    return cacheService.getOrSet(cacheKey, async () => {
+      const servers = await prisma.server.findMany({
+        include: {
+          gpus: true,
+          _count: {
+            select: { tasks: true },
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
 
-    return servers;
+      return servers;
+    }, 300); // Cache for 5 minutes
   }
 
   /**
    * Get server by ID
    */
   async getServerById(id: string) {
-    const server = await prisma.server.findUnique({
-      where: { id },
-      include: {
-        gpus: true,
-        tasks: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
+    const cacheKey = `server:${id}`;
+    
+    return cacheService.getOrSet(cacheKey, async () => {
+      const server = await prisma.server.findUnique({
+        where: { id },
+        include: {
+          gpus: true,
+          tasks: {
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          },
+          metrics: {
+            orderBy: { timestamp: 'desc' },
+            take: 100,
+          },
         },
-        metrics: {
-          orderBy: { timestamp: 'desc' },
-          take: 100,
-        },
-      },
-    });
+      });
 
-    return server;
+      return server;
+    }, 120); // Cache for 2 minutes
   }
 
   /**
@@ -106,6 +119,11 @@ export class ServerService {
         gpus: true,
       },
     });
+
+    // Invalidate cache
+    await cacheService.delete('servers:all');
+    await cacheService.delete('servers:stats');
+    await cacheService.delete(`server:${id}`);
 
     return server;
   }
@@ -140,32 +158,41 @@ export class ServerService {
     await prisma.server.delete({
       where: { id },
     });
+
+    // Invalidate cache
+    await cacheService.delete('servers:all');
+    await cacheService.delete('servers:stats');
+    await cacheService.delete(`server:${id}`);
   }
 
   /**
    * Get server statistics
    */
   async getServerStats() {
-    const servers = await prisma.server.findMany({
-      include: {
-        gpus: true,
-      },
-    });
+    const cacheKey = 'servers:stats';
+    
+    return cacheService.getOrSet(cacheKey, async () => {
+      const servers = await prisma.server.findMany({
+        include: {
+          gpus: true,
+        },
+      });
 
-    const stats = {
-      total: servers.length,
-      online: servers.filter((s) => s.status === ServerStatus.ONLINE).length,
-      offline: servers.filter((s) => s.status === ServerStatus.OFFLINE).length,
-      maintenance: servers.filter((s) => s.status === ServerStatus.MAINTENANCE).length,
-      error: servers.filter((s) => s.status === ServerStatus.ERROR).length,
-      totalGpus: servers.reduce((sum, s) => sum + s.gpus.length, 0),
-      availableGpus: servers.reduce(
-        (sum, s) => sum + s.gpus.filter((g) => g.status === GpuStatus.AVAILABLE).length,
-        0
-      ),
-    };
+      const stats = {
+        total: servers.length,
+        online: servers.filter((s) => s.status === ServerStatus.ONLINE).length,
+        offline: servers.filter((s) => s.status === ServerStatus.OFFLINE).length,
+        maintenance: servers.filter((s) => s.status === ServerStatus.MAINTENANCE).length,
+        error: servers.filter((s) => s.status === ServerStatus.ERROR).length,
+        totalGpus: servers.reduce((sum, s) => sum + s.gpus.length, 0),
+        availableGpus: servers.reduce(
+          (sum, s) => sum + s.gpus.filter((g) => g.status === GpuStatus.AVAILABLE).length,
+          0
+        ),
+      };
 
-    return stats;
+      return stats;
+    }, 60); // Cache for 1 minute
   }
 
   /**

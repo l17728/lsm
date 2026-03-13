@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import prisma from '../utils/prisma';
 import config from '../config';
 import { Role } from '@prisma/client';
+import { emailService } from './email.service';
 
 export interface LoginRequest {
   username: string;
@@ -60,6 +61,11 @@ export class AuthService {
         role: true,
         createdAt: true,
       },
+    });
+
+    // Send welcome email (non-blocking)
+    emailService.sendWelcome(email, username).catch((err) => {
+      console.error('[Auth] Failed to send welcome email:', err);
     });
 
     return user;

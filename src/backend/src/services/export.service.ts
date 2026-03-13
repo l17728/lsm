@@ -29,12 +29,12 @@ export async function exportToExcel<T>(
   sheetName: string = 'Sheet1'
 ): Promise<Buffer> {
   try {
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(data);
     
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
     
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
     return buffer;
   } catch (error) {
     console.error('[Export] Excel export error:', error);
