@@ -25,6 +25,8 @@ export interface TokenPayload {
   userId: string;
   username: string;
   role: UserRole;
+  name?: string;
+  email?: string;
 }
 
 export class AuthService {

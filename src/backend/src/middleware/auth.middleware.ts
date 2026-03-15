@@ -56,3 +56,8 @@ export const requireAdmin = authorize(UserRole.ADMIN);
  * Convenience middleware for manager and admin routes
  */
 export const requireManager = authorize(UserRole.MANAGER, UserRole.ADMIN);
+
+/**
+ * Alias for authenticate middleware (backward compatibility)
+ */
+export const authMiddleware = authenticate;

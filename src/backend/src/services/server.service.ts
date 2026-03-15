@@ -1,16 +1,16 @@
 import prisma from '../utils/prisma';
-import { server_status as ServerStatus, gpu_status as GpuStatus } from '@prisma/client';
+import { server_status as ServerStatus } from '@prisma/client';
 import { cacheService } from './cache.service';
 
 export interface CreateServerRequest {
   name: string;
-  hostname?: string;
+  description?: string;
   ipAddress?: string;
+  location?: string;
   cpuCores?: number;
   totalMemory?: number;
   gpuCount?: number;
   gpus?: Array<{
-    deviceId?: string;
     model: string;
     memory: number;
   }>;
@@ -18,11 +18,13 @@ export interface CreateServerRequest {
 
 export interface UpdateServerRequest {
   name?: string;
-  hostname?: string;
+  description?: string;
   ipAddress?: string;
+  location?: string;
   cpuCores?: number;
   totalMemory?: number;
   status?: ServerStatus;
+  gpuCount?: number;
 }
 
 export class ServerService {
@@ -30,22 +32,20 @@ export class ServerService {
    * Create a new server with optional GPU configuration
    */
   async createServer(data: CreateServerRequest) {
-    const { name, hostname, ipAddress, cpuCores = 0, totalMemory = 0, gpuCount = 0, gpus = [] } = data;
+    const { name, description, ipAddress, location, gpuCount = 0, gpus = [] } = data;
 
     const server = await prisma.server.create({
       data: {
         name,
-        hostname: hostname || null,
+        description: description || null,
         ipAddress: ipAddress || null,
-        cpuCores,
-        totalMemory: BigInt(totalMemory),
+        location: location || null,
         gpuCount,
         gpus: {
           create: gpus.map((gpu) => ({
-            deviceId: gpu.deviceId || null,
             model: gpu.model,
             memory: gpu.memory,
-            status: GpuStatus.AVAILABLE,
+            allocated: false,
           })),
         },
       },
@@ -72,7 +72,7 @@ export class ServerService {
         include: {
           gpus: true,
           _count: {
-            select: { tasks: true },
+            select: { gpus: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -93,12 +93,8 @@ export class ServerService {
         where: { id },
         include: {
           gpus: true,
-          tasks: {
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-          },
           metrics: {
-            orderBy: { timestamp: 'desc' },
+            orderBy: { recordedAt: 'desc' },
             take: 100,
           },
         },
@@ -140,11 +136,11 @@ export class ServerService {
       },
     });
 
-    // If server goes offline, update all GPUs to error status
+    // If server goes offline, mark all GPUs as not allocated
     if (status === ServerStatus.OFFLINE || status === ServerStatus.ERROR) {
       await prisma.gpu.updateMany({
         where: { serverId: id },
-        data: { status: GpuStatus.ERROR },
+        data: { allocated: false },
       });
     }
 
@@ -186,7 +182,7 @@ export class ServerService {
         error: servers.filter((s) => s.status === ServerStatus.ERROR).length,
         totalGpus: servers.reduce((sum, s) => sum + s.gpus.length, 0),
         availableGpus: servers.reduce(
-          (sum, s) => sum + s.gpus.filter((g) => g.status === GpuStatus.AVAILABLE).length,
+          (sum, s) => sum + s.gpus.filter((g) => !g.allocated).length,
           0
         ),
       };
@@ -204,14 +200,14 @@ export class ServerService {
         status: ServerStatus.ONLINE,
         gpus: {
           some: {
-            status: GpuStatus.AVAILABLE,
+            allocated: false,
           },
         },
       },
       include: {
         gpus: {
           where: {
-            status: GpuStatus.AVAILABLE,
+            allocated: false,
           },
         },
       },
@@ -250,7 +246,7 @@ export class ServerService {
     if (count > 1000) {
       const toDelete = await prisma.serverMetric.findMany({
         where: { serverId },
-        orderBy: { timestamp: 'asc' },
+        orderBy: { recordedAt: 'asc' },
         take: count - 1000,
         select: { id: true },
       });
@@ -272,12 +268,12 @@ export class ServerService {
     const metrics = await prisma.serverMetric.findMany({
       where: {
         serverId,
-        timestamp: {
+        recordedAt: {
           gte: startTime,
           lte: endTime,
         },
       },
-      orderBy: { timestamp: 'asc' },
+      orderBy: { recordedAt: 'asc' },
     });
 
     return metrics;

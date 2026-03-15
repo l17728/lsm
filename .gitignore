@@ -9,11 +9,23 @@ build/
 *.local
 
 # Environment variables
+# 🔐 SECURITY: 所有包含敏感信息的文件都应被忽略
 .env
 .env.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
+.env.*.local
+*.secret
+*.key
+*.pem
+secrets/
+
+# Sensitive files - 绝不应提交
+credentials.json
+service-account.json
+*.p12
 
 # Logs
 logs

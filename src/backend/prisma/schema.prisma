@@ -13,19 +13,33 @@ model User {
   email         String              @unique @db.VarChar(100)
   passwordHash  String              @map("password_hash") @db.VarChar(255)
   role          user_role           @default(USER)
+  metadata      Json?               @default("{}")
   createdAt     DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime?           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   lastLoginAt   DateTime?           @map("last_login_at") @db.Timestamptz(6)
   isActive      Boolean?            @default(true) @map("is_active")
+  currentTeamId String?             @map("current_team_id") @db.Uuid
   alerts        Alert[]
   auditLogs     AuditLog[]
   notifications EmailNotification[]
+  notificationHistory NotificationHistory[]
   allocations   GpuAllocation[]
   sessions      Session[]
   tasks         Task[]
+  // 预约系统关联
+  reservations           Reservation[]            // 发起的预约
+  approvedReservations   Reservation[]            @relation("ApprovedReservations")   // 审批的预约
+  cancelledReservations  Reservation[]            @relation("CancelledReservations")  // 取消的预约
+  reservationApprovals   ReservationApproval[]   // 审批记录
+  resourceQuotas         ResourceQuota[]          @relation("UserQuotas")             // 用户资源配额
+  // 多租户关联
+  teamMemberships       TeamMember[]              // 团队成员关系
+  invitedMembers        TeamMember[]              @relation("InvitedBy")              // 邀请的成员
+  currentTeam           Team?                     @relation("CurrentTeam", fields: [currentTeamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([email], map: "idx_users_email")
   @@index([username], map: "idx_users_username")
+  @@index([currentTeamId], map: "idx_users_current_team")
   @@map("users")
 }
 
@@ -54,13 +68,20 @@ model Server {
   sshPort     Int?           @default(22) @map("ssh_port")
   sshUsername String?        @map("ssh_username") @db.VarChar(50)
   metadata    Json?          @default("{}")
+  teamId      String?        @map("team_id") @db.Uuid
   createdAt   DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime?      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   alerts      Alert[]
   gpus        Gpu[]
   metrics     ServerMetric[]
+  // 预约系统关联
+  reservations      Reservation[]
+  reservationSlots  ReservationSlot[]
+  // 多租户关联
+  team              Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([status], map: "idx_servers_status")
+  @@index([teamId], map: "idx_servers_team_id")
   @@map("servers")
 }
 
@@ -74,6 +95,8 @@ model Gpu {
   createdAt   DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   allocations GpuAllocation[]
+  // 预约系统关联
+  gpuReservations   GpuReservation[]
   server      Server          @relation(fields: [serverId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([allocated], map: "idx_gpus_allocated")
@@ -105,6 +128,7 @@ model Task {
   status          task_status   @default(PENDING)
   priority        task_priority @default(MEDIUM)
   userId          String        @map("user_id") @db.Uuid
+  teamId          String?       @map("team_id") @db.Uuid
   gpuRequirements Json?         @map("gpu_requirements")
   startedAt       DateTime?     @map("started_at") @db.Timestamptz(6)
   completedAt     DateTime?     @map("completed_at") @db.Timestamptz(6)
@@ -114,10 +138,16 @@ model Task {
   createdAt       DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime?     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  team            Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  // 预约系统关联
+  reservations    Reservation[]
 
   @@index([priority], map: "idx_tasks_priority")
   @@index([status], map: "idx_tasks_status")
   @@index([userId], map: "idx_tasks_user_id")
+  @@index([teamId], map: "idx_tasks_team_id")
+  @@index([userId, status], map: "idx_tasks_user_status")
+  @@index([teamId, status], map: "idx_tasks_team_status")
   @@map("tasks")
 }
 
@@ -162,6 +192,7 @@ model Alert {
 model AuditLog {
   id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   userId       String?   @map("user_id") @db.Uuid
+  teamId       String?   @map("team_id") @db.Uuid
   action       String    @db.VarChar(100)
   resourceType String?   @map("resource_type") @db.VarChar(50)
   resourceId   String?   @map("resource_id") @db.Uuid
@@ -170,10 +201,13 @@ model AuditLog {
   userAgent    String?   @map("user_agent")
   createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
   user         User?     @relation(fields: [userId], references: [id], onUpdate: NoAction)
+  team         Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([action], map: "idx_audit_logs_action")
   @@index([createdAt(sort: Desc)], map: "idx_audit_logs_created_at")
   @@index([userId], map: "idx_audit_logs_user_id")
+  @@index([teamId], map: "idx_audit_logs_team_id")
+  @@index([teamId, action], map: "idx_audit_logs_team_action")
   @@map("audit_logs")
 }
 
@@ -192,6 +226,116 @@ model EmailNotification {
   @@index([status], map: "idx_email_notifications_status")
   @@index([userId], map: "idx_email_notifications_user_id")
   @@map("email_notifications")
+}
+
+model ExportHistory {
+  id          String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  type        export_type         @map("export_type")
+  dataType    export_data_type    @map("data_type")
+  status      export_status       @default(PENDING)
+  filePath    String?             @map("file_path") @db.Text
+  fileSize    Int?                @map("file_size")
+  recordCount Int?                @map("record_count")
+  filters     Json?               @default("{}")
+  createdAt   DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt DateTime?           @map("completed_at") @db.Timestamptz(6)
+  errorMessage String?            @map("error_message") @db.Text
+
+  @@index([status], map: "idx_export_history_status")
+  @@index([userId], map: "idx_export_history_user_id")
+  @@index([createdAt(sort: Desc)], map: "idx_export_history_created_at")
+  @@map("export_history")
+}
+
+model NotificationHistory {
+  id        String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String                 @map("user_id") @db.Uuid
+  type      notification_type      @map("notification_type")
+  severity  notification_severity
+  priority  notification_priority  @default(NORMAL)
+  title     String                 @db.VarChar(200)
+  message   String                 @db.Text
+  metadata  Json?                  @default("{}")
+  isRead    Boolean                @default(false) @map("is_read")
+  readAt    DateTime?              @map("read_at") @db.Timestamptz(6)
+  channel   notification_channel[] @default([WEBSOCKET])
+  createdAt DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([isRead], map: "idx_notification_history_is_read")
+  @@index([userId], map: "idx_notification_history_user_id")
+  @@index([createdAt(sort: Desc)], map: "idx_notification_history_created_at")
+  @@index([severity], map: "idx_notification_history_severity")
+  @@index([type], map: "idx_notification_history_type")
+  @@unique([id, userId], map: "idx_notification_history_id_userId")
+  @@map("notification_history")
+}
+
+// ==================== 原有枚举 ====================
+
+enum notification_type {
+  ALERT_CPU
+  ALERT_MEMORY
+  ALERT_GPU
+  ALERT_TEMP
+  ALERT_SERVER_OFFLINE
+  TASK_CREATED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_FAILED
+  TASK_CANCELLED
+  SYSTEM_MAINTENANCE
+  SYSTEM_UPDATE
+  SYSTEM_RESTART
+  BATCH_STARTED
+  BATCH_PROGRESS
+  BATCH_COMPLETED
+  BATCH_FAILED
+  USER_LOGIN
+  USER_LOGOUT
+  USER_KICKED
+}
+
+enum notification_severity {
+  CRITICAL
+  WARNING
+  INFO
+  SUCCESS
+}
+
+enum notification_priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum notification_channel {
+  EMAIL
+  DINGTALK
+  WEBSOCKET
+  SMS
+}
+
+enum export_type {
+  CSV
+  EXCEL
+  PDF
+}
+
+enum export_data_type {
+  SERVERS
+  GPUS
+  TASKS
+  USERS
+  METRICS
+}
+
+enum export_status {
+  PENDING
+  COMPLETED
+  FAILED
 }
 
 enum alert_status {
@@ -234,4 +378,238 @@ enum user_role {
   ADMIN
   MANAGER
   USER
+}
+
+// ==================== 多租户枚举 ====================
+
+enum team_status {
+  ACTIVE      // 活跃
+  SUSPENDED   // 暂停
+  ARCHIVED    // 归档
+}
+
+enum team_role {
+  OWNER    // 团队所有者
+  ADMIN    // 团队管理员
+  MEMBER   // 普通成员
+}
+
+// ==================== 预约系统枚举 ====================
+
+enum reservation_status {
+  PENDING      // 待审批
+  APPROVED     // 已批准
+  REJECTED     // 已拒绝
+  ACTIVE       // 进行中（已开始）
+  COMPLETED    // 已完成
+  CANCELLED    // 已取消
+  EXPIRED      // 已过期（未在规定时间开始）
+}
+
+enum approval_status {
+  PENDING      // 待审批
+  APPROVED     // 已批准
+  REJECTED     // 已拒绝
+}
+
+enum slot_status {
+  AVAILABLE    // 可预约
+  RESERVED     // 已预约
+  BLOCKED      // 已锁定（维护等）
+}
+
+enum quota_type {
+  USER         // 用户级配额
+  TEAM         // 团队级配额
+  ROLE         // 角色级配额
+  GLOBAL       // 全局配额
+}
+
+// ==================== 多租户模型 ====================
+
+model Team {
+  id          String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String      @unique @db.VarChar(100)
+  slug        String      @unique @db.VarChar(50)
+  description String?     @db.Text
+  logoUrl     String?     @map("logo_url") @db.VarChar(500)
+  status      team_status @default(ACTIVE)
+  settings    Json?       @default("{}")
+  createdBy   String      @map("created_by") @db.Uuid
+  createdAt   DateTime?   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime?   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  members       TeamMember[]
+  quotas        ResourceQuota[]
+  servers       Server[]
+  tasks         Task[]
+  reservations  Reservation[]
+  auditLogs     AuditLog[]
+  currentUsers  User[]        @relation("CurrentTeam")
+
+  @@index([slug], map: "idx_teams_slug")
+  @@index([status], map: "idx_teams_status")
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  teamId    String    @map("team_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  role      team_role @default(MEMBER)
+  joinedAt  DateTime? @default(now()) @map("joined_at") @db.Timestamptz(6)
+  invitedBy String?  @map("invited_by") @db.Uuid
+  metadata  Json?     @default("{}")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  team    Team  @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inviter User? @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([teamId, userId], map: "idx_team_members_unique")
+  @@index([teamId], map: "idx_team_members_team_id")
+  @@index([userId], map: "idx_team_members_user_id")
+  @@index([teamId, userId], map: "idx_team_members_team_user")
+  @@map("team_members")
+}
+
+// ==================== 预约系统模型 ====================
+
+model Reservation {
+  id               String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String              @map("user_id") @db.Uuid
+  serverId         String              @map("server_id") @db.Uuid
+  teamId           String?             @map("team_id") @db.Uuid
+  title            String              @db.VarChar(200)
+  description      String?             @db.Text
+  status           reservation_status  @default(PENDING)
+  startTime        DateTime            @map("start_time") @db.Timestamptz(6)
+  endTime          DateTime            @map("end_time") @db.Timestamptz(6)
+  actualStartTime  DateTime?           @map("actual_start_time") @db.Timestamptz(6)
+  actualEndTime    DateTime?           @map("actual_end_time") @db.Timestamptz(6)
+  gpuCount         Int                 @default(0) @map("gpu_count")
+  cpuCores         Int?                @map("cpu_cores")
+  memoryGb         Int?                @map("memory_gb")
+  taskId           String?             @map("task_id") @db.Uuid
+  approvedBy       String?             @map("approved_by") @db.Uuid
+  approvedAt       DateTime?           @map("approved_at") @db.Timestamptz(6)
+  rejectionReason  String?             @map("rejection_reason") @db.Text
+  cancelledBy      String?             @map("cancelled_by") @db.Uuid
+  cancelledAt      DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason     String?             @map("cancel_reason") @db.Text
+  metadata         Json?               @default("{}")
+  createdAt        DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime?           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  server           Server              @relation(fields: [serverId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  team             Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  task             Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  approver         User?               @relation("ApprovedReservations", fields: [approvedBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  canceller        User?               @relation("CancelledReservations", fields: [cancelledBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  gpuReservations  GpuReservation[]
+  approvals        ReservationApproval[]
+  slots            ReservationSlot[]
+
+  @@index([userId], map: "idx_reservations_user_id")
+  @@index([serverId], map: "idx_reservations_server_id")
+  @@index([status], map: "idx_reservations_status")
+  @@index([startTime], map: "idx_reservations_start_time")
+  @@index([endTime], map: "idx_reservations_end_time")
+  @@index([userId, status], map: "idx_reservations_user_status")
+  @@index([serverId, status], map: "idx_reservations_server_status")
+  @@index([startTime, endTime], map: "idx_reservations_time_range")
+  @@index([teamId], map: "idx_reservations_team_id")
+  @@index([teamId, status], map: "idx_reservations_team_status")
+  @@map("reservations")
+}
+
+model GpuReservation {
+  id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reservationId   String      @map("reservation_id") @db.Uuid
+  gpuId           String      @map("gpu_id") @db.Uuid
+  allocatedAt     DateTime?   @map("allocated_at") @db.Timestamptz(6)
+  releasedAt      DateTime?   @map("released_at") @db.Timestamptz(6)
+  metadata        Json?       @default("{}")
+  createdAt       DateTime?   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  reservation     Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  gpu             Gpu         @relation(fields: [gpuId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([reservationId, gpuId], map: "idx_gpu_reservations_unique")
+  @@index([gpuId], map: "idx_gpu_reservations_gpu_id")
+  @@index([reservationId], map: "idx_gpu_reservations_reservation_id")
+  @@map("gpu_reservations")
+}
+
+model ReservationApproval {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reservationId   String          @map("reservation_id") @db.Uuid
+  approverId      String          @map("approver_id") @db.Uuid
+  status          approval_status @default(PENDING)
+  level           Int             @default(1)
+  comment         String?         @db.Text
+  approvedAt      DateTime?       @map("approved_at") @db.Timestamptz(6)
+  createdAt       DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  reservation     Reservation     @relation(fields: [reservationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  approver        User            @relation(fields: [approverId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([reservationId], map: "idx_reservation_approvals_reservation_id")
+  @@index([approverId], map: "idx_reservation_approvals_approver_id")
+  @@index([status], map: "idx_reservation_approvals_status")
+  @@unique([reservationId, level], map: "idx_reservation_approvals_unique_level")
+  @@map("reservation_approvals")
+}
+
+model ReservationSlot {
+  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  serverId        String        @map("server_id") @db.Uuid
+  startTime       DateTime      @map("start_time") @db.Timestamptz(6)
+  endTime         DateTime      @map("end_time") @db.Timestamptz(6)
+  status          slot_status   @default(AVAILABLE)
+  reservationId   String?       @map("reservation_id") @db.Uuid
+  blockReason     String?       @map("block_reason") @db.VarChar(255)
+  metadata        Json?         @default("{}")
+  createdAt       DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  server          Server        @relation(fields: [serverId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reservation     Reservation?  @relation(fields: [reservationId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([serverId], map: "idx_reservation_slots_server_id")
+  @@index([serverId, startTime, endTime], map: "idx_reservation_slots_time_range")
+  @@index([status], map: "idx_reservation_slots_status")
+  @@index([reservationId], map: "idx_reservation_slots_reservation_id")
+  @@map("reservation_slots")
+}
+
+model ResourceQuota {
+  id                  String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quotaType           quota_type  @map("quota_type")
+  targetId            String?     @map("target_id") @db.Uuid
+  teamId              String?     @map("team_id") @db.Uuid
+  maxServers          Int?        @map("max_servers")
+  maxServerHours      Int?        @map("max_server_hours")
+  maxGpus             Int?        @map("max_gpus")
+  maxGpuHours         Int?        @map("max_gpu_hours")
+  maxReservationDays  Int?        @map("max_reservation_days")
+  maxAdvanceDays      Int?        @map("max_advance_days")
+  maxConcurrent       Int?        @map("max_concurrent")
+  effectiveFrom       DateTime?   @map("effective_from") @db.Timestamptz(6)
+  effectiveUntil      DateTime?   @map("effective_until") @db.Timestamptz(6)
+  metadata            Json?       @default("{}")
+  createdAt           DateTime?   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime?   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                User?       @relation("UserQuotas", fields: [targetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  team                Team?       @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([quotaType, targetId, teamId], map: "idx_resource_quotas_unique_target")
+  @@index([quotaType], map: "idx_resource_quotas_type")
+  @@index([targetId], map: "idx_resource_quotas_target_id")
+  @@index([teamId], map: "idx_resource_quotas_team_id")
+  @@map("resource_quotas")
 }

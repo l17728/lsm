@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body, param } from 'express-validator';
 import gpuService from '../services/gpu.service';
 import { authenticate, requireAdmin, requireManager, AuthRequest } from '../middleware/auth.middleware';
-import { gpu_status as GpuStatus } from '@prisma/client';
+import prisma from '../utils/prisma';
 
 const router = Router();
 
@@ -219,6 +219,27 @@ router.post('/allocations/:id/terminate', async (req: AuthRequest, res) => {
 });
 
 /**
+ * @route   DELETE /api/gpu/:id
+ * @desc    Delete a GPU (admin)
+ * @access  Private/Admin
+ */
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.gpu.delete({ where: { id } });
+    res.json({
+      success: true,
+      message: 'GPU deleted successfully',
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
  * @route   DELETE /api/gpu/batch
  * @desc    Batch delete GPUs (admin)
  * @access  Private/Admin
@@ -241,7 +262,7 @@ router.delete(
 
       for (const id of ids) {
         try {
-          await gpuService.deleteGpu(id);
+          await prisma.gpu.delete({ where: { id } });
           results.success++;
         } catch (error: any) {
           results.failed++;
@@ -264,41 +285,29 @@ router.delete(
 );
 
 /**
- * @route   PATCH /api/gpu/batch/status
- * @desc    Batch update GPU status
+ * @route   PATCH /api/gpu/:id/allocated
+ * @desc    Update GPU allocated status
  * @access  Private/Manager
  */
 router.patch(
-  '/batch/status',
+  '/:id/allocated',
   requireManager,
   [
-    body('ids').isArray({ min: 1 }).withMessage('GPU IDs must be an array with at least one ID'),
-    body('ids.*').isUUID().withMessage('Each GPU ID must be a valid UUID'),
-    body('status').isIn(['AVAILABLE', 'ALLOCATED', 'MAINTENANCE', 'ERROR']).withMessage('Invalid status'),
+    body('allocated').isBoolean().withMessage('allocated must be a boolean'),
   ],
   async (req, res) => {
     try {
-      const { ids, status } = req.body;
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as Array<{ id: string; error: string }>,
-      };
-
-      for (const id of ids) {
-        try {
-          await gpuService.updateGpuStatus(id, status as GpuStatus);
-          results.success++;
-        } catch (error: any) {
-          results.failed++;
-          results.errors.push({ id, error: error.message });
-        }
-      }
+      const { id } = req.params;
+      const { allocated } = req.body;
+      
+      const gpu = await prisma.gpu.update({
+        where: { id },
+        data: { allocated },
+      });
 
       res.json({
         success: true,
-        data: results,
-        message: `Batch status update completed: ${results.success} succeeded, ${results.failed} failed`,
+        data: gpu,
       });
     } catch (error: any) {
       res.status(400).json({

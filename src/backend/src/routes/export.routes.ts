@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth.middleware';
 import rateLimit from 'express-rate-limit';
 import {
@@ -8,6 +8,8 @@ import {
   exportUsersToExcel,
   exportMetricsToCSV,
 } from '../services/export.service';
+import { enhancedExportService } from '../services/enhanced-export.service';
+import { user_role as UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -104,7 +106,7 @@ router.get('/gpus/excel', async (req: AuthRequest, res) => {
 router.get('/users/excel', requireAdmin, async (req: AuthRequest, res) => {
   try {
     // Additional permission check: only admins can export user data
-    if (req.user?.role !== 'admin') {
+    if (req.user?.role !== UserRole.ADMIN) {
       return res.status(403).json({
         success: false,
         error: {
@@ -181,6 +183,145 @@ router.get('/summary', requireAdmin, async (req: AuthRequest, res) => {
     res.status(500).json({
       success: false,
       error: error.message,
+    });
+  }
+});
+
+// ==================== Enhanced Export Routes ====================
+
+/**
+ * @route   POST /api/export/enhanced/servers
+ * @desc    Export servers with filters and history tracking
+ * @access  Private
+ */
+router.post('/enhanced/servers', async (req: AuthRequest, res) => {
+  try {
+    const { format = 'CSV', filters } = req.body;
+    const userId = req.user!.userId;
+
+    const result = await enhancedExportService.exportServers(userId, format, filters);
+
+    res.setHeader('Content-Type', format === 'CSV' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+    res.setHeader('X-Export-Id', result.id);
+
+    res.send(result.data);
+  } catch (error: any) {
+    console.error('[Export] Enhanced servers export failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to export servers',
+    });
+  }
+});
+
+/**
+ * @route   POST /api/export/enhanced/gpus
+ * @desc    Export GPUs with filters and history tracking
+ * @access  Private
+ */
+router.post('/enhanced/gpus', async (req: AuthRequest, res) => {
+  try {
+    const { format = 'CSV', filters } = req.body;
+    const userId = req.user!.userId;
+
+    const result = await enhancedExportService.exportGpus(userId, format, filters);
+
+    res.setHeader('Content-Type', format === 'CSV' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+    res.setHeader('X-Export-Id', result.id);
+
+    res.send(result.data);
+  } catch (error: any) {
+    console.error('[Export] Enhanced GPUs export failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to export GPUs',
+    });
+  }
+});
+
+/**
+ * @route   POST /api/export/enhanced/tasks
+ * @desc    Export tasks with filters and history tracking
+ * @access  Private
+ */
+router.post('/enhanced/tasks', async (req: AuthRequest, res) => {
+  try {
+    const { format = 'CSV', filters } = req.body;
+    const userId = req.user!.userId;
+
+    const result = await enhancedExportService.exportTasks(userId, format, filters);
+
+    res.setHeader('Content-Type', format === 'CSV' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+    res.setHeader('X-Export-Id', result.id);
+
+    res.send(result.data);
+  } catch (error: any) {
+    console.error('[Export] Enhanced tasks export failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to export tasks',
+    });
+  }
+});
+
+/**
+ * @route   GET /api/export/history
+ * @desc    Get user's export history
+ * @access  Private
+ */
+router.get('/history', async (req: AuthRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const userId = req.user!.userId;
+
+    const { records, total } = await enhancedExportService.getExportHistory(userId, page, limit);
+
+    res.json({
+      success: true,
+      data: {
+        records,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('[Export] Get history failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get export history',
+    });
+  }
+});
+
+/**
+ * @route   GET /api/export/download/:id
+ * @desc    Download previously exported file
+ * @access  Private
+ */
+router.get('/download/:id', async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.userId;
+
+    const { filename, data, contentType } = await enhancedExportService.downloadFile(id, userId);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+    res.send(data);
+  } catch (error: any) {
+    console.error('[Export] Download failed:', error);
+    res.status(404).json({
+      success: false,
+      error: error.message || 'Export file not found',
     });
   }
 });

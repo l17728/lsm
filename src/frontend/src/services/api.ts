@@ -120,3 +120,17 @@ export const monitoringApi = {
     }),
   collect: () => apiClient.post('/monitoring/collect'),
 }
+
+// Analytics API (v3.1.0)
+export const analyticsApi = {
+  getSummary: (params?: { startTime?: string; endTime?: string }) =>
+    apiClient.get('/analytics/summary', { params }),
+  getResourceTrends: (params?: { startTime?: string; endTime?: string }) =>
+    apiClient.get('/analytics/resource-trends', { params }),
+  getCostBreakdown: (params?: { startTime?: string; endTime?: string }) =>
+    apiClient.get('/analytics/cost-breakdown', { params }),
+  getServerUtilization: () => apiClient.get('/analytics/server-utilization'),
+  getEfficiencyReport: () => apiClient.get('/analytics/efficiency-report'),
+  exportReport: (params?: { startTime?: string; endTime?: string; format?: 'json' | 'csv' }) =>
+    apiClient.get('/analytics/export', { params, responseType: 'blob' }),
+}

@@ -9,6 +9,7 @@ const prisma = new PrismaClient();
  */
 export enum AlertSeverity {
   CRITICAL = 'CRITICAL',
+  ERROR = 'ERROR',
   WARNING = 'WARNING',
   INFO = 'INFO',
 }

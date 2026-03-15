@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Check, Trash2, Settings, BellOff } from 'lucide-react';
+import { BellOutlined as Bell, CheckOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons';
 
 interface Notification {
   id: string;
@@ -164,13 +164,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
     : notifications;
 
   return (
-    <div className="relative">
+    <div className="relative notification-center">
       {/* Notification Bell */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800 rounded-full transition-colors"
       >
-        <Bell className="w-6 h-6" />
+        <Bell style={{ fontSize: 24 }} />
         {stats.unreadCount > 0 && (
           <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-500 rounded-full">
             {stats.unreadCount}
@@ -180,48 +180,48 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
 
       {/* Notification Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <div className="notification-dropdown absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               通知中心
-              <span className="ml-2 text-sm text-gray-500">({stats.unreadCount} 未读)</span>
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">({stats.unreadCount} 未读)</span>
             </h3>
             <div className="flex items-center space-x-2">
               <button
                 onClick={markAllAsRead}
-                className="p-1 text-gray-500 hover:text-gray-700"
+                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 title="全部标记为已读"
               >
-                <Check className="w-4 h-4" />
+                <CheckOutlined style={{ fontSize: 16 }} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 text-gray-500 hover:text-gray-700"
+                className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                <BellOff className="w-4 h-4" />
+                <Bell style={{ fontSize: 16 }} />
               </button>
             </div>
           </div>
 
           {/* Filter */}
-          <div className="flex border-b border-gray-200">
+          <div className="notification-filter flex border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setFilter('all')}
-              className={`flex-1 px-4 py-2 text-sm ${
+              className={`flex-1 px-4 py-2 text-sm transition-colors ${
                 filter === 'all'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
               全部
             </button>
             <button
               onClick={() => setFilter('unread')}
-              className={`flex-1 px-4 py-2 text-sm ${
+              className={`flex-1 px-4 py-2 text-sm transition-colors ${
                 filter === 'unread'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
               未读
@@ -231,15 +231,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
           {/* Notifications List */}
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <div className="p-8 text-center text-gray-500">加载中...</div>
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400">加载中...</div>
             ) : filteredNotifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">暂无通知</div>
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400">暂无通知</div>
             ) : (
               filteredNotifications.map(notification => (
                 <div
                   key={notification.id}
-                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                    notification.status === 'PENDING' ? 'bg-blue-50' : ''
+                  className={`notification-item p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                    notification.status === 'PENDING' ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -252,31 +252,31 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
                         >
                           {notification.type}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {getTimeAgo(notification.createdAt)}
                         </span>
                       </div>
-                      <h4 className="font-medium text-gray-900 mb-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-1">
                         {notification.subject}
                       </h4>
-                      <p className="text-sm text-gray-600">{notification.body}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{notification.body}</p>
                     </div>
                     <div className="flex items-center space-x-1 ml-2">
                       {notification.status === 'PENDING' && (
                         <button
                           onClick={() => markAsRead(notification.id)}
-                          className="p-1 text-gray-400 hover:text-green-600"
+                          className="p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400"
                           title="标记为已读"
                         >
-                          <Check className="w-4 h-4" />
+                          <CheckOutlined style={{ fontSize: 16 }} />
                         </button>
                       )}
                       <button
                         onClick={() => deleteNotification(notification.id)}
-                        className="p-1 text-gray-400 hover:text-red-600"
+                        className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                         title="删除"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <DeleteOutlined style={{ fontSize: 16 }} />
                       </button>
                     </div>
                   </div>
@@ -286,10 +286,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-200 text-center">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 text-center">
             <button
               onClick={() => {/* Navigate to all notifications page */}}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
             >
               查看全部通知
             </button>

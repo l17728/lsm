@@ -1,5 +1,5 @@
 import prisma from '../utils/prisma';
-import { server_status as ServerStatus, gpu_status as GpuStatus } from '@prisma/client';
+import { server_status as ServerStatus } from '@prisma/client';
 import serverService from './server.service';
 
 export interface ServerHealth {
@@ -106,7 +106,7 @@ export class MonitoringService {
       include: {
         gpus: true,
         metrics: {
-          orderBy: { timestamp: 'desc' },
+          orderBy: { recordedAt: 'desc' },
           take: 1,
         },
       },
@@ -123,7 +123,7 @@ export class MonitoringService {
         memoryUsage: Number(latestMetric?.memoryUsage ?? 0),
         gpuUsage: latestMetric?.gpuUsage ? Number(latestMetric.gpuUsage) : null,
         temperature: latestMetric?.temperature ? Number(latestMetric.temperature) : null,
-        lastUpdate: latestMetric?.timestamp ?? server.updatedAt,
+        lastUpdate: latestMetric?.recordedAt ?? server.updatedAt,
       };
     });
 
@@ -138,7 +138,7 @@ export class MonitoringService {
       include: {
         gpus: true,
         metrics: {
-          orderBy: { timestamp: 'desc' },
+          orderBy: { recordedAt: 'desc' },
           take: 1,
         },
       },
@@ -146,11 +146,9 @@ export class MonitoringService {
 
     const onlineServers = servers.filter((s) => s.status === ServerStatus.ONLINE);
 
-    const totalCpuCores = onlineServers.reduce((sum, s) => sum + s.cpuCores, 0);
-    const totalMemory = onlineServers.reduce((sum, s) => sum + Number(s.totalMemory), 0);
     const totalGpus = onlineServers.reduce((sum, s) => sum + s.gpus.length, 0);
     const availableGpus = onlineServers.reduce(
-      (sum, s) => sum + s.gpus.filter((g) => g.status === GpuStatus.AVAILABLE).length,
+      (sum, s) => sum + s.gpus.filter((g) => !g.allocated).length,
       0
     );
 
@@ -174,8 +172,6 @@ export class MonitoringService {
         error: servers.filter((s) => s.status === ServerStatus.ERROR).length,
       },
       resources: {
-        totalCpuCores,
-        totalMemoryGb: totalMemory,
         totalGpus,
         availableGpus,
         allocatedGpus: totalGpus - availableGpus,
@@ -195,12 +191,12 @@ export class MonitoringService {
     const metrics = await prisma.serverMetric.findMany({
       where: {
         serverId,
-        timestamp: {
+        recordedAt: {
           gte: startTime,
           lte: endTime,
         },
       },
-      orderBy: { timestamp: 'asc' },
+      orderBy: { recordedAt: 'asc' },
     });
 
     return metrics;

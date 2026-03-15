@@ -46,7 +46,8 @@
     "profile": "个人设置",
     "logout": "退出登录",
     "monitoring": "监控中心",
-    "logs": "日志管理"
+    "logs": "日志管理",
+    "analytics": "数据分析"
   },
   "server": {
     "title": "服务器管理",
@@ -280,5 +281,39 @@
     "testing": "测试中...",
     "completed": "已完成",
     "report": "报告"
+  },
+  "analytics": {
+    "title": "数据分析仪表盘",
+    "overview": "概览",
+    "costAnalysis": "成本分析",
+    "serverUtilization": "服务器利用率",
+    "efficiencyReport": "效率报告",
+    "totalCost": "总成本",
+    "avgUtilization": "平均利用率",
+    "peakResource": "峰值资源",
+    "efficiencyScore": "效率评分",
+    "activeServers": "活跃服务器",
+    "estimatedSavings": "预估节省",
+    "resourceTrends": "资源使用趋势",
+    "costBreakdown": "成本分布",
+    "costByCategory": "按类别成本",
+    "costTrend": "成本趋势",
+    "optimizationTips": "成本优化建议",
+    "efficiencyByServer": "服务器效率评分",
+    "costVsEfficiency": "成本与效率对比",
+    "recommendations": "效率优化建议",
+    "last24h": "过去 24 小时",
+    "last7d": "过去 7 天",
+    "last30d": "过去 30 天",
+    "customRange": "自定义范围",
+    "refresh": "刷新",
+    "exportReport": "导出报告",
+    "realtime": "实时",
+    "gpuComputing": "GPU 计算",
+    "cpuResources": "CPU 资源",
+    "memoryUsage": "内存使用",
+    "networkBandwidth": "网络带宽",
+    "storage": "存储",
+    "otherServices": "其他服务"
   }
 }

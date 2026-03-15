@@ -248,3 +248,301 @@ body {
 [data-theme='dark'] .theme-toggle .moon-icon {
   display: none;
 }
+
+/* ============================================
+   Notification Center Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .notification-dropdown {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .notification-item {
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .notification-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+[data-theme='dark'] .notification-item.unread {
+  background-color: rgba(64, 169, 255, 0.1);
+}
+
+[data-theme='dark'] .notification-filter {
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .notification-filter button {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .notification-filter button:hover {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .notification-filter button.active {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* ============================================
+   Batch Operation Components Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .batch-progress-modal {
+  background-color: var(--bg-secondary);
+}
+
+[data-theme='dark'] .batch-stat-item {
+  background-color: var(--bg-tertiary);
+}
+
+[data-theme='dark'] .error-detail-item {
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .confirm-dialog-warning {
+  background-color: rgba(250, 173, 14, 0.1);
+  border-color: var(--warning-color);
+}
+
+[data-theme='dark'] .confirm-dialog-danger {
+  background-color: rgba(245, 34, 45, 0.1);
+  border-color: var(--error-color);
+}
+
+/* ============================================
+   Alert & Message Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-alert-info {
+  background-color: rgba(24, 144, 255, 0.1);
+  border-color: var(--info-color);
+}
+
+[data-theme='dark'] .ant-alert-warning {
+  background-color: rgba(250, 173, 14, 0.1);
+  border-color: var(--warning-color);
+}
+
+[data-theme='dark'] .ant-alert-error {
+  background-color: rgba(245, 34, 45, 0.1);
+  border-color: var(--error-color);
+}
+
+[data-theme='dark'] .ant-alert-success {
+  background-color: rgba(82, 196, 26, 0.1);
+  border-color: var(--success-color);
+}
+
+/* ============================================
+   Modal Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-modal {
+  background-color: var(--bg-secondary);
+}
+
+[data-theme='dark'] .ant-modal-header {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .ant-modal-title {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-modal-content {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-modal-footer {
+  border-color: var(--border-color);
+}
+
+/* ============================================
+   Table Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-table {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-table-thead > tr > th {
+  background-color: var(--table-header-bg);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .ant-table-tbody > tr > td {
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .ant-table-tbody > tr:hover > td {
+  background-color: var(--table-row-hover);
+}
+
+[data-theme='dark'] .ant-table-tbody > tr.ant-table-row-selected > td {
+  background-color: rgba(24, 144, 255, 0.1);
+}
+
+/* ============================================
+   Progress Bar Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-progress-text {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-progress-inner {
+  background-color: var(--bg-tertiary);
+}
+
+/* ============================================
+   Button Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-btn {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+  background-color: var(--bg-tertiary);
+}
+
+[data-theme='dark'] .ant-btn:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+[data-theme='dark'] .ant-btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-btn-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+[data-theme='dark'] .ant-btn-danger {
+  background-color: var(--error-color);
+  border-color: var(--error-color);
+  color: #ffffff;
+}
+
+/* ============================================
+   Input Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-input {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-input:hover {
+  border-color: var(--input-hover-border);
+}
+
+[data-theme='dark'] .ant-input:focus {
+  border-color: var(--primary-color);
+}
+
+[data-theme='dark'] .ant-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   Checkbox & Radio Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-checkbox-input:focus + .ant-checkbox-inner {
+  border-color: var(--primary-color);
+}
+
+[data-theme='dark'] .ant-checkbox-checked::after {
+  border-color: var(--primary-color);
+}
+
+[data-theme='dark'] .ant-checkbox-checked .ant-checkbox-inner {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* ============================================
+   Tag Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .ant-tag {
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+/* ============================================
+   Transition Animations
+   ============================================ */
+
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ============================================
+   Mobile Responsive Optimizations
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Notification dropdown full width on mobile */
+  .notification-dropdown {
+    width: 100vw !important;
+    right: 0 !important;
+    max-height: 80vh;
+  }
+
+  /* Batch operation toolbar responsive */
+  .batch-operation-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Table responsive */
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  /* Modal full screen on mobile */
+  .ant-modal {
+    max-width: 95vw !important;
+    margin: 8px auto;
+  }
+
+  /* Button size on mobile */
+  .ant-btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 576px) {
+  /* Extra small devices */
+  .notification-dropdown {
+    border-radius: 0;
+  }
+
+  /* Hide less important columns on mobile */
+  .hide-on-mobile {
+    display: none;
+  }
+}

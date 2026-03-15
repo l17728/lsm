@@ -175,3 +175,4 @@ router.delete('/items/:key', authMiddleware, async (req: Request, res: Response)
 });
 
 export { router as cacheWarmupRoutes };
+export default router;

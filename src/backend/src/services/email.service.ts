@@ -45,13 +45,24 @@ export class EmailService {
   private config: EmailConfig;
 
   constructor() {
+    // 🔐 SECURITY: SMTP 密码必须通过环境变量配置
+    const smtpPassword = process.env.SMTP_PASSWORD;
+    const smtpUser = process.env.SMTP_USER;
+    
+    // 验证 SMTP 配置
+    if (process.env.NODE_ENV === 'production') {
+      if (!smtpPassword || !smtpUser) {
+        console.error('[Email] WARNING: SMTP_USER and SMTP_PASSWORD are required in production');
+      }
+    }
+
     this.config = {
       host: process.env.SMTP_HOST || 'smtp.example.com',
       port: Number(process.env.SMTP_PORT) || 587,
       secure: process.env.SMTP_SECURE === 'true',
       auth: {
-        user: process.env.SMTP_USER || 'user@example.com',
-        pass: process.env.SMTP_PASSWORD || 'password',
+        user: smtpUser || '',
+        pass: smtpPassword || '',
       },
     };
 

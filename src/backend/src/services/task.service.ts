@@ -7,15 +7,17 @@ export interface CreateTaskRequest {
   name: string;
   description?: string;
   userId: string;
+  teamId?: string;
   priority?: TaskPriority;
-  scheduledAt?: Date;
+  gpuRequirements?: Record<string, any>;
 }
 
 export interface UpdateTaskRequest {
   name?: string;
   description?: string;
   priority?: TaskPriority;
-  scheduledAt?: Date;
+  status?: TaskStatus;
+  gpuRequirements?: Record<string, any>;
 }
 
 export class TaskService {
@@ -38,8 +40,9 @@ export class TaskService {
         name: data.name,
         description: data.description,
         userId: data.userId,
+        teamId: data.teamId,
         priority: data.priority ?? TaskPriority.MEDIUM,
-        scheduledAt: data.scheduledAt,
+        gpuRequirements: data.gpuRequirements,
         status: TaskStatus.PENDING,
       },
       include: {
@@ -48,6 +51,12 @@ export class TaskService {
             id: true,
             username: true,
             email: true,
+          },
+        },
+        team: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -93,7 +102,7 @@ export class TaskService {
             username: true,
           },
         },
-        server: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -118,7 +127,7 @@ export class TaskService {
     const tasks = await prisma.task.findMany({
       where,
       include: {
-        server: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -151,7 +160,7 @@ export class TaskService {
             username: true,
           },
         },
-        server: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -192,13 +201,12 @@ export class TaskService {
   /**
    * Start a task
    */
-  async startTask(taskId: string, serverId: string) {
+  async startTask(taskId: string) {
     const task = await prisma.task.update({
       where: { id: taskId },
       data: {
         status: TaskStatus.RUNNING,
         startedAt: new Date(),
-        serverId,
       },
     });
 
@@ -208,13 +216,12 @@ export class TaskService {
   /**
    * Complete a task
    */
-  async completeTask(taskId: string, result?: string) {
+  async completeTask(taskId: string) {
     const task = await prisma.task.update({
       where: { id: taskId },
       data: {
         status: TaskStatus.COMPLETED,
         completedAt: new Date(),
-        result,
       },
       include: {
         user: {
@@ -237,7 +244,6 @@ export class TaskService {
           username: task.user.username,
           taskName: task.name,
           status: 'COMPLETED',
-          result: result || 'Success',
         },
         'medium'
       );
@@ -254,8 +260,8 @@ export class TaskService {
       where: { id: taskId },
       data: {
         status: TaskStatus.FAILED,
-        completedAt: new Date(),
-        result: error,
+        failedAt: new Date(),
+        errorMessage: error,
       },
       include: {
         user: {
@@ -319,7 +325,7 @@ export class TaskService {
   }
 
   /**
-   * Get pending tasks ordered by priority and scheduled time
+   * Get pending tasks ordered by priority and creation time
    */
   async getPendingTasks() {
     const tasks = await prisma.task.findMany({
@@ -336,7 +342,6 @@ export class TaskService {
       },
       orderBy: [
         { priority: 'desc' },
-        { scheduledAt: 'asc' },
         { createdAt: 'asc' },
       ],
     });

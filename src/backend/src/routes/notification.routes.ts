@@ -315,3 +315,4 @@ router.get('/unread-count', authMiddleware, async (req: Request, res: Response) 
 });
 
 export { router as notificationRoutes };
+export default router;

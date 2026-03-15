@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Popconfirm, Checkbox, Alert } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined, CheckSquareOutlined, SquareOutlined } from '@ant-design/icons'
+import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Alert } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons'
 import { serverApi } from '../services/api'
 import ExportButton from '../components/ExportButton'
+import BatchProgressBar, { BatchProgressItem } from '../components/BatchProgressBar'
+import ConfirmDialog from '../components/ConfirmDialog'
+import ErrorDetails, { ErrorDetailItem } from '../components/ErrorDetails'
 import type { ColumnsType } from 'antd/es/table'
 
 interface Server {
@@ -19,66 +22,50 @@ interface Server {
   updatedAt: string
 }
 
+interface BatchOperationState {
+  isProcessing: boolean;
+  total: number;
+  processed: number;
+  successCount: number;
+  failureCount: number;
+  items: BatchProgressItem[];
+  errors: ErrorDetailItem[];
+}
+
 const Servers: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [servers, setServers] = useState<Server[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [editingServer, setEditingServer] = useState<Server | null>(null)
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
-  const [batchActionLoading, setBatchActionLoading] = useState(false)
   const [form] = Form.useForm()
+
+  // Batch operation state
+  const [batchState, setBatchState] = useState<BatchOperationState>({
+    isProcessing: false,
+    total: 0,
+    processed: 0,
+    successCount: 0,
+    failureCount: 0,
+    items: [],
+    errors: [],
+  });
+
+  // Confirm dialog state
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'delete' | 'status_change';
+    status?: string;
+  } | null>(null);
+
+  // Error details modal state
+  const [errorDetailsVisible, setErrorDetailsVisible] = useState(false);
 
   useEffect(() => {
     loadServers()
   }, [])
 
-  // Batch operation handlers (Day 7)
-  const handleBatchDelete = async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('Please select servers to delete')
-      return
-    }
-
-    setBatchActionLoading(true)
-    try {
-      await serverApi.batchDelete(selectedRowKeys as string[])
-      message.success(`Successfully deleted ${selectedRowKeys.length} servers`)
-      setSelectedRowKeys([])
-      loadServers()
-    } catch (error: any) {
-      message.error('Failed to batch delete servers')
-    } finally {
-      setBatchActionLoading(false)
-    }
-  }
-
-  const handleBatchStatusChange = async (status: string) => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('Please select servers to update')
-      return
-    }
-
-    setBatchActionLoading(true)
-    try {
-      await serverApi.batchUpdateStatus(selectedRowKeys as string[], status)
-      message.success(`Successfully updated status for ${selectedRowKeys.length} servers`)
-      setSelectedRowKeys([])
-      loadServers()
-    } catch (error: any) {
-      message.error('Failed to batch update status')
-    } finally {
-      setBatchActionLoading(false)
-    }
-  }
-
-  const onSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedRowKeys(servers.map(s => s.id))
-    } else {
-      setSelectedRowKeys([])
-    }
-  }
-
+  // Load servers
   const loadServers = async () => {
     setLoading(true)
     try {
@@ -88,6 +75,329 @@ const Servers: React.FC = () => {
       message.error('Failed to load servers')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Initialize batch operation
+  const initBatchOperation = (total: number, items: BatchProgressItem[]) => {
+    setBatchState({
+      isProcessing: true,
+      total,
+      processed: 0,
+      successCount: 0,
+      failureCount: 0,
+      items,
+      errors: [],
+    });
+  };
+
+  // Update batch progress
+  const updateBatchProgress = (updates: Partial<BatchOperationState>) => {
+    setBatchState(prev => ({ ...prev, ...updates }));
+  };
+
+  // Batch delete with progress tracking
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select servers to delete')
+      return
+    }
+
+    const items: BatchProgressItem[] = servers
+      .filter(s => selectedRowKeys.includes(s.id))
+      .map(s => ({
+        id: s.id,
+        name: s.name,
+        status: 'pending' as const,
+      }));
+
+    initBatchOperation(selectedRowKeys.length, items);
+    setConfirmVisible(false);
+
+    try {
+      // Process in batches of 5
+      const batchSize = 5;
+      const ids = selectedRowKeys as string[];
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: ErrorDetailItem[] = [];
+      const updatedItems: BatchProgressItem[] = [...items];
+
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
+        
+        const results = await Promise.allSettled(
+          batch.map(id => serverApi.delete(id))
+        );
+
+        results.forEach((result, index) => {
+          const id = batch[index];
+          const itemIndex = updatedItems.findIndex(item => item.id === id);
+          
+          if (result.status === 'fulfilled') {
+            successCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'success';
+            }
+          } else {
+            failureCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'error';
+              updatedItems[itemIndex].error = '删除失败';
+            }
+            const server = servers.find(s => s.id === id);
+            errors.push({
+              id,
+              name: server?.name || id,
+              type: 'DELETE',
+              error: result.reason?.message || '未知错误',
+              timestamp: new Date().toISOString(),
+              canRetry: true,
+            });
+          }
+        });
+
+        updateBatchProgress({
+          processed: Math.min(i + batchSize, ids.length),
+          successCount,
+          failureCount,
+          items: updatedItems,
+          errors,
+        });
+      }
+
+      updateBatchProgress({ isProcessing: false });
+
+      if (failureCount === 0) {
+        message.success(`Successfully deleted ${successCount} servers`);
+        setSelectedRowKeys([]);
+        loadServers();
+      } else {
+        message.warning(`删除完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        setErrorDetailsVisible(true);
+        loadServers();
+      }
+    } catch (error: any) {
+      updateBatchProgress({ isProcessing: false });
+      message.error('Failed to batch delete servers');
+      setErrorDetailsVisible(true);
+    }
+  };
+
+  // Batch status change with progress tracking
+  const handleBatchStatusChange = async (status: string) => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select servers to update')
+      return
+    }
+
+    const items: BatchProgressItem[] = servers
+      .filter(s => selectedRowKeys.includes(s.id))
+      .map(s => ({
+        id: s.id,
+        name: s.name,
+        status: 'pending' as const,
+      }));
+
+    initBatchOperation(selectedRowKeys.length, items);
+    setConfirmVisible(false);
+
+    try {
+      // Process in batches of 5
+      const batchSize = 5;
+      const ids = selectedRowKeys as string[];
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: ErrorDetailItem[] = [];
+      const updatedItems: BatchProgressItem[] = [...items];
+
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
+        
+        const results = await Promise.allSettled(
+          batch.map(id => serverApi.update(id, { status }))
+        );
+
+        results.forEach((result, index) => {
+          const id = batch[index];
+          const itemIndex = updatedItems.findIndex(item => item.id === id);
+          
+          if (result.status === 'fulfilled') {
+            successCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'success';
+            }
+          } else {
+            failureCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'error';
+              updatedItems[itemIndex].error = '状态更新失败';
+            }
+            const server = servers.find(s => s.id === id);
+            errors.push({
+              id,
+              name: server?.name || id,
+              type: 'STATUS_CHANGE',
+              error: result.reason?.message || '未知错误',
+              timestamp: new Date().toISOString(),
+              canRetry: true,
+            });
+          }
+        });
+
+        updateBatchProgress({
+          processed: Math.min(i + batchSize, ids.length),
+          successCount,
+          failureCount,
+          items: updatedItems,
+          errors,
+        });
+      }
+
+      updateBatchProgress({ isProcessing: false });
+
+      if (failureCount === 0) {
+        message.success(`Successfully updated status for ${successCount} servers`);
+        setSelectedRowKeys([]);
+        loadServers();
+      } else {
+        message.warning(`状态更新完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        setErrorDetailsVisible(true);
+        loadServers();
+      }
+    } catch (error: any) {
+      updateBatchProgress({ isProcessing: false });
+      message.error('Failed to batch update status');
+      setErrorDetailsVisible(true);
+    }
+  };
+
+  // Retry failed items
+  const handleRetryErrors = async (ids: string[]) => {
+    if (pendingAction?.type === 'delete') {
+      const results = await Promise.allSettled(
+        ids.map(id => serverApi.delete(id))
+      );
+
+      let successCount = 0;
+      let failureCount = 0;
+      const updatedErrors = batchState.errors.filter(e => !ids.includes(e.id));
+      const updatedItems = batchState.items.map(item => {
+        if (ids.includes(item.id)) {
+          const result = results.find((_, i) => ids[i] === item.id);
+          if (result?.status === 'fulfilled') {
+            successCount++;
+            return { ...item, status: 'success' as const };
+          } else {
+            failureCount++;
+            return { 
+              ...item, 
+              status: 'error' as const,
+              error: '重试失败',
+              retryCount: (item.retryCount || 0) + 1,
+            };
+          }
+        }
+        return item;
+      });
+
+      updateBatchProgress({
+        successCount: batchState.successCount + successCount,
+        failureCount: batchState.failureCount + failureCount,
+        errors: updatedErrors,
+        items: updatedItems,
+      });
+
+      if (updatedErrors.length === 0) {
+        message.success('所有失败项已重试成功');
+        setErrorDetailsVisible(false);
+        loadServers();
+      }
+    } else if (pendingAction?.type === 'status_change' && pendingAction.status) {
+      const results = await Promise.allSettled(
+        ids.map(id => serverApi.update(id, { status: pendingAction.status! }))
+      );
+
+      let successCount = 0;
+      let failureCount = 0;
+      const updatedErrors = batchState.errors.filter(e => !ids.includes(e.id));
+      const updatedItems = batchState.items.map(item => {
+        if (ids.includes(item.id)) {
+          const result = results.find((_, i) => ids[i] === item.id);
+          if (result?.status === 'fulfilled') {
+            successCount++;
+            return { ...item, status: 'success' as const };
+          } else {
+            failureCount++;
+            return { 
+              ...item, 
+              status: 'error' as const,
+              error: '重试失败',
+              retryCount: (item.retryCount || 0) + 1,
+            };
+          }
+        }
+        return item;
+      });
+
+      updateBatchProgress({
+        successCount: batchState.successCount + successCount,
+        failureCount: batchState.failureCount + failureCount,
+        errors: updatedErrors,
+        items: updatedItems,
+      });
+
+      if (updatedErrors.length === 0) {
+        message.success('所有失败项已重试成功');
+        setErrorDetailsVisible(false);
+        loadServers();
+      }
+    }
+  };
+
+  // Handle retry all
+  const handleRetryAllErrors = async () => {
+    const errorIds = batchState.errors.map(e => e.id);
+    await handleRetryErrors(errorIds);
+  };
+
+  // Handle export errors
+  const handleExportErrors = () => {
+    const content = batchState.errors.map((error, index) => 
+      `[${index + 1}] ${error.name}\n` +
+      `    类型：${error.type || '未知'}\n` +
+      `    错误：${error.error}\n` +
+      `    时间：${error.timestamp || 'N/A'}\n`
+    ).join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `batch-operation-errors-${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    message.success('错误日志已导出');
+  };
+
+  // Start batch delete with confirmation
+  const startBatchDelete = () => {
+    setPendingAction({ type: 'delete' });
+    setConfirmVisible(true);
+  };
+
+  // Start batch status change with confirmation
+  const startBatchStatusChange = (status: string) => {
+    setPendingAction({ type: 'status_change', status });
+    setConfirmVisible(true);
+  };
+
+  const onSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRowKeys(servers.map(s => s.id))
+    } else {
+      setSelectedRowKeys([])
     }
   }
 
@@ -144,7 +454,7 @@ const Servers: React.FC = () => {
     return colorMap[status] || 'default'
   }
 
-  // Batch selection column (Day 7)
+  // Batch selection column
   const batchColumns = {
     title: (
       <Checkbox
@@ -248,7 +558,7 @@ const Servers: React.FC = () => {
         </Space>
       </div>
 
-      {/* Batch Operations Toolbar (Day 7) */}
+      {/* Batch Operations Toolbar */}
       {selectedRowKeys.length > 0 && (
         <Alert
           message={`${selectedRowKeys.length} server(s) selected`}
@@ -260,35 +570,36 @@ const Servers: React.FC = () => {
               <Button
                 size="small"
                 danger
-                loading={batchActionLoading}
-                onClick={handleBatchDelete}
+                loading={batchState.isProcessing}
+                onClick={startBatchDelete}
               >
                 Delete Selected
               </Button>
               <Button
                 size="small"
-                loading={batchActionLoading}
-                onClick={() => handleBatchStatusChange('ONLINE')}
+                loading={batchState.isProcessing}
+                onClick={() => startBatchStatusChange('ONLINE')}
               >
                 Set Online
               </Button>
               <Button
                 size="small"
-                loading={batchActionLoading}
-                onClick={() => handleBatchStatusChange('OFFLINE')}
+                loading={batchState.isProcessing}
+                onClick={() => startBatchStatusChange('OFFLINE')}
               >
                 Set Offline
               </Button>
               <Button
                 size="small"
-                loading={batchActionLoading}
-                onClick={() => handleBatchStatusChange('MAINTENANCE')}
+                loading={batchState.isProcessing}
+                onClick={() => startBatchStatusChange('MAINTENANCE')}
               >
                 Set Maintenance
               </Button>
               <Button
                 size="small"
                 onClick={() => setSelectedRowKeys([])}
+                disabled={batchState.isProcessing}
               >
                 Clear Selection
               </Button>
@@ -303,6 +614,15 @@ const Servers: React.FC = () => {
         loading={loading}
         rowKey="id"
         pagination={{ pageSize: 20 }}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: setSelectedRowKeys,
+          selections: [
+            Table.SELECTION_ALL,
+            Table.SELECTION_INVERT,
+            Table.SELECTION_NONE,
+          ],
+        }}
       />
 
       <Modal
@@ -365,8 +685,78 @@ const Servers: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Batch Progress Bar */}
+      <BatchProgressBar
+        visible={batchState.isProcessing || (batchState.processed > 0 && batchState.processed === batchState.total)}
+        title="批量操作进度"
+        total={batchState.total}
+        processed={batchState.processed}
+        successCount={batchState.successCount}
+        failureCount={batchState.failureCount}
+        isProcessing={batchState.isProcessing}
+        items={batchState.items}
+        showDetails
+        onCancel={() => {
+          // Cancel logic - for now just set processing to false
+          updateBatchProgress({ isProcessing: false });
+          message.warning('操作已取消');
+        }}
+        onClose={() => {
+          if (!batchState.isProcessing) {
+            updateBatchProgress({ 
+              processed: 0, 
+              successCount: 0, 
+              failureCount: 0, 
+              items: [],
+              errors: [],
+            });
+          }
+        }}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        visible={confirmVisible}
+        type={pendingAction?.type === 'delete' ? 'delete' : 'status_change'}
+        message={
+          pendingAction?.type === 'delete'
+            ? `确定要删除选中的 ${selectedRowKeys.length} 台服务器吗？`
+            : `确定要更新选中的 ${selectedRowKeys.length} 台服务器的状态为 ${pendingAction?.status} 吗？`
+        }
+        itemCount={selectedRowKeys.length}
+        itemLabel="台服务器"
+        actionLabel={pendingAction?.type === 'delete' ? '删除' : '确认'}
+        loading={batchState.isProcessing}
+        onConfirm={() => {
+          if (pendingAction?.type === 'delete') {
+            handleBatchDelete();
+          } else if (pendingAction?.type === 'status_change' && pendingAction.status) {
+            handleBatchStatusChange(pendingAction.status);
+          }
+        }}
+        onCancel={() => {
+          setConfirmVisible(false);
+          setPendingAction(null);
+        }}
+      />
+
+      {/* Error Details Modal */}
+      <ErrorDetails
+        visible={errorDetailsVisible}
+        title="批量操作失败详情"
+        errors={batchState.errors}
+        loading={batchState.isProcessing}
+        onRetry={handleRetryErrors}
+        onRetryAll={handleRetryAllErrors}
+        onExport={handleExportErrors}
+        onClose={() => setErrorDetailsVisible(false)}
+      />
     </div>
   )
 }
+
+// Import Checkbox and Popconfirm from antd
+import { Checkbox, Popconfirm } from 'antd';
 
 export default Servers

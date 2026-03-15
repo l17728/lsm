@@ -153,14 +153,13 @@ router.post(
   async (req: AuthRequest, res) => {
     try {
       const userId = req.user!.userId;
-      const { name, description, priority, scheduledAt } = req.body;
+      const { name, description, priority } = req.body;
 
       const task = await taskService.createTask({
         name,
         description,
         userId,
         priority,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
       });
 
       res.status(201).json({
@@ -193,13 +192,12 @@ router.put(
     try {
       const userId = req.user!.userId;
       const { id } = req.params;
-      const { name, description, priority, scheduledAt } = req.body;
+      const { name, description, priority } = req.body;
 
       const task = await taskService.updateTask(id, {
         name,
         description,
         priority,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
       }, userId);
 
       res.json({
@@ -277,7 +275,7 @@ router.post(
       const { id } = req.params;
       const { result } = req.body;
 
-      const task = await taskService.completeTask(id, result);
+      const task = await taskService.completeTask(id);
 
       res.json({
         success: true,
@@ -389,7 +387,7 @@ router.patch(
 
       for (const id of ids) {
         try {
-          await taskService.updateTaskStatus(id, status as TaskStatus);
+          await taskService.updateTask(id, { status: status as TaskStatus }, req.user!.userId);
           results.success++;
         } catch (error: any) {
           results.failed++;

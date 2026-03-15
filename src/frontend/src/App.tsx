@@ -7,7 +7,15 @@ import Servers from './pages/Servers'
 import GPUs from './pages/GPUs'
 import Tasks from './pages/Tasks'
 import Monitoring from './pages/Monitoring'
+import Analytics from './pages/Analytics'
 import Users from './pages/Users'
+import Reservations from './pages/Reservations'
+import ReservationForm from './pages/ReservationForm'
+import MyReservations from './pages/MyReservations'
+import ChatPage from './pages/ChatPage'
+import DocsPage from './pages/DocsPage'
+import FeedbackPage from './pages/FeedbackPage'
+import RequirementsPage from './pages/RequirementsPage'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 import { useAuthStore } from './store/authStore'
@@ -40,7 +48,15 @@ function App() {
             <Route path="/gpus" element={<GPUs />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/monitoring" element={<Monitoring />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/reservations" element={<Reservations />} />
+            <Route path="/reservations/new" element={<ReservationForm />} />
+            <Route path="/reservations/mine" element={<MyReservations />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/feedback" element={<FeedbackPage />} />
+            <Route path="/requirements" element={<RequirementsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Content>

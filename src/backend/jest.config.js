@@ -24,6 +24,7 @@ module.exports = {
   verbose: true,
   testTimeout: 10000,
   moduleNameMapper: {
+    '^../../utils/prisma$': '<rootDir>/src/__mocks__/prisma.ts',
     '^../utils/prisma$': '<rootDir>/src/__mocks__/prisma.ts',
   },
 };

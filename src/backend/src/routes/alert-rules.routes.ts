@@ -256,3 +256,4 @@ router.post('/:id/resolve', authMiddleware, async (req: Request, res: Response) 
 });
 
 export { router as alertRulesRoutes };
+export default router;

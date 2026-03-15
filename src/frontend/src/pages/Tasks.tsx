@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Popconfirm, Checkbox, Alert } from 'antd'
+import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Alert, Checkbox, Popconfirm } from 'antd'
 import { PlusOutlined, DeleteOutlined, StopOutlined, CheckSquareOutlined } from '@ant-design/icons'
 import { taskApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import { ExportButton } from '../components/ExportButton'
+import BatchProgressBar, { BatchProgressItem } from '../components/BatchProgressBar'
+import ConfirmDialog from '../components/ConfirmDialog'
+import ErrorDetails, { ErrorDetailItem } from '../components/ErrorDetails'
 import type { ColumnsType } from 'antd/es/table'
 
 interface Task {
@@ -17,13 +20,43 @@ interface Task {
   completedAt?: string
 }
 
+interface BatchOperationState {
+  isProcessing: boolean;
+  total: number;
+  processed: number;
+  successCount: number;
+  failureCount: number;
+  items: BatchProgressItem[];
+  errors: ErrorDetailItem[];
+}
+
 const Tasks: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [tasks, setTasks] = useState<Task[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
-  const [batchActionLoading, setBatchActionLoading] = useState(false)
   const [form] = Form.useForm()
+
+  // Batch operation state
+  const [batchState, setBatchState] = useState<BatchOperationState>({
+    isProcessing: false,
+    total: 0,
+    processed: 0,
+    successCount: 0,
+    failureCount: 0,
+    items: [],
+    errors: [],
+  });
+
+  // Confirm dialog state
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'delete' | 'cancel' | 'status_change';
+    status?: string;
+  } | null>(null);
+
+  // Error details modal state
+  const [errorDetailsVisible, setErrorDetailsVisible] = useState(false);
 
   useEffect(() => {
     loadTasks()
@@ -42,72 +75,7 @@ const Tasks: React.FC = () => {
     }
   }, [])
 
-  // Batch operation handlers (Day 7)
-  const handleBatchDelete = async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('Please select tasks to delete')
-      return
-    }
-
-    setBatchActionLoading(true)
-    try {
-      await taskApi.batchDelete(selectedRowKeys as string[])
-      message.success(`Successfully deleted ${selectedRowKeys.length} tasks`)
-      setSelectedRowKeys([])
-      loadTasks()
-    } catch (error: any) {
-      message.error('Failed to batch delete tasks')
-    } finally {
-      setBatchActionLoading(false)
-    }
-  }
-
-  const handleBatchCancel = async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('Please select tasks to cancel')
-      return
-    }
-
-    setBatchActionLoading(true)
-    try {
-      await taskApi.batchCancel(selectedRowKeys as string[])
-      message.success(`Successfully cancelled ${selectedRowKeys.length} tasks`)
-      setSelectedRowKeys([])
-      loadTasks()
-    } catch (error: any) {
-      message.error('Failed to batch cancel tasks')
-    } finally {
-      setBatchActionLoading(false)
-    }
-  }
-
-  const handleBatchStatusChange = async (status: string) => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('Please select tasks to update')
-      return
-    }
-
-    setBatchActionLoading(true)
-    try {
-      await taskApi.batchUpdateStatus(selectedRowKeys as string[], status)
-      message.success(`Successfully updated status for ${selectedRowKeys.length} tasks`)
-      setSelectedRowKeys([])
-      loadTasks()
-    } catch (error: any) {
-      message.error('Failed to batch update status')
-    } finally {
-      setBatchActionLoading(false)
-    }
-  }
-
-  const onSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedRowKeys(tasks.map(t => t.id))
-    } else {
-      setSelectedRowKeys([])
-    }
-  }
-
+  // Load tasks
   const loadTasks = async () => {
     setLoading(true)
     try {
@@ -117,6 +85,421 @@ const Tasks: React.FC = () => {
       message.error('Failed to load tasks')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Initialize batch operation
+  const initBatchOperation = (total: number, items: BatchProgressItem[]) => {
+    setBatchState({
+      isProcessing: true,
+      total,
+      processed: 0,
+      successCount: 0,
+      failureCount: 0,
+      items,
+      errors: [],
+    });
+  };
+
+  // Update batch progress
+  const updateBatchProgress = (updates: Partial<BatchOperationState>) => {
+    setBatchState(prev => ({ ...prev, ...updates }));
+  };
+
+  // Batch delete with progress tracking
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select tasks to delete')
+      return
+    }
+
+    const items: BatchProgressItem[] = tasks
+      .filter(t => selectedRowKeys.includes(t.id))
+      .map(t => ({
+        id: t.id,
+        name: t.name,
+        status: 'pending' as const,
+      }));
+
+    initBatchOperation(selectedRowKeys.length, items);
+    setConfirmVisible(false);
+
+    try {
+      const batchSize = 5;
+      const ids = selectedRowKeys as string[];
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: ErrorDetailItem[] = [];
+      const updatedItems: BatchProgressItem[] = [...items];
+
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
+        
+        const results = await Promise.allSettled(
+          batch.map(id => taskApi.delete(id))
+        );
+
+        results.forEach((result, index) => {
+          const id = batch[index];
+          const itemIndex = updatedItems.findIndex(item => item.id === id);
+          
+          if (result.status === 'fulfilled') {
+            successCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'success';
+            }
+          } else {
+            failureCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'error';
+              updatedItems[itemIndex].error = '删除失败';
+            }
+            const task = tasks.find(t => t.id === id);
+            errors.push({
+              id,
+              name: task?.name || id,
+              type: 'DELETE',
+              error: result.reason?.message || '未知错误',
+              timestamp: new Date().toISOString(),
+              canRetry: true,
+            });
+          }
+        });
+
+        updateBatchProgress({
+          processed: Math.min(i + batchSize, ids.length),
+          successCount,
+          failureCount,
+          items: updatedItems,
+          errors,
+        });
+      }
+
+      updateBatchProgress({ isProcessing: false });
+
+      if (failureCount === 0) {
+        message.success(`Successfully deleted ${successCount} tasks`);
+        setSelectedRowKeys([]);
+        loadTasks();
+      } else {
+        message.warning(`删除完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        setErrorDetailsVisible(true);
+        loadTasks();
+      }
+    } catch (error: any) {
+      updateBatchProgress({ isProcessing: false });
+      message.error('Failed to batch delete tasks');
+      setErrorDetailsVisible(true);
+    }
+  };
+
+  // Batch cancel with progress tracking
+  const handleBatchCancel = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select tasks to cancel')
+      return
+    }
+
+    const items: BatchProgressItem[] = tasks
+      .filter(t => selectedRowKeys.includes(t.id))
+      .map(t => ({
+        id: t.id,
+        name: t.name,
+        status: 'pending' as const,
+      }));
+
+    initBatchOperation(selectedRowKeys.length, items);
+    setConfirmVisible(false);
+
+    try {
+      const batchSize = 5;
+      const ids = selectedRowKeys as string[];
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: ErrorDetailItem[] = [];
+      const updatedItems: BatchProgressItem[] = [...items];
+
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
+        
+        const results = await Promise.allSettled(
+          batch.map(id => taskApi.cancel(id))
+        );
+
+        results.forEach((result, index) => {
+          const id = batch[index];
+          const itemIndex = updatedItems.findIndex(item => item.id === id);
+          
+          if (result.status === 'fulfilled') {
+            successCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'success';
+            }
+          } else {
+            failureCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'error';
+              updatedItems[itemIndex].error = '取消失败';
+            }
+            const task = tasks.find(t => t.id === id);
+            errors.push({
+              id,
+              name: task?.name || id,
+              type: 'CANCEL',
+              error: result.reason?.message || '未知错误',
+              timestamp: new Date().toISOString(),
+              canRetry: false,
+            });
+          }
+        });
+
+        updateBatchProgress({
+          processed: Math.min(i + batchSize, ids.length),
+          successCount,
+          failureCount,
+          items: updatedItems,
+          errors,
+        });
+      }
+
+      updateBatchProgress({ isProcessing: false });
+
+      if (failureCount === 0) {
+        message.success(`Successfully cancelled ${successCount} tasks`);
+        setSelectedRowKeys([]);
+        loadTasks();
+      } else {
+        message.warning(`取消完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        setErrorDetailsVisible(true);
+      }
+    } catch (error: any) {
+      updateBatchProgress({ isProcessing: false });
+      message.error('Failed to batch cancel tasks');
+      setErrorDetailsVisible(true);
+    }
+  };
+
+  // Batch status change with progress tracking
+  const handleBatchStatusChange = async (status: string) => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Please select tasks to update')
+      return
+    }
+
+    const items: BatchProgressItem[] = tasks
+      .filter(t => selectedRowKeys.includes(t.id))
+      .map(t => ({
+        id: t.id,
+        name: t.name,
+        status: 'pending' as const,
+      }));
+
+    initBatchOperation(selectedRowKeys.length, items);
+    setConfirmVisible(false);
+
+    try {
+      const batchSize = 5;
+      const ids = selectedRowKeys as string[];
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: ErrorDetailItem[] = [];
+      const updatedItems: BatchProgressItem[] = [...items];
+
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
+        
+        const results = await Promise.allSettled(
+          batch.map(id => taskApi.update(id, { status }))
+        );
+
+        results.forEach((result, index) => {
+          const id = batch[index];
+          const itemIndex = updatedItems.findIndex(item => item.id === id);
+          
+          if (result.status === 'fulfilled') {
+            successCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'success';
+            }
+          } else {
+            failureCount++;
+            if (itemIndex >= 0) {
+              updatedItems[itemIndex].status = 'error';
+              updatedItems[itemIndex].error = '状态更新失败';
+            }
+            const task = tasks.find(t => t.id === id);
+            errors.push({
+              id,
+              name: task?.name || id,
+              type: 'STATUS_CHANGE',
+              error: result.reason?.message || '未知错误',
+              timestamp: new Date().toISOString(),
+              canRetry: true,
+            });
+          }
+        });
+
+        updateBatchProgress({
+          processed: Math.min(i + batchSize, ids.length),
+          successCount,
+          failureCount,
+          items: updatedItems,
+          errors,
+        });
+      }
+
+      updateBatchProgress({ isProcessing: false });
+
+      if (failureCount === 0) {
+        message.success(`Successfully updated status for ${successCount} tasks`);
+        setSelectedRowKeys([]);
+        loadTasks();
+      } else {
+        message.warning(`状态更新完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        setErrorDetailsVisible(true);
+        loadTasks();
+      }
+    } catch (error: any) {
+      updateBatchProgress({ isProcessing: false });
+      message.error('Failed to batch update status');
+      setErrorDetailsVisible(true);
+    }
+  };
+
+  // Retry failed items
+  const handleRetryErrors = async (ids: string[]) => {
+    if (pendingAction?.type === 'delete') {
+      const results = await Promise.allSettled(
+        ids.map(id => taskApi.delete(id))
+      );
+
+      let successCount = 0;
+      let failureCount = 0;
+      const updatedErrors = batchState.errors.filter(e => !ids.includes(e.id));
+      const updatedItems = batchState.items.map(item => {
+        if (ids.includes(item.id)) {
+          const result = results.find((_, i) => ids[i] === item.id);
+          if (result?.status === 'fulfilled') {
+            successCount++;
+            return { ...item, status: 'success' as const };
+          } else {
+            failureCount++;
+            return { 
+              ...item, 
+              status: 'error' as const,
+              error: '重试失败',
+              retryCount: (item.retryCount || 0) + 1,
+            };
+          }
+        }
+        return item;
+      });
+
+      updateBatchProgress({
+        successCount: batchState.successCount + successCount,
+        failureCount: batchState.failureCount + failureCount,
+        errors: updatedErrors,
+        items: updatedItems,
+      });
+
+      if (updatedErrors.length === 0) {
+        message.success('所有失败项已重试成功');
+        setErrorDetailsVisible(false);
+        loadTasks();
+      }
+    } else if (pendingAction?.type === 'cancel') {
+      message.warning('取消操作无法重试');
+    } else if (pendingAction?.type === 'status_change') {
+      const results = await Promise.allSettled(
+        ids.map(id => taskApi.update(id, { status: pendingAction.status! }))
+      );
+
+      let successCount = 0;
+      let failureCount = 0;
+      const updatedErrors = batchState.errors.filter(e => !ids.includes(e.id));
+      const updatedItems = batchState.items.map(item => {
+        if (ids.includes(item.id)) {
+          const result = results.find((_, i) => ids[i] === item.id);
+          if (result?.status === 'fulfilled') {
+            successCount++;
+            return { ...item, status: 'success' as const };
+          } else {
+            failureCount++;
+            return { 
+              ...item, 
+              status: 'error' as const,
+              error: '重试失败',
+              retryCount: (item.retryCount || 0) + 1,
+            };
+          }
+        }
+        return item;
+      });
+
+      updateBatchProgress({
+        successCount: batchState.successCount + successCount,
+        failureCount: batchState.failureCount + failureCount,
+        errors: updatedErrors,
+        items: updatedItems,
+      });
+
+      if (updatedErrors.length === 0) {
+        message.success('所有失败项已重试成功');
+        setErrorDetailsVisible(false);
+        loadTasks();
+      }
+    }
+  };
+
+  // Handle retry all
+  const handleRetryAllErrors = async () => {
+    const errorIds = batchState.errors.map(e => e.id);
+    await handleRetryErrors(errorIds);
+  };
+
+  // Handle export errors
+  const handleExportErrors = () => {
+    const content = batchState.errors.map((error, index) => 
+      `[${index + 1}] ${error.name}\n` +
+      `    类型：${error.type || '未知'}\n` +
+      `    错误：${error.error}\n` +
+      `    时间：${error.timestamp || 'N/A'}\n`
+    ).join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `batch-operation-errors-${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    message.success('错误日志已导出');
+  };
+
+  // Start batch delete with confirmation
+  const startBatchDelete = () => {
+    setPendingAction({ type: 'delete' });
+    setConfirmVisible(true);
+  };
+
+  // Start batch cancel with confirmation
+  const startBatchCancel = () => {
+    setPendingAction({ type: 'cancel' });
+    setConfirmVisible(true);
+  };
+
+  // Start batch status change with confirmation
+  const startBatchStatusChange = (status: string) => {
+    setPendingAction({ type: 'status_change', status });
+    setConfirmVisible(true);
+  };
+
+  const onSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRowKeys(tasks.map(t => t.id))
+    } else {
+      setSelectedRowKeys([])
     }
   }
 
@@ -170,7 +553,7 @@ const Tasks: React.FC = () => {
     return colorMap[status] || 'default'
   }
 
-  // Batch selection column (Day 7)
+  // Batch selection column
   const batchColumns = {
     title: (
       <Checkbox
@@ -274,7 +657,7 @@ const Tasks: React.FC = () => {
         </Space>
       </div>
 
-      {/* Batch Operations Toolbar (Day 7) */}
+      {/* Batch Operations Toolbar */}
       {selectedRowKeys.length > 0 && (
         <Alert
           message={`${selectedRowKeys.length} task(s) selected`}
@@ -286,29 +669,30 @@ const Tasks: React.FC = () => {
               <Button
                 size="small"
                 danger
-                loading={batchActionLoading}
-                onClick={handleBatchDelete}
+                loading={batchState.isProcessing}
+                onClick={startBatchDelete}
               >
                 Delete Selected
               </Button>
               <Button
                 size="small"
                 danger
-                loading={batchActionLoading}
-                onClick={handleBatchCancel}
+                loading={batchState.isProcessing}
+                onClick={startBatchCancel}
               >
                 Cancel Selected
               </Button>
               <Button
                 size="small"
-                loading={batchActionLoading}
-                onClick={() => handleBatchStatusChange('COMPLETED')}
+                loading={batchState.isProcessing}
+                onClick={() => startBatchStatusChange('COMPLETED')}
               >
                 Mark Complete
               </Button>
               <Button
                 size="small"
                 onClick={() => setSelectedRowKeys([])}
+                disabled={batchState.isProcessing}
               >
                 Clear Selection
               </Button>
@@ -323,6 +707,15 @@ const Tasks: React.FC = () => {
         loading={loading}
         rowKey="id"
         pagination={{ pageSize: 20 }}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: setSelectedRowKeys,
+          selections: [
+            Table.SELECTION_ALL,
+            Table.SELECTION_INVERT,
+            Table.SELECTION_NONE,
+          ],
+        }}
       />
 
       <Modal
@@ -358,6 +751,79 @@ const Tasks: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Batch Progress Bar */}
+      <BatchProgressBar
+        visible={batchState.isProcessing || (batchState.processed > 0 && batchState.processed === batchState.total)}
+        title="批量操作进度"
+        total={batchState.total}
+        processed={batchState.processed}
+        successCount={batchState.successCount}
+        failureCount={batchState.failureCount}
+        isProcessing={batchState.isProcessing}
+        items={batchState.items}
+        showDetails
+        onCancel={() => {
+          updateBatchProgress({ isProcessing: false });
+          message.warning('操作已取消');
+        }}
+        onClose={() => {
+          if (!batchState.isProcessing) {
+            updateBatchProgress({ 
+              processed: 0, 
+              successCount: 0, 
+              failureCount: 0, 
+              items: [],
+              errors: [],
+            });
+          }
+        }}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        visible={confirmVisible}
+        type={pendingAction?.type === 'delete' ? 'delete' : pendingAction?.type === 'cancel' ? 'dangerous' : 'status_change'}
+        message={
+          pendingAction?.type === 'delete'
+            ? `确定要删除选中的 ${selectedRowKeys.length} 个任务吗？`
+            : pendingAction?.type === 'cancel'
+            ? `确定要取消选中的 ${selectedRowKeys.length} 个任务吗？`
+            : `确定要更新选中的 ${selectedRowKeys.length} 个任务的状态为 ${pendingAction?.status} 吗？`
+        }
+        itemCount={selectedRowKeys.length}
+        itemLabel="个任务"
+        actionLabel={
+          pendingAction?.type === 'delete' ? '删除' : 
+          pendingAction?.type === 'cancel' ? '取消' : '确认'
+        }
+        loading={batchState.isProcessing}
+        onConfirm={() => {
+          if (pendingAction?.type === 'delete') {
+            handleBatchDelete();
+          } else if (pendingAction?.type === 'cancel') {
+            handleBatchCancel();
+          } else if (pendingAction?.type === 'status_change' && pendingAction.status) {
+            handleBatchStatusChange(pendingAction.status);
+          }
+        }}
+        onCancel={() => {
+          setConfirmVisible(false);
+          setPendingAction(null);
+        }}
+      />
+
+      {/* Error Details Modal */}
+      <ErrorDetails
+        visible={errorDetailsVisible}
+        title="批量操作失败详情"
+        errors={batchState.errors}
+        loading={batchState.isProcessing}
+        onRetry={handleRetryErrors}
+        onRetryAll={handleRetryAllErrors}
+        onExport={handleExportErrors}
+        onClose={() => setErrorDetailsVisible(false)}
+      />
     </div>
   )
 }

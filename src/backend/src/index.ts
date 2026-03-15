@@ -14,10 +14,24 @@ import prometheusRoutes from './routes/prometheus.routes';
 import notificationRoutes from './routes/notification.routes';
 import alertRulesRoutes from './routes/alert-rules.routes';
 import cacheWarmupRoutes from './routes/cache-warmup.routes';
+import websocketRoutes from './routes/websocket.routes';
+import preferencesRoutes from './routes/preferences.routes';
+import notificationHistoryRoutes from './routes/notification-history.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import reservationRoutes from './routes/reservation.routes';
+import aiSchedulerRoutes from './services/ai-scheduler/ai-scheduler.routes';
+import mcpRoutes from './routes/mcp.routes';
+import docsRoutes from './routes/docs.routes';
+import feedbackRoutes from './routes/feedback.routes';
+import agentRoutes from './routes/agent.routes';
+import openclawRoutes from './routes/openclaw.routes';
 import WebSocketHandler, { initializeWebSocket } from './utils/websocket';
 import monitoringService from './services/monitoring.service';
 import { cacheWarmupService } from './services/cache-warmup.service';
+import { scheduledAnalyzerService } from './services/feedback';
 import prisma from './utils/prisma';
+import { csrfProtection } from './middleware/csrf.middleware';
+import { applySecurity, rateLimiter, authRateLimiter } from './middleware/security.middleware';
 
 // Import generated Swagger docs (will be created by build)
 // @ts-ignore - Will be generated
@@ -29,23 +43,38 @@ const httpServer = createServer(app);
 // Initialize WebSocket
 const wsHandler = initializeWebSocket(httpServer);
 
-// Middleware
-app.use(helmet());
+// ============================================
+// Security Middleware
+// ============================================
+
+// Apply Helmet security headers with nonce-based CSP
+applySecurity(app);
+
+// CORS configuration
 app.use(
   cors({
     origin: config.corsOrigins,
     credentials: true,
   })
 );
+
+// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging
+// CSRF Protection for state-changing operations
+app.use(csrfProtection);
+
+// ============================================
+// Request Logging (with sensitive data masking)
+// ============================================
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+    // Mask sensitive paths
+    const maskedPath = req.path.replace(/\/(password|token|secret|key)/gi, '/***');
+    console.log(`${req.method} ${maskedPath} ${res.statusCode} ${duration}ms`);
   });
   next();
 });
@@ -75,6 +104,17 @@ app.use('/api/prometheus', prometheusRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/alert-rules', alertRulesRoutes);
 app.use('/api/cache-warmup', cacheWarmupRoutes);
+app.use('/api/websocket', websocketRoutes);
+app.use('/api/preferences', preferencesRoutes);
+app.use('/api/notification-history', notificationHistoryRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/reservations', reservationRoutes);
+app.use('/api/ai-scheduler', aiSchedulerRoutes);
+app.use('/api/mcp', mcpRoutes);
+app.use('/api/docs', docsRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/agent', agentRoutes);
+app.use('/api/openclaw', openclawRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -97,6 +137,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Graceful shutdown
 const gracefulShutdown = async (signal: string) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+  // 停止定时分析服务
+  scheduledAnalyzerService.stop();
+  console.log('Feedback analyzer service stopped');
 
   wsHandler.stop();
   cacheWarmupService.destroy();
@@ -148,6 +192,10 @@ httpServer.listen(config.port, () => {
 
   // Initialize cache warmup service
   cacheWarmupService.initialize().catch(console.error);
+
+  // 🔧 启动问题反馈定时分析服务
+  scheduledAnalyzerService.start();
+  console.log('📊 Feedback analyzer service started');
 });
 
 export default app;

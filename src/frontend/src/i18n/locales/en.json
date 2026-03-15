@@ -46,7 +46,8 @@
     "profile": "Profile",
     "logout": "Logout",
     "monitoring": "Monitoring",
-    "logs": "Logs"
+    "logs": "Logs",
+    "analytics": "Analytics"
   },
   "server": {
     "title": "Server Management",
@@ -280,5 +281,39 @@
     "testing": "Testing...",
     "completed": "Completed",
     "report": "Report"
+  },
+  "analytics": {
+    "title": "Analytics Dashboard",
+    "overview": "Overview",
+    "costAnalysis": "Cost Analysis",
+    "serverUtilization": "Server Utilization",
+    "efficiencyReport": "Efficiency Report",
+    "totalCost": "Total Cost",
+    "avgUtilization": "Avg Utilization",
+    "peakResource": "Peak Resource",
+    "efficiencyScore": "Efficiency Score",
+    "activeServers": "Active Servers",
+    "estimatedSavings": "Estimated Savings",
+    "resourceTrends": "Resource Usage Trends",
+    "costBreakdown": "Cost Breakdown",
+    "costByCategory": "Cost by Category",
+    "costTrend": "Cost Trend Over Time",
+    "optimizationTips": "Cost Optimization Tips",
+    "efficiencyByServer": "Efficiency Score by Server",
+    "costVsEfficiency": "Cost vs Efficiency",
+    "recommendations": "Efficiency Recommendations",
+    "last24h": "Last 24 Hours",
+    "last7d": "Last 7 Days",
+    "last30d": "Last 30 Days",
+    "customRange": "Custom Range",
+    "refresh": "Refresh",
+    "exportReport": "Export Report",
+    "realtime": "Real-time",
+    "gpuComputing": "GPU Computing",
+    "cpuResources": "CPU Resources",
+    "memoryUsage": "Memory Usage",
+    "networkBandwidth": "Network Bandwidth",
+    "storage": "Storage",
+    "otherServices": "Other Services"
   }
 }

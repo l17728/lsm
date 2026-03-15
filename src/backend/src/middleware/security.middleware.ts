@@ -1,10 +1,30 @@
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import { Express } from 'express';
+import { Express, NextFunction, Request, Response } from 'express';
+import crypto from 'crypto';
 
 /**
  * Security configuration for the application
  */
+
+/**
+ * Generate a nonce for CSP
+ * Used to allow specific inline scripts/styles instead of 'unsafe-inline'
+ */
+export function generateNonce(): string {
+  return crypto.randomBytes(16).toString('base64');
+}
+
+/**
+ * Extend Express Request type to include nonce
+ */
+declare global {
+  namespace Express {
+    interface Request {
+      nonce?: string;
+    }
+  }
+}
 
 /**
  * Rate limiting configuration
@@ -41,22 +61,41 @@ export const authRateLimiter = rateLimit({
 });
 
 /**
+ * Nonce middleware - generates and attaches nonce to request
+ */
+export function nonceMiddleware(req: Request, res: Response, next: NextFunction): void {
+  req.nonce = generateNonce();
+  res.locals.nonce = req.nonce;
+  next();
+}
+
+/**
  * Helmet security headers configuration
+ * 
+ * SECURITY FIX: Removed 'unsafe-inline' from styleSrc
+ * Using nonce-based CSP instead for better security
  */
 export function applyHelmet(app: Express) {
+  app.use(nonceMiddleware);
+
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
-          scriptSrc: ["'self'"],
+          // SECURITY: Removed 'unsafe-inline', use nonce for inline styles
+          styleSrc: ["'self'", 'https://cdn.jsdelivr.net', (req: Request) => `'nonce-${req.nonce}'`],
+          scriptSrc: ["'self'", (req: Request) => `'nonce-${req.nonce}'`],
           imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
+          fontSrc: ["'self'", 'https://cdn.jsdelivr.net'],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'"],
           frameSrc: ["'none'"],
+          // Additional security directives
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
         },
       },
       crossOriginEmbedderPolicy: false,

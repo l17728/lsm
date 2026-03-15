@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, alert_type } from '@prisma/client';
 import { notificationService, AlertSeverity, AlertType } from '../services/notification.service';
 
 const prisma = new PrismaClient();
@@ -315,15 +315,15 @@ export class AlertRulesService {
   /**
    * Map alert type to database enum
    */
-  private mapAlertType(type: AlertType): string {
-    const mapping: Record<AlertType, string> = {
-      [AlertType.SYSTEM]: 'SERVER_OFFLINE',
-      [AlertType.PERFORMANCE]: 'HIGH_CPU',
-      [AlertType.RESOURCE]: 'HIGH_MEMORY',
-      [AlertType.SECURITY]: 'SERVER_OFFLINE',
-      [AlertType.TASK]: 'SERVER_OFFLINE',
+  private mapAlertType(type: AlertType): alert_type {
+    const mapping: Record<AlertType, alert_type> = {
+      [AlertType.SYSTEM]: alert_type.SERVER_OFFLINE,
+      [AlertType.PERFORMANCE]: alert_type.HIGH_CPU,
+      [AlertType.RESOURCE]: alert_type.HIGH_MEMORY,
+      [AlertType.SECURITY]: alert_type.SERVER_OFFLINE,
+      [AlertType.TASK]: alert_type.SERVER_OFFLINE,
     };
-    return mapping[type] || 'SERVER_OFFLINE';
+    return mapping[type] ?? alert_type.SERVER_OFFLINE;
   }
 
   /**

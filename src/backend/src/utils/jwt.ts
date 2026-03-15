@@ -1,25 +1,43 @@
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = '15m'; // Access token expires in 15 minutes
+// 🔐 SECURITY: JWT_SECRET 必须通过环境变量配置，不允许使用默认值
+// 如果未设置环境变量，应用将在启动时抛出错误
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      'JWT_SECRET environment variable is required. ' +
+      'Generate a secure key with: openssl rand -base64 64'
+    );
+  }
+  if (secret.length < 32) {
+    console.warn('[SECURITY WARNING] JWT_SECRET is too short. Recommended: 64+ characters');
+  }
+  return secret;
+};
+
+const JWT_SECRET = getJwtSecret();
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'; // Access token expires in 15 minutes
 const REFRESH_TOKEN_EXPIRES_IN = '7d'; // Refresh token expires in 7 days
 
 /**
  * Generate access token
  */
 export function generateAccessToken(payload: { userId: string; email: string; role: string }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  // @ts-ignore - JWT types issue
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: String(JWT_EXPIRES_IN) });
 }
 
 /**
  * Generate refresh token
  */
 export function generateRefreshToken(payload: { userId: string }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_IN });
+  // @ts-ignore - JWT types issue
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: String(REFRESH_TOKEN_EXPIRES_IN) });
 }
 
 /**

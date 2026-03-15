@@ -37,7 +37,8 @@ export async function exportToExcel<T>(
     const worksheet = workbook.addWorksheet(sheetName);
     
     if (data.length === 0) {
-      return await workbook.xlsx.writeBuffer();
+      const buf = await workbook.xlsx.writeBuffer();
+      return Buffer.isBuffer(buf) ? buf : Buffer.from(buf as ArrayBuffer);
     }
     
     // Add title if provided
@@ -71,7 +72,7 @@ export async function exportToExcel<T>(
     });
     
     const buffer = await workbook.xlsx.writeBuffer();
-    return buffer;
+    return Buffer.from(buffer as ArrayBuffer);
   } catch (error) {
     console.error('[Export] Excel export error:', error);
     throw new Error('Failed to export Excel');

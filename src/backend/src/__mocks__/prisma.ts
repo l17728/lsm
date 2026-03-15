@@ -40,6 +40,7 @@ export const prisma = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    groupBy: jest.fn(),
   },
   serverMetric: {
     findUnique: jest.fn(),
@@ -56,7 +57,9 @@ export const prisma = {
   },
   auditLog: {
     create: jest.fn(),
+    findUnique: jest.fn(),
     findMany: jest.fn(),
+    update: jest.fn(),
   },
   emailNotification: {
     create: jest.fn(),
