@@ -32,8 +32,10 @@ router.get('/:docId', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Document not found' });
   }
 
-  // Resolve the document path
-  const docsRoot = path.join(__dirname, '../../docs');
+  // Resolve the document path - use absolute path in container
+  const docsRoot = process.env.NODE_ENV === 'production' 
+    ? '/app/docs' 
+    : path.join(__dirname, '../../docs');
   const docPath = path.join(docsRoot, docInfo.path);
 
   // Security check: ensure path is within docs directory

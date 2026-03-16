@@ -8,6 +8,10 @@ import './ChatPage.css'
 
 const { TextArea } = Input
 
+// OpenClaw Gateway 默认配置
+const OPENCLAW_DEFAULT_TOKEN = '000d72ae58ccef8e97acd9eb124ddae1b8a856fa57289ea1'
+const OPENCLAW_DEFAULT_HOST = '127.0.0.1:18789'
+
 const ChatPage: React.FC = () => {
   const [inputValue, setInputValue] = useState('')
   const [settingsVisible, setSettingsVisible] = useState(false)
@@ -21,7 +25,14 @@ const ChatPage: React.FC = () => {
 
   useEffect(() => { chatService.connect(); return () => chatService.disconnect() }, [])
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
-  useEffect(() => { if (openclawToken) setGatewayToken(openclawToken) }, [openclawToken])
+  useEffect(() => { 
+    // 初始化时设置默认 token
+    if (openclawToken) {
+      setGatewayToken(openclawToken)
+    } else {
+      setGatewayToken(OPENCLAW_DEFAULT_TOKEN)
+    }
+  }, [openclawToken])
 
   const handleSend = () => {
     const content = inputValue.trim()
@@ -122,8 +133,33 @@ const ChatPage: React.FC = () => {
               <div className="welcome-icon"><RobotOutlined /></div>
               <h2>LSM Agent</h2>
               <p>智能实验室运维助手</p>
-              <p style={{ color: '#999', fontSize: 12 }}>
-                点击 <ApiOutlined /> 连接 OpenClaw AI
+              {openclawConnected ? (
+                <Tag color="green" style={{ marginTop: 12 }}>
+                  <ApiOutlined /> 已连接 OpenClaw AI
+                </Tag>
+              ) : (
+                <Button 
+                  type="primary" 
+                  icon={<ApiOutlined />}
+                  style={{ marginTop: 16 }}
+                  onClick={async () => {
+                    setConnecting(true)
+                    try {
+                      const result = await chatService.connectOpenClaw(gatewayToken || OPENCLAW_DEFAULT_TOKEN)
+                      if (!result.success) {
+                        message.error(result.message)
+                      }
+                    } finally {
+                      setConnecting(false)
+                    }
+                  }}
+                  loading={connecting}
+                >
+                  连接 OpenClaw AI
+                </Button>
+              )}
+              <p style={{ color: '#999', fontSize: 12, marginTop: 16 }}>
+                点击右上角 <SettingOutlined /> 可修改连接设置
               </p>
             </div>
           ) : <>{messages.map(renderMessage)}<div ref={messagesEndRef} /></>}

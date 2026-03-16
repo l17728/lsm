@@ -8,11 +8,37 @@ interface ServerMessage {
   payload: { id?: string; role: 'assistant' | 'system'; content: string; timestamp?: string; metadata?: Message['metadata'] }
 }
 
+// OpenClaw Gateway 帧格式（非标准 JSON-RPC）
+interface OpenClawRequest {
+  type: 'req'
+  id: string
+  method: string
+  params?: Record<string, unknown>
+}
+
+interface OpenClawResponse {
+  type: 'res'
+  id: string
+  ok: boolean
+  payload?: any
+  error?: { message: string; code?: number }
+}
+
+interface OpenClawEvent {
+  type: 'event'
+  event: string
+  payload?: any
+  seq?: number
+}
+
 class ChatService {
   private socket: Socket | null = null
   private openclawWs: WebSocket | null = null
   private reconnectAttempts = 0
   private openclawMessageHandler: ((data: any) => void) | null = null
+  private openclawRequestId = 0
+  private openclawAuthenticated = false
+  private pendingMessages: string[] = []
 
   // 连接 LSM 本地 WebSocket
   connect(): void {
@@ -52,11 +78,14 @@ class ChatService {
   }
 
   /**
-   * 连接 OpenClaw Gateway (WebSocket)
+   * 连接 OpenClaw Gateway (WebSocket) - Challenge-Response 协议
    */
   async connectOpenClaw(gatewayToken: string): Promise<{ success: boolean; message: string }> {
     try {
       useChatStore.getState().setTyping(true)
+      this.openclawRequestId = 0
+      this.openclawAuthenticated = false
+      this.pendingMessages = []
       
       // 断开现有 OpenClaw 连接
       if (this.openclawWs) {
@@ -65,7 +94,6 @@ class ChatService {
       }
 
       // OpenClaw Gateway WebSocket URL
-      // 使用当前页面的主机名，端口为 Gateway 端口 (18789)
       const host = window.location.hostname || 'localhost'
       const wsUrl = `ws://${host}:18789/`
       console.log('[OpenClaw] Connecting to:', wsUrl)
@@ -73,174 +101,227 @@ class ChatService {
       return new Promise((resolve) => {
         try {
           this.openclawWs = new WebSocket(wsUrl)
-          let challengeNonce: string | null = null
           
           this.openclawWs.onopen = () => {
-            console.log('[OpenClaw] WebSocket connected, waiting for challenge...')
+            console.log('[OpenClaw] WebSocket connected, sending connect...')
+            // 直接发送 connect 请求（allowInsecureAuth 模式不发送 challenge）
+            const connectReq: OpenClawRequest = {
+              type: 'req',
+              id: `connect-${Date.now()}`,
+              method: 'connect',
+              params: {
+                minProtocol: 3,
+                maxProtocol: 3,
+                client: {
+                  id: 'openclaw-control-ui',
+                  version: '2026.3.8',
+                  platform: 'web',
+                  mode: 'webchat'
+                },
+                auth: { token: gatewayToken },
+                role: 'operator',
+                scopes: ['operator.admin']
+              }
+            }
+            this.openclawWs!.send(JSON.stringify(connectReq))
           }
           
           this.openclawWs.onmessage = (event) => {
             try {
-              const data = JSON.parse(event.data)
+              const rawData = event.data.toString()
+              const data = JSON.parse(rawData)
               console.log('[OpenClaw] Received:', data)
               
-              // 处理认证挑战
-              if (data.type === 'event' && data.event === 'connect.challenge') {
-                challengeNonce = data.payload?.nonce
-                console.log('[OpenClaw] Challenge received:', challengeNonce)
+              // 处理响应帧 (type: 'res')
+              if (data.type === 'res') {
+                console.log('[OpenClaw] Response:', data)
                 
-                // 发送认证响应（如果有 token）
-                if (gatewayToken && challengeNonce) {
-                  this.openclawWs?.send(JSON.stringify({
-                    type: 'auth',
-                    token: gatewayToken,
-                    nonce: challengeNonce
-                  }))
-                } else {
-                  // 无 token，发送匿名连接
-                  this.openclawWs?.send(JSON.stringify({
-                    type: 'connect',
-                    nonce: challengeNonce
-                  }))
-                }
-                
-                // 标记连接成功
-                useChatStore.getState().setOpenClawConnected(true)
-                useChatStore.getState().setOpenClawSessionKey(`openclaw-${Date.now()}`)
-                
-                useChatStore.getState().addMessage({
-                  id: this.genId(),
-                  role: 'system',
-                  content: '✅ 已连接到 OpenClaw！可以开始对话了。',
-                  timestamp: new Date(),
-                  status: 'sent'
-                })
-                
-                resolve({ success: true, message: '连接成功' })
-                return
-              }
-              
-              // 处理认证结果
-              if (data.type === 'event' && data.event === 'auth.success') {
-                console.log('[OpenClaw] Auth success')
-                return
-              }
-              
-              if (data.type === 'event' && data.event === 'auth.failed') {
-                console.error('[OpenClaw] Auth failed')
-                useChatStore.getState().addMessage({
-                  id: this.genId(),
-                  role: 'system',
-                  content: '❌ 认证失败，请检查 Token',
-                  timestamp: new Date(),
-                  status: 'error'
-                })
-                return
-              }
-              
-              // 处理 AI 响应消息
-              useChatStore.getState().setTyping(false)
-              
-              if (data.type === 'message' || data.type === 'response') {
-                const content = data.content || data.message || data.text || data.payload?.content
-                if (content) {
-                  useChatStore.getState().addMessage({
-                    id: this.genId(),
-                    role: 'assistant',
-                    content: content,
-                    timestamp: new Date(),
-                    status: 'sent'
-                  })
-                }
-              } else if (data.type === 'event' && data.event === 'message') {
-                const content = data.payload?.content || data.payload?.message
-                if (content) {
-                  useChatStore.getState().addMessage({
-                    id: this.genId(),
-                    role: 'assistant',
-                    content: content,
-                    timestamp: new Date(),
-                    status: 'sent'
-                  })
-                }
-              } else if (data.type === 'stream') {
-                // 处理流式响应
-                const chunk = data.chunk || data.content
-                if (chunk) {
-                  const messages = useChatStore.getState().messages
-                  const lastMsg = messages[messages.length - 1]
-                  if (lastMsg?.role === 'assistant' && lastMsg.status === 'sent') {
-                    // 更新最后一条消息
-                    const updatedMessages = [...messages]
-                    updatedMessages[messages.length - 1] = { 
-                      ...lastMsg, 
-                      content: lastMsg.content + chunk 
-                    }
-                    useChatStore.getState().setMessages(updatedMessages)
-                  } else {
+                if (data.ok && !this.openclawAuthenticated) {
+                  // 只在首次连接成功时显示欢迎消息
+                  this.openclawAuthenticated = true
+                  useChatStore.getState().setOpenClawConnected(true)
+                  useChatStore.getState().setOpenClawSessionKey('main')
+                  useChatStore.getState().setOpenClawToken(gatewayToken)
+                  useChatStore.getState().setTyping(false)
+                    
                     useChatStore.getState().addMessage({
                       id: this.genId(),
-                      role: 'assistant',
-                      content: chunk,
+                      role: 'system',
+                      content: '✅ 已连接到 OpenClaw！可以开始对话了。\n\n我是大漂亮 🦐，你的贴心外星虾助手，有什么我可以帮你的吗？',
                       timestamp: new Date(),
                       status: 'sent'
                     })
-                  }
+                    
+                    resolve({ success: true, message: '连接成功' })
+                } else if (data.error) {
+                  useChatStore.getState().setTyping(false)
+                  const errorMsg = data.error?.message || '认证失败'
+                  useChatStore.getState().addMessage({
+                    id: this.genId(),
+                    role: 'system',
+                    content: `❌ 认证失败: ${errorMsg}`,
+                    timestamp: new Date(),
+                    status: 'error'
+                  })
+                  resolve({ success: false, message: errorMsg })
                 }
-              } else if (data.content || data.message || data.text) {
-                // 其他格式的消息
-                useChatStore.getState().addMessage({
-                  id: this.genId(),
-                  role: 'assistant',
-                  content: data.content || data.message || data.text,
-                  timestamp: new Date(),
-                  status: 'sent'
-                })
+                return
+              }
+              
+              // 处理服务端推送事件 (type: 'event')
+              if (data.type === 'event') {
+                this.handleOpenClawEvent(data)
               }
               
             } catch (e) {
               console.error('[OpenClaw] Parse error:', e)
-              // 非 JSON 消息
-              if (event.data && typeof event.data === 'string' && event.data.trim()) {
-                useChatStore.getState().addMessage({
-                  id: this.genId(),
-                  role: 'assistant',
-                  content: event.data,
-                  timestamp: new Date(),
-                  status: 'sent'
-                })
-              }
             }
           }
           
           this.openclawWs.onerror = (error) => {
             console.error('[OpenClaw] WebSocket error:', error)
             useChatStore.getState().setOpenClawConnected(false)
+            useChatStore.getState().setTyping(false)
             resolve({ success: false, message: 'WebSocket 连接错误' })
           }
           
           this.openclawWs.onclose = (event) => {
             console.log('[OpenClaw] WebSocket closed:', event.code, event.reason)
             useChatStore.getState().setOpenClawConnected(false)
+            useChatStore.getState().setTyping(false)
+            this.openclawAuthenticated = false
           }
           
           // 设置超时
           setTimeout(() => {
             if (!useChatStore.getState().openclawConnected) {
-              resolve({ success: false, message: '连接超时' })
+              resolve({ success: false, message: '连接超时，请检查 Gateway 是否运行' })
             }
-          }, 15000)
+          }, 10000)
           
         } catch (error: any) {
+          useChatStore.getState().setTyping(false)
           resolve({ success: false, message: `连接失败: ${error.message}` })
         }
       })
 
     } catch (error: any) {
       console.error('Failed to connect OpenClaw:', error)
-      return { success: false, message: error.message || '连接失败' }
-    } finally {
       useChatStore.getState().setTyping(false)
+      return { success: false, message: error.message || '连接失败' }
+    }
+  }
+
+  /**
+   * 发送请求到 OpenClaw Gateway（自定义帧格式）
+   */
+  private sendOpenClawRequest(method: string, params?: Record<string, unknown>): void {
+    if (this.openclawWs?.readyState !== WebSocket.OPEN) return
+    
+    const request: OpenClawRequest = {
+      type: 'req',
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      method,
+      params
+    }
+    
+    this.openclawWs.send(JSON.stringify(request))
+    console.log('[OpenClaw] Sent request:', request)
+  }
+
+  /**
+   * 处理 OpenClaw 推送事件
+   */
+  private handleOpenClawEvent(data: OpenClawEvent): void {
+    const { event, payload } = data
+    console.log('[OpenClaw] Event:', event, payload)
+    
+    switch (event) {
+      case 'chat':
+        // chat 事件格式: { state: 'delta' | 'done', message: { role, content, timestamp } }
+        if (payload?.state === 'delta' || payload?.state === 'done') {
+          const message = payload.message
+          if (message?.role === 'assistant') {
+            // content 可能是字符串或数组
+            let content = message.content
+            if (Array.isArray(content)) {
+              // 提取文本内容
+              content = content.map(c => {
+                if (typeof c === 'string') return c
+                if (c?.type === 'text') return c.text
+                return ''
+              }).join('')
+            }
+            if (content) {
+              useChatStore.getState().addMessage({
+                id: this.genId(),
+                role: 'assistant',
+                content: typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+                timestamp: new Date(),
+                status: 'sent'
+              })
+              useChatStore.getState().setTyping(false)
+            }
+          }
+        }
+        break
+        
+      case 'agent':
+        // agent 事件格式: { stream: 'assistant' | 'tool_use', data: {...} }
+        if (payload?.stream === 'assistant' && payload?.data) {
+          // 流式响应，可能是增量内容
+          const delta = payload.data
+          if (delta?.content) {
+            useChatStore.getState().setTyping(false)
+            const messages = useChatStore.getState().messages
+            const lastMsg = messages[messages.length - 1]
+            if (lastMsg?.role === 'assistant' && lastMsg.status === 'sent') {
+              const updatedMessages = [...messages]
+              updatedMessages[messages.length - 1] = { 
+                ...lastMsg, 
+                content: lastMsg.content + delta.content 
+              }
+              useChatStore.getState().setMessages(updatedMessages)
+            } else {
+              useChatStore.getState().addMessage({
+                id: this.genId(),
+                role: 'assistant',
+                content: delta.content,
+                timestamp: new Date(),
+                status: 'sent'
+              })
+            }
+          }
+        }
+        break
+        
+      case 'chat.typing':
+        useChatStore.getState().setTyping(payload?.typing ?? true)
+        break
+        
+      case 'chat.error':
+        useChatStore.getState().addMessage({
+          id: this.genId(),
+          role: 'system',
+          content: `❌ 错误: ${payload?.message || '未知错误'}`,
+          timestamp: new Date(),
+          status: 'error'
+        })
+        break
+        
+      default:
+        // 其他事件，尝试提取内容
+        if (payload?.content || payload?.message?.content) {
+          const content = payload.content || payload.message.content
+          useChatStore.getState().addMessage({
+            id: this.genId(),
+            role: 'assistant',
+            content: typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+            timestamp: new Date(),
+            status: 'sent'
+          })
+          useChatStore.getState().setTyping(false)
+        }
     }
   }
 
@@ -290,21 +371,20 @@ class ChatService {
   }
 
   /**
-   * 发送消息到 OpenClaw
+   * 发送消息到 OpenClaw (正确参数格式)
    */
   private sendToOpenClaw(content: string): void {
     const msg: Message = { id: this.genId(), role: 'user', content, timestamp: new Date(), status: 'sending' }
     useChatStore.getState().addMessage(msg)
     useChatStore.getState().setTyping(true)
 
-    if (this.openclawWs?.readyState === WebSocket.OPEN) {
-      // OpenClaw Gateway 消息格式
-      const message = JSON.stringify({
-        type: 'message',
-        content: content,
-        timestamp: Date.now()
+    if (this.openclawWs?.readyState === WebSocket.OPEN && this.openclawAuthenticated) {
+      // 使用正确的 chat.send 参数格式
+      this.sendOpenClawRequest('chat.send', {
+        sessionKey: 'main',
+        message: content,
+        idempotencyKey: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       })
-      this.openclawWs.send(message)
       useChatStore.getState().updateMessageStatus(msg.id, 'sent')
       console.log('[OpenClaw] Sent message:', content)
     } else {
@@ -312,7 +392,7 @@ class ChatService {
       useChatStore.getState().addMessage({
         id: this.genId(),
         role: 'system',
-        content: 'OpenClaw 连接已断开',
+        content: 'OpenClaw 连接已断开或未认证',
         timestamp: new Date(),
         status: 'error'
       })
