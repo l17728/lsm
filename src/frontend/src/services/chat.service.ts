@@ -238,30 +238,65 @@ class ChatService {
     
     switch (event) {
       case 'chat':
-        // chat 事件格式: { state: 'delta' | 'done', message: { role, content, timestamp } }
-        if (payload?.state === 'delta' || payload?.state === 'done') {
-          const message = payload.message
-          if (message?.role === 'assistant') {
-            // content 可能是字符串或数组
-            let content = message.content
-            if (Array.isArray(content)) {
-              // 提取文本内容
-              content = content.map(c => {
-                if (typeof c === 'string') return c
-                if (c?.type === 'text') return c.text
-                return ''
-              }).join('')
-            }
-            if (content) {
+        // chat 事件格式: { state: 'delta' | 'final', message: { role, content, timestamp } }
+        const message = payload?.message
+        if (message?.role === 'assistant') {
+          // content 可能是字符串或数组
+          let content = message.content
+          if (Array.isArray(content)) {
+            content = content.map((c: any) => {
+              if (typeof c === 'string') return c
+              if (c?.type === 'text') return c.text
+              return ''
+            }).join('')
+          }
+          
+          if (!content) break
+          
+          const state = payload?.state
+          const messages = useChatStore.getState().messages
+          const lastMsg = messages[messages.length - 1]
+          
+          if (state === 'delta') {
+            // delta: 增量内容，追加到最后一条消息
+            if (lastMsg?.role === 'assistant' && lastMsg.status === 'sent') {
+              // 追加到最后一条消息
+              const updatedMessages = [...messages]
+              updatedMessages[messages.length - 1] = { 
+                ...lastMsg, 
+                content: lastMsg.content + content 
+              }
+              useChatStore.getState().setMessages(updatedMessages)
+            } else {
+              // 没有可追加的消息，创建新消息
               useChatStore.getState().addMessage({
                 id: this.genId(),
                 role: 'assistant',
-                content: typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+                content: content,
                 timestamp: new Date(),
                 status: 'sent'
               })
-              useChatStore.getState().setTyping(false)
             }
+          } else if (state === 'final') {
+            // final: 最终消息，直接更新最后一条消息的内容
+            if (lastMsg?.role === 'assistant') {
+              const updatedMessages = [...messages]
+              updatedMessages[messages.length - 1] = { 
+                ...lastMsg, 
+                content: content 
+              }
+              useChatStore.getState().setMessages(updatedMessages)
+            } else {
+              // 没有可更新的消息，创建新消息
+              useChatStore.getState().addMessage({
+                id: this.genId(),
+                role: 'assistant',
+                content: content,
+                timestamp: new Date(),
+                status: 'sent'
+              })
+            }
+            useChatStore.getState().setTyping(false)
           }
         }
         break
