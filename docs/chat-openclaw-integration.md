@@ -417,6 +417,92 @@ server {
 2. 使用无痕模式
 3. 添加 URL 参数强制刷新：`http://IP:8081/?v=时间戳`
 
+### 5. Chat 消息重复显示（已修复）
+
+**现象**：AI 回复的消息在界面上重复显示多次，每条 delta 事件都创建了一条新消息。
+
+**问题根因**：
+
+OpenClaw Gateway 的 `chat` 事件会多次触发：
+- `state: 'delta'` - 增量内容，流式传输过程中多次触发
+- `state: 'final'` - 最终完整消息，只触发一次
+
+**原始错误代码**：
+```typescript
+// ❌ 错误：delta 和 done 都会创建新消息
+case 'chat':
+  if (payload?.state === 'delta' || payload?.state === 'done') {
+    const message = payload.message
+    if (message?.role === 'assistant') {
+      // 每次都创建新消息！
+      useChatStore.getState().addMessage({
+        id: this.genId(),
+        role: 'assistant',
+        content: content,
+        timestamp: new Date(),
+        status: 'sent'
+      })
+    }
+  }
+```
+
+**修复方案**：
+
+1. **delta 状态**：追加到最后一条 assistant 消息，不创建新消息
+2. **final 状态**：更新最后一条消息的完整内容
+
+**修复后代码**：
+```typescript
+// ✅ 正确：区分 delta 和 final 的处理逻辑
+case 'chat':
+  const message = payload?.message
+  if (message?.role === 'assistant') {
+    let content = message.content
+    // ... 内容提取逻辑 ...
+    
+    const state = payload?.state
+    const messages = useChatStore.getState().messages
+    const lastMsg = messages[messages.length - 1]
+    
+    if (state === 'delta') {
+      // delta: 增量内容，追加到最后一条消息
+      if (lastMsg?.role === 'assistant' && lastMsg.status === 'sent') {
+        const updatedMessages = [...messages]
+        updatedMessages[messages.length - 1] = { 
+          ...lastMsg, 
+          content: lastMsg.content + content  // 追加内容
+        }
+        useChatStore.getState().setMessages(updatedMessages)
+      } else {
+        // 没有可追加的消息，才创建新消息
+        useChatStore.getState().addMessage({ ... })
+      }
+    } else if (state === 'final') {
+      // final: 最终消息，更新最后一条消息内容
+      if (lastMsg?.role === 'assistant') {
+        const updatedMessages = [...messages]
+        updatedMessages[messages.length - 1] = { 
+          ...lastMsg, 
+          content: content  // 替换为最终内容
+        }
+        useChatStore.getState().setMessages(updatedMessages)
+      } else {
+        useChatStore.getState().addMessage({ ... })
+      }
+      useChatStore.getState().setTyping(false)
+    }
+  }
+  break
+```
+
+**关键点**：
+- `delta` 事件携带的是增量内容，需要追加到现有消息
+- `final` 事件携带的是完整内容，直接替换
+- 通过检查 `lastMsg.role === 'assistant'` 判断是否可以追加
+- `state` 值是 `'final'` 不是 `'done'`（早期文档有误）
+
+**提交记录**：`46fd952` - fix: 修复 chat 事件重复显示问题
+
 ## 测试验证
 
 ### 1. 检查连接
@@ -863,5 +949,5 @@ export interface ChatSendParams {
 ---
 
 *文档创建时间：2026-03-17*
-*最后更新：2026-03-17*
+*最后更新：2026-03-17 10:00*
 *作者：OpenClaw Assistant (大漂亮 🦐)*
