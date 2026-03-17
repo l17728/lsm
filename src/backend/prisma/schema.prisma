@@ -60,8 +60,11 @@ model Session {
 model Server {
   id          String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String         @db.VarChar(100)
+  hostname    String?        @db.VarChar(100)
   description String?
-  status      server_status  @default(OFFLINE)
+  status      server_status  @default(ONLINE)
+  cpuCores    Int?           @default(1) @map("cpu_cores")
+  totalMemory Int?           @map("total_memory") // in GB
   gpuCount    Int            @default(0) @map("gpu_count")
   location    String?        @db.VarChar(200)
   ipAddress   String?        @map("ip_address") @db.Inet

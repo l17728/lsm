@@ -123,10 +123,11 @@ router.post(
   ],
   async (req, res) => {
     try {
-      const { name, ipAddress, cpuCores, totalMemory, gpuCount, gpus } = req.body;
+      const { name, hostname, ipAddress, cpuCores, totalMemory, gpuCount, gpus, location, description } = req.body;
 
       const server = await serverService.createServer({
         name,
+        hostname,
         ipAddress,
         cpuCores,
         totalMemory,
@@ -159,14 +160,17 @@ router.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, ipAddress, cpuCores, totalMemory, status } = req.body;
+      const { name, hostname, ipAddress, cpuCores, totalMemory, status, location, description } = req.body;
 
       const server = await serverService.updateServer(id, {
         name,
+        hostname,
         ipAddress,
         cpuCores,
         totalMemory,
         status,
+        location,
+        description,
       });
 
       res.json({

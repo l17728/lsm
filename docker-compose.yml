@@ -67,7 +67,7 @@ services:
   # ============================================
   backend:
     build:
-      context: ./backend
+      context: ./src/backend
       dockerfile: Dockerfile
       target: production
     container_name: lsm-backend

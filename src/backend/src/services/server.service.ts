@@ -4,6 +4,7 @@ import { cacheService } from './cache.service';
 
 export interface CreateServerRequest {
   name: string;
+  hostname?: string;
   description?: string;
   ipAddress?: string;
   location?: string;
@@ -18,6 +19,7 @@ export interface CreateServerRequest {
 
 export interface UpdateServerRequest {
   name?: string;
+  hostname?: string;
   description?: string;
   ipAddress?: string;
   location?: string;
@@ -32,14 +34,17 @@ export class ServerService {
    * Create a new server with optional GPU configuration
    */
   async createServer(data: CreateServerRequest) {
-    const { name, description, ipAddress, location, gpuCount = 0, gpus = [] } = data;
+    const { name, hostname, description, ipAddress, location, cpuCores, totalMemory, gpuCount = 0, gpus = [] } = data;
 
     const server = await prisma.server.create({
       data: {
         name,
+        hostname: hostname || null,
         description: description || null,
         ipAddress: ipAddress || null,
         location: location || null,
+        cpuCores: cpuCores || 1,
+        totalMemory: totalMemory || null,
         gpuCount,
         gpus: {
           create: gpus.map((gpu) => ({
