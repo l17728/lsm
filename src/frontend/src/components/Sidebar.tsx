@@ -14,6 +14,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { MenuProps } from 'antd'
 
 const { Sider } = Layout
@@ -26,67 +27,68 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
 
   const menuItems: MenuProps['items'] = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
-      label: 'Dashboard',
+      label: t('navigation.dashboard'),
     },
     {
       key: '/servers',
       icon: <ApiOutlined />,
-      label: 'Servers',
+      label: t('navigation.servers'),
     },
     {
       key: '/gpus',
       icon: <RocketOutlined />,
-      label: 'GPUs',
+      label: t('navigation.gpus'),
     },
     {
       key: '/tasks',
       icon: <ClockCircleOutlined />,
-      label: 'Tasks',
+      label: t('navigation.tasks'),
     },
     {
       key: '/reservations',
       icon: <CalendarOutlined />,
-      label: 'Reservations',
+      label: t('navigation.reservations'),
     },
     {
       key: '/monitoring',
       icon: <MonitorOutlined />,
-      label: 'Monitoring',
+      label: t('navigation.monitoring'),
     },
     {
       key: '/analytics',
       icon: <LineChartOutlined />,
-      label: 'Analytics',
+      label: t('navigation.analytics'),
     },
     {
       key: '/chat',
       icon: <MessageOutlined />,
-      label: 'Chat',
+      label: t('navigation.chat'),
     },
     {
       key: '/users',
       icon: <TeamOutlined />,
-      label: 'Users',
+      label: t('navigation.users'),
     },
     {
       key: '/docs',
       icon: <BookOutlined />,
-      label: 'Docs',
+      label: t('navigation.docs'),
     },
     {
       key: '/feedback',
       icon: <BugOutlined />,
-      label: 'Feedback',
+      label: t('navigation.feedback'),
     },
     {
       key: '/requirements',
       icon: <FileTextOutlined />,
-      label: 'Requirements',
+      label: t('navigation.requirements'),
     },
   ]
 

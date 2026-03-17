@@ -95,12 +95,11 @@ const AnalyticsDashboard: React.FC = () => {
     loadData()
 
     // Subscribe to real-time updates
-    wsService.on('servers:update', (data) => {
-      setClusterStats((prev: any) => ({ ...prev, ...data }))
-    })
+    const onServersUpdate = (data: any) => { setClusterStats((prev: any) => ({ ...prev, ...data })) }
+    wsService.on('servers:update', onServersUpdate)
 
     return () => {
-      wsService.off('servers:update', () => {})
+      wsService.off('servers:update', onServersUpdate)
     }
   }, [timeRange, customDateRange])
 

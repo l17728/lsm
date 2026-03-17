@@ -34,12 +34,11 @@ const GPUs: React.FC = () => {
   useEffect(() => {
     loadData()
 
-    wsService.on('gpus:update', () => {
-      loadData()
-    })
+    const onGpusUpdate = () => { loadData() }
+    wsService.on('gpus:update', onGpusUpdate)
 
     return () => {
-      wsService.off('gpus:update', () => {})
+      wsService.off('gpus:update', onGpusUpdate)
     }
   }, [])
 

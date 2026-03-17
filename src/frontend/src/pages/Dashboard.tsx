@@ -31,22 +31,18 @@ const Dashboard: React.FC = () => {
     loadData()
 
     // Subscribe to real-time updates
-    wsService.on('servers:update', (data) => {
-      setClusterStats(data.stats)
-    })
+    const onServersUpdate = (data: any) => { setClusterStats(data.stats) }
+    const onTasksUpdate = (data: any) => { setTaskStats(data) }
+    const onAlertsNew = (data: any) => { setAlerts(data) }
 
-    wsService.on('tasks:update', (data) => {
-      setTaskStats(data)
-    })
-
-    wsService.on('alerts:new', (data) => {
-      setAlerts(data)
-    })
+    wsService.on('servers:update', onServersUpdate)
+    wsService.on('tasks:update', onTasksUpdate)
+    wsService.on('alerts:new', onAlertsNew)
 
     return () => {
-      wsService.off('servers:update', () => {})
-      wsService.off('tasks:update', () => {})
-      wsService.off('alerts:new', () => {})
+      wsService.off('servers:update', onServersUpdate)
+      wsService.off('tasks:update', onTasksUpdate)
+      wsService.off('alerts:new', onAlertsNew)
     }
   }, [])
 

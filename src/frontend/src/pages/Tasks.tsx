@@ -61,17 +61,15 @@ const Tasks: React.FC = () => {
   useEffect(() => {
     loadTasks()
 
-    wsService.on('tasks:update', () => {
-      loadTasks()
-    })
+    const onTasksUpdate = () => { loadTasks() }
+    const onTaskUpdate = () => { loadTasks() }
 
-    wsService.on('task:update', () => {
-      loadTasks()
-    })
+    wsService.on('tasks:update', onTasksUpdate)
+    wsService.on('task:update', onTaskUpdate)
 
     return () => {
-      wsService.off('tasks:update', () => {})
-      wsService.off('task:update', () => {})
+      wsService.off('tasks:update', onTasksUpdate)
+      wsService.off('task:update', onTaskUpdate)
     }
   }, [])
 

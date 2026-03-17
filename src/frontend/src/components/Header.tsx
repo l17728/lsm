@@ -6,6 +6,7 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../store/authStore'
 import { authApi } from '../services/api'
 import ThemeToggle from './ThemeToggle'
@@ -20,6 +21,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ collapsed, setCollapsed }) => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user, logout } = useAuthStore()
 
   const handleLogout = async () => {
@@ -37,7 +39,7 @@ const Header: React.FC<HeaderProps> = ({ collapsed, setCollapsed }) => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Logout',
+      label: t('navigation.logout'),
       onClick: handleLogout,
     },
   ]
@@ -46,7 +48,6 @@ const Header: React.FC<HeaderProps> = ({ collapsed, setCollapsed }) => {
     <AntHeader
       style={{
         padding: '0 16px',
-        background: '#fff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',

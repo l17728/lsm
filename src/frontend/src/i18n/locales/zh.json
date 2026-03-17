@@ -47,7 +47,12 @@
     "logout": "退出登录",
     "monitoring": "监控中心",
     "logs": "日志管理",
-    "analytics": "数据分析"
+    "analytics": "数据分析",
+    "reservations": "资源预约",
+    "chat": "AI 助手",
+    "docs": "文档",
+    "feedback": "反馈",
+    "requirements": "需求"
   },
   "server": {
     "title": "服务器管理",

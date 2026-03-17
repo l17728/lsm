@@ -30,18 +30,18 @@ const Monitoring: React.FC = () => {
   useEffect(() => {
     loadData()
 
-    wsService.on('servers:update', (data) => {
+    const onServersUpdate = (data: any) => {
       setHealth(data.health || [])
       setClusterStats((prev: any) => ({ ...prev, ...data }))
-    })
+    }
+    const onAlertsNew = (data: any) => { setAlerts(data) }
 
-    wsService.on('alerts:new', (data) => {
-      setAlerts(data)
-    })
+    wsService.on('servers:update', onServersUpdate)
+    wsService.on('alerts:new', onAlertsNew)
 
     return () => {
-      wsService.off('servers:update', () => {})
-      wsService.off('alerts:new', () => {})
+      wsService.off('servers:update', onServersUpdate)
+      wsService.off('alerts:new', onAlertsNew)
     }
   }, [])
 

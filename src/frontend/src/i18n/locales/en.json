@@ -47,7 +47,12 @@
     "logout": "Logout",
     "monitoring": "Monitoring",
     "logs": "Logs",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "reservations": "Reservations",
+    "chat": "Chat",
+    "docs": "Docs",
+    "feedback": "Feedback",
+    "requirements": "Requirements"
   },
   "server": {
     "title": "Server Management",
