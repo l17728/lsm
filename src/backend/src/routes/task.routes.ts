@@ -214,6 +214,96 @@ router.put(
 );
 
 /**
+ * @route   DELETE /api/tasks/batch
+ * @desc    Batch delete tasks
+ * @access  Private
+ */
+router.delete(
+  '/batch',
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Task IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each task ID must be a valid UUID'),
+  ],
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const { ids } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await taskService.deleteTask(id, userId);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch delete completed: ${results.success} succeeded, ${results.failed} failed`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   POST /api/tasks/batch/cancel
+ * @desc    Batch cancel tasks
+ * @access  Private
+ */
+router.post(
+  '/batch/cancel',
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Task IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each task ID must be a valid UUID'),
+  ],
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const { ids } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await taskService.cancelTask(id, userId);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch cancel completed: ${results.success} succeeded, ${results.failed} failed`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
  * @route   POST /api/tasks/:id/cancel
  * @desc    Cancel a task
  * @access  Private
@@ -319,51 +409,6 @@ router.post(
 );
 
 /**
- * @route   DELETE /api/tasks/batch
- * @desc    Batch delete tasks
- * @access  Private
- */
-router.delete(
-  '/batch',
-  [
-    body('ids').isArray({ min: 1 }).withMessage('Task IDs must be an array with at least one ID'),
-    body('ids.*').isUUID().withMessage('Each task ID must be a valid UUID'),
-  ],
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const { ids } = req.body;
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as Array<{ id: string; error: string }>,
-      };
-
-      for (const id of ids) {
-        try {
-          await taskService.deleteTask(id, userId);
-          results.success++;
-        } catch (error: any) {
-          results.failed++;
-          results.errors.push({ id, error: error.message });
-        }
-      }
-
-      res.json({
-        success: true,
-        data: results,
-        message: `Batch delete completed: ${results.success} succeeded, ${results.failed} failed`,
-      });
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        error: error.message,
-      });
-    }
-  }
-);
-
-/**
  * @route   PATCH /api/tasks/batch/status
  * @desc    Batch update task status
  * @access  Private/Manager
@@ -399,51 +444,6 @@ router.patch(
         success: true,
         data: results,
         message: `Batch status update completed: ${results.success} succeeded, ${results.failed} failed`,
-      });
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        error: error.message,
-      });
-    }
-  }
-);
-
-/**
- * @route   POST /api/tasks/batch/cancel
- * @desc    Batch cancel tasks
- * @access  Private
- */
-router.post(
-  '/batch/cancel',
-  [
-    body('ids').isArray({ min: 1 }).withMessage('Task IDs must be an array with at least one ID'),
-    body('ids.*').isUUID().withMessage('Each task ID must be a valid UUID'),
-  ],
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const { ids } = req.body;
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as Array<{ id: string; error: string }>,
-      };
-
-      for (const id of ids) {
-        try {
-          await taskService.cancelTask(id, userId);
-          results.success++;
-        } catch (error: any) {
-          results.failed++;
-          results.errors.push({ id, error: error.message });
-        }
-      }
-
-      res.json({
-        success: true,
-        data: results,
-        message: `Batch cancel completed: ${results.success} succeeded, ${results.failed} failed`,
       });
     } catch (error: any) {
       res.status(400).json({

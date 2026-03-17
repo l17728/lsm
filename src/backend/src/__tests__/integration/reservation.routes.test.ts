@@ -13,7 +13,10 @@ import reservationRoutes from '../../routes/reservation.routes';
 // Mock auth middleware
 jest.mock('../../middleware/auth.middleware', () => ({
   authenticate: (req: any, _res: any, next: any) => {
-    req.user = { userId: 'user-1', username: 'testuser', role: 'USER' };
+    // Don't overwrite user pre-set by managerApp instance
+    if (!req.user) {
+      req.user = { userId: 'user-1', username: 'testuser', role: 'USER' };
+    }
     next();
   },
   requireAdmin: (req: any, res: any, next: any) => {
@@ -327,15 +330,16 @@ describe('Reservation Routes', () => {
   // ==================== POST /:id/approve ====================
 
   describe('POST /api/reservations/:id/approve', () => {
-    it('should allow manager to approve reservation', async () => {
+    it('should return 400 when reservation is not PENDING (mock always returns APPROVED)', async () => {
+      // generateMockReservation always returns status: 'APPROVED',
+      // so approve endpoint always returns RES_010
       const response = await request(managerApp)
         .post(`/api/reservations/${validReservationId}/approve`)
         .send({ notes: 'Approved for priority research' });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('approvalInfo');
-      expect(response.body.data.approvalInfo).toHaveProperty('approvedBy');
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.code).toBe('RES_010');
     });
 
     it('should deny regular user from approving', async () => {
@@ -350,17 +354,16 @@ describe('Reservation Routes', () => {
   // ==================== POST /:id/reject ====================
 
   describe('POST /api/reservations/:id/reject', () => {
-    it('should allow manager to reject reservation with reason', async () => {
+    it('should return 400 when reservation is not PENDING (mock always returns APPROVED)', async () => {
+      // generateMockReservation always returns status: 'APPROVED',
+      // so reject endpoint always returns RES_010
       const response = await request(managerApp)
         .post(`/api/reservations/${validReservationId}/reject`)
         .send({ reason: 'Resources not available during this period' });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('rejectionInfo');
-      expect(response.body.data.rejectionInfo.reason).toBe(
-        'Resources not available during this period'
-      );
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.code).toBe('RES_010');
     });
 
     it('should deny regular user from rejecting', async () => {

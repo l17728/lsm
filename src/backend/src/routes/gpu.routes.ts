@@ -219,27 +219,6 @@ router.post('/allocations/:id/terminate', async (req: AuthRequest, res) => {
 });
 
 /**
- * @route   DELETE /api/gpu/:id
- * @desc    Delete a GPU (admin)
- * @access  Private/Admin
- */
-router.delete('/:id', requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.gpu.delete({ where: { id } });
-    res.json({
-      success: true,
-      message: 'GPU deleted successfully',
-    });
-  } catch (error: any) {
-    res.status(400).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-/**
  * @route   DELETE /api/gpu/batch
  * @desc    Batch delete GPUs (admin)
  * @access  Private/Admin
@@ -283,6 +262,27 @@ router.delete(
     }
   }
 );
+
+/**
+ * @route   DELETE /api/gpu/:id
+ * @desc    Delete a GPU (admin)
+ * @access  Private/Admin
+ */
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.gpu.delete({ where: { id } });
+    res.json({
+      success: true,
+      message: 'GPU deleted successfully',
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
 
 /**
  * @route   PATCH /api/gpu/:id/allocated

@@ -24,7 +24,10 @@ jest.mock('../../services/gpu.service', () => ({
 // Mock auth middleware
 jest.mock('../../middleware/auth.middleware', () => ({
   authenticate: (req: any, _res: any, next: any) => {
-    req.user = { userId: 'user-1', username: 'testuser', role: 'USER' };
+    // Don't overwrite user pre-set by adminApp/managerApp instances
+    if (!req.user) {
+      req.user = { userId: 'user-1', username: 'testuser', role: 'USER' };
+    }
     next();
   },
   requireAdmin: (req: any, res: any, next: any) => {
