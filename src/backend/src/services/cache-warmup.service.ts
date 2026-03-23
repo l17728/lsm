@@ -22,6 +22,7 @@ export interface WarmupItem {
   key: string;
   type: 'servers' | 'gpus' | 'tasks' | 'users' | 'metrics';
   filter?: Record<string, any>;
+  /** TTL in **seconds** (passed directly to Redis SETEX) */
   ttl?: number;
   priority: number; // Lower = higher priority
 }
@@ -42,7 +43,7 @@ export interface WarmupStats {
 
 /**
  * Cache Warmup Service
- * 
+ *
  * Implements intelligent cache warming strategies:
  * - Startup warmup
  * - Scheduled warmup
@@ -146,6 +147,9 @@ export class CacheWarmupService {
 
   /**
    * Warmup a single item
+   *
+   * Fix: TTL default was 300000 (treated by Redis as 300,000 **seconds** = ~3.47 days).
+   * Corrected to 300 seconds (5 minutes).
    */
   private async warmupItem(item: WarmupItem): Promise<void> {
     const startTime = Date.now();
@@ -172,11 +176,13 @@ export class CacheWarmupService {
     }
 
     if (data) {
-      const ttl = item.ttl || 300000; // Default 5 minutes
+      // Fix: default TTL is 300 seconds (5 minutes), not 300000
+      // cacheService.set() passes this value directly to redis.setex() which expects seconds
+      const ttl = item.ttl || 300;
       await cacheService.set(item.key, data, ttl);
-      
+
       const duration = Date.now() - startTime;
-      console.log(`[CacheWarmup] ✓ ${item.key} cached (${duration}ms, TTL: ${ttl}ms)`);
+      console.log(`[CacheWarmup] ✓ ${item.key} cached (${duration}ms, TTL: ${ttl}s)`);
     }
   }
 
@@ -268,7 +274,7 @@ export class CacheWarmupService {
     }
 
     const interval = this.config.warmupIntervalMinutes * 60 * 1000;
-    
+
     this.warmupTimer = setTimeout(async () => {
       await this.performWarmup();
       this.scheduleWarmup();

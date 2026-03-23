@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Tag, Spin, Alert } from 'antd'
+import { Card, Row, Col, Statistic, Tag, Spin, Alert, message } from 'antd'
 import {
   ApiOutlined,
   RocketOutlined,
   ClockCircleOutlined,
   UserOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
 } from '@ant-design/icons'
 
 // Icon aliases for compatibility
@@ -24,7 +22,6 @@ const Dashboard: React.FC = () => {
   const [taskStats, setTaskStats] = useState<any>(null)
   const [clusterStats, setClusterStats] = useState<any>(null)
   const [alerts, setAlerts] = useState<any[]>([])
-  const [recentTasks, setRecentTasks] = useState<any[]>([])
   const [metricsData, setMetricsData] = useState<any[]>([])
 
   useEffect(() => {
@@ -46,9 +43,18 @@ const Dashboard: React.FC = () => {
     }
   }, [])
 
+  /**
+   * Load dashboard data using Promise.allSettled so that each request is
+   * independent. Previously Promise.all was used: if any single request failed,
+   * ALL data was lost. Now each module degrades independently.
+   *
+   * Fix: replaced Promise.all (all-or-nothing) with Promise.allSettled
+   * (each request succeeds or fails independently).
+   */
   const loadData = async () => {
+    setLoading(true)
     try {
-      const [serverRes, gpuRes, taskRes, clusterRes, alertsRes] = await Promise.all([
+      const [serverRes, gpuRes, taskRes, clusterRes, alertsRes] = await Promise.allSettled([
         serverApi.getStats(),
         gpuApi.getStats(),
         taskApi.getStats(),
@@ -56,16 +62,44 @@ const Dashboard: React.FC = () => {
         monitoringApi.getAlerts(),
       ])
 
-      setServerStats(serverRes.data.data)
-      setGpuStats(gpuRes.data.data)
-      setTaskStats(taskRes.data.data)
-      setClusterStats(clusterRes.data.data)
-      setAlerts(alertsRes.data.data)
+      if (serverRes.status === 'fulfilled') {
+        setServerStats(serverRes.value.data.data)
+      } else {
+        console.error('[Dashboard] Failed to load server stats:', serverRes.reason)
+        message.error('服务器统计数据加载失败，请刷新重试')
+      }
+
+      if (gpuRes.status === 'fulfilled') {
+        setGpuStats(gpuRes.value.data.data)
+      } else {
+        console.error('[Dashboard] Failed to load GPU stats:', gpuRes.reason)
+        message.error('GPU 统计数据加载失败，请刷新重试')
+      }
+
+      if (taskRes.status === 'fulfilled') {
+        setTaskStats(taskRes.value.data.data)
+      } else {
+        console.error('[Dashboard] Failed to load task stats:', taskRes.reason)
+        message.error('任务统计数据加载失败，请刷新重试')
+      }
+
+      if (clusterRes.status === 'fulfilled') {
+        setClusterStats(clusterRes.value.data.data)
+      } else {
+        console.error('[Dashboard] Failed to load cluster stats:', clusterRes.reason)
+        message.error('集群统计数据加载失败，请刷新重试')
+      }
+
+      if (alertsRes.status === 'fulfilled') {
+        setAlerts(alertsRes.value.data.data)
+      } else {
+        console.error('[Dashboard] Failed to load alerts:', alertsRes.reason)
+        // Alerts failure is non-critical; silently default to empty
+        setAlerts([])
+      }
 
       // Generate sample metrics data for charts
       generateMetricsData()
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error)
     } finally {
       setLoading(false)
     }
@@ -85,34 +119,6 @@ const Dashboard: React.FC = () => {
     }
     setMetricsData(data)
   }
-
-  const taskColumns = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => {
-        const colorMap: Record<string, string> = {
-          PENDING: 'default',
-          RUNNING: 'processing',
-          COMPLETED: 'success',
-          FAILED: 'error',
-          CANCELLED: 'warning',
-        }
-        return <Tag color={colorMap[status] || 'default'}>{status}</Tag>
-      },
-    },
-    {
-      title: 'Priority',
-      dataIndex: 'priority',
-      key: 'priority',
-    },
-  ]
 
   if (loading) {
     return (

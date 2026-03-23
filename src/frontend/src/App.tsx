@@ -1,26 +1,40 @@
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Layout, ConfigProvider, theme as antTheme } from 'antd'
-import { useState, useEffect } from 'react'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Servers from './pages/Servers'
-import GPUs from './pages/GPUs'
-import Tasks from './pages/Tasks'
-import Monitoring from './pages/Monitoring'
-import Analytics from './pages/Analytics'
-import Users from './pages/Users'
-import Reservations from './pages/Reservations'
-import ReservationForm from './pages/ReservationForm'
-import MyReservations from './pages/MyReservations'
-import ChatPage from './pages/ChatPage'
-import DocsPage from './pages/DocsPage'
-import FeedbackPage from './pages/FeedbackPage'
-import RequirementsPage from './pages/RequirementsPage'
-import Sidebar from './components/Sidebar'
-import Header from './components/Header'
+import { Layout, ConfigProvider, theme as antTheme, Spin } from 'antd'
 import { useAuthStore } from './store/authStore'
 
+// Fix: All page components now use React.lazy() for code-splitting.
+// Previously all pages were statically imported, causing every page's code to be
+// bundled together and downloaded on first load, making the initial page load very slow.
+// With lazy loading, each page's code is only downloaded when the user navigates to it.
+const Login           = lazy(() => import('./pages/Login'))
+const Dashboard       = lazy(() => import('./pages/Dashboard'))
+const Servers         = lazy(() => import('./pages/Servers'))
+const GPUs            = lazy(() => import('./pages/GPUs'))
+const Tasks           = lazy(() => import('./pages/Tasks'))
+const Monitoring      = lazy(() => import('./pages/Monitoring'))
+const Analytics       = lazy(() => import('./pages/Analytics'))
+const Users           = lazy(() => import('./pages/Users'))
+const Reservations    = lazy(() => import('./pages/Reservations'))
+const ReservationForm = lazy(() => import('./pages/ReservationForm'))
+const MyReservations  = lazy(() => import('./pages/MyReservations'))
+const ChatPage        = lazy(() => import('./pages/ChatPage'))
+const DocsPage        = lazy(() => import('./pages/DocsPage'))
+const FeedbackPage    = lazy(() => import('./pages/FeedbackPage'))
+const RequirementsPage = lazy(() => import('./pages/RequirementsPage'))
+
+// Non-lazy: Sidebar and Header are always shown when authenticated, no benefit in splitting
+import Sidebar from './components/Sidebar'
+import Header from './components/Header'
+
 const { Content } = Layout
+
+/** Fallback shown while a lazy page chunk is being downloaded */
+const PageLoading = (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+    <Spin size="large" tip="页面加载中..." />
+  </div>
+)
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -39,34 +53,38 @@ function App() {
   return (
     <ConfigProvider theme={{ algorithm: isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm }}>
       {!isAuthenticated ? (
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        <Suspense fallback={PageLoading}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Suspense>
       ) : (
         <Layout style={{ minHeight: '100vh' }}>
           <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
           <Layout>
             <Header collapsed={collapsed} setCollapsed={setCollapsed} />
             <Content style={{ margin: '16px', padding: 24, borderRadius: 8 }}>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/servers" element={<Servers />} />
-                <Route path="/gpus" element={<GPUs />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/monitoring" element={<Monitoring />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/reservations" element={<Reservations />} />
-                <Route path="/reservations/new" element={<ReservationForm />} />
-                <Route path="/reservations/mine" element={<MyReservations />} />
-                <Route path="/chat" element={<ChatPage />} />
-                <Route path="/docs" element={<DocsPage />} />
-                <Route path="/feedback" element={<FeedbackPage />} />
-                <Route path="/requirements" element={<RequirementsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Suspense fallback={PageLoading}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/servers" element={<Servers />} />
+                  <Route path="/gpus" element={<GPUs />} />
+                  <Route path="/tasks" element={<Tasks />} />
+                  <Route path="/monitoring" element={<Monitoring />} />
+                  <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/users" element={<Users />} />
+                  <Route path="/reservations" element={<Reservations />} />
+                  <Route path="/reservations/new" element={<ReservationForm />} />
+                  <Route path="/reservations/mine" element={<MyReservations />} />
+                  <Route path="/chat" element={<ChatPage />} />
+                  <Route path="/docs" element={<DocsPage />} />
+                  <Route path="/feedback" element={<FeedbackPage />} />
+                  <Route path="/requirements" element={<RequirementsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
             </Content>
           </Layout>
         </Layout>

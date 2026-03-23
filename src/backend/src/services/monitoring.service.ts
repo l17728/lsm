@@ -17,8 +17,12 @@ export class MonitoringService {
   /**
    * Collect metrics from all online servers
    * In production, this would call actual monitoring agents on each server
+   *
+   * Fix: Eliminated N+1 query - no longer calls findUnique inside the loop.
+   * Instead, reuses the server object already fetched by findMany.
    */
   async collectMetrics() {
+    const startTime = Date.now();
     const servers = await prisma.server.findMany({
       where: {
         status: ServerStatus.ONLINE,
@@ -28,17 +32,23 @@ export class MonitoringService {
       },
     });
 
+    console.log(`[Monitoring] collectMetrics start, servers=${servers.length}`);
+
     const results: ServerHealth[] = [];
 
     for (const server of servers) {
       try {
-        // Simulate metrics collection
-        // In production, this would be an API call to the server's monitoring agent
-        const metrics = await this.collectServerMetrics(server.id);
+        // Fix: pass the already-fetched server object directly - no redundant findUnique
+        const metrics = this.collectServerMetricsFromData(server);
 
         if (metrics) {
           // Record metrics to database
           await serverService.recordMetrics(server.id, metrics);
+
+          console.log(
+            `[Monitoring] collected serverId=${server.id} name=${server.name} ` +
+            `cpu=${metrics.cpuUsage} mem=${metrics.memoryUsage} gpu=${metrics.gpuUsage ?? 'N/A'} temp=${metrics.temperature ?? 'N/A'}`
+          );
 
           results.push({
             serverId: server.id,
@@ -52,33 +62,24 @@ export class MonitoringService {
           });
         }
       } catch (error) {
-        console.error(`Failed to collect metrics from server ${server.name}:`, error);
-
-        // Mark server as error if multiple failures
-        // (simplified logic for demo)
+        console.error(`[Monitoring][ERROR] failed to collect metrics from server id=${server.id} name=${server.name}:`, error);
+        // Mark server as error if multiple failures (simplified logic for demo)
       }
     }
 
+    const duration = Date.now() - startTime;
+    console.log(`[Monitoring] collectMetrics done, collected=${results.length}/${servers.length}, duration=${duration}ms`);
     return results;
   }
 
   /**
-   * Collect metrics for a specific server
-   * This is a simulation - in production would call actual monitoring endpoint
+   * Collect metrics for a specific server using an already-fetched server object.
+   * This avoids the N+1 redundant findUnique call.
+   * In production, this would call actual monitoring endpoint on the server.
    */
-  private async collectServerMetrics(serverId: string) {
-    const server = await prisma.server.findUnique({
-      where: { id: serverId },
-      include: {
-        gpus: true,
-      },
-    });
-
-    if (!server) {
-      return null;
-    }
-
+  private collectServerMetricsFromData(server: { id: string; gpus: any[] }) {
     // Simulate realistic metrics
+    // In production, this would be an HTTP call to the server's monitoring agent
     const cpuUsage = Math.random() * 100;
     const memoryUsage = Math.random() * 100;
     const gpuUsage = server.gpus.length > 0 ? Math.random() * 100 : undefined;
@@ -112,6 +113,8 @@ export class MonitoringService {
       },
     });
 
+    console.log(`[Monitoring] getServerHealth servers=${servers.length}`);
+
     const health: ServerHealth[] = servers.map((server) => {
       const latestMetric = server.metrics[0];
 
@@ -134,6 +137,7 @@ export class MonitoringService {
    * Get aggregated cluster statistics
    */
   async getClusterStats() {
+    const startTime = Date.now();
     const servers = await prisma.server.findMany({
       include: {
         gpus: true,
@@ -163,6 +167,12 @@ export class MonitoringService {
       onlineServers.reduce((sum, s) => sum + Number(s.metrics[0]?.gpuUsage ?? 0), 0) /
       (onlineServers.length || 1);
 
+    const duration = Date.now() - startTime;
+    console.log(
+      `[Monitoring] getClusterStats total=${servers.length} online=${onlineServers.length} ` +
+      `gpus=${totalGpus} available=${availableGpus} duration=${duration}ms`
+    );
+
     return {
       servers: {
         total: servers.length,
@@ -188,6 +198,8 @@ export class MonitoringService {
    * Get metrics for a specific time range
    */
   async getMetricsRange(serverId: string, startTime: Date, endTime: Date) {
+    console.log(`[Monitoring] getMetricsRange serverId=${serverId} from=${startTime.toISOString()} to=${endTime.toISOString()}`);
+
     const metrics = await prisma.serverMetric.findMany({
       where: {
         serverId,
@@ -199,6 +211,7 @@ export class MonitoringService {
       orderBy: { recordedAt: 'asc' },
     });
 
+    console.log(`[Monitoring] getMetricsRange serverId=${serverId} rows=${metrics.length}`);
     return metrics;
   }
 
@@ -280,6 +293,10 @@ export class MonitoringService {
         });
       }
     });
+
+    if (alerts.length > 0) {
+      console.warn(`[Monitoring] getAlerts found ${alerts.length} alerts`);
+    }
 
     return alerts;
   }

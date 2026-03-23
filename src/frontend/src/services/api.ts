@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
 const API_BASE_URL = '/api'
@@ -25,14 +25,60 @@ apiClient.interceptors.request.use(
   }
 )
 
-// Response interceptor to handle errors
+/**
+ * Retry a failed request with exponential back-off.
+ *
+ * Only network errors (no response) or 5xx server errors are retried.
+ * 4xx client errors (401, 403, 404…) are NOT retried — those are permanent failures.
+ */
+const MAX_RETRIES = 2
+const RETRY_DELAYS_MS = [500, 1000] // wait 500 ms, then 1000 ms
+
+function shouldRetry(error: AxiosError): boolean {
+  if (!error.response) {
+    // Network error (ECONNREFUSED, timeout, etc.)
+    return true
+  }
+  const status = error.response.status
+  // Retry on 5xx server errors only
+  return status >= 500
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// Response interceptor to handle errors and retry logic
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error: AxiosError) => {
+    // Handle 401 – immediately logout, no retry
     if (error.response?.status === 401) {
       useAuthStore.getState().logout()
       window.location.href = '/login'
+      return Promise.reject(error)
     }
+
+    const config = error.config as AxiosRequestConfig & { _retryCount?: number }
+
+    // Initialise retry counter on the request config
+    if (config._retryCount === undefined) {
+      config._retryCount = 0
+    }
+
+    if (shouldRetry(error) && config._retryCount < MAX_RETRIES) {
+      config._retryCount++
+      const delayMs = RETRY_DELAYS_MS[config._retryCount - 1] ?? 1000
+
+      console.warn(
+        `[API] retry attempt ${config._retryCount}/${MAX_RETRIES} for ${config.method?.toUpperCase()} ${config.url} ` +
+        `(waiting ${delayMs}ms, reason: ${error.message})`
+      )
+
+      await sleep(delayMs)
+      return apiClient(config)
+    }
+
     return Promise.reject(error)
   }
 )

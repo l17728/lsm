@@ -66,6 +66,11 @@ const COST_RATES = {
   networkPerGb: 0.05,        // $0.05 per GB network transfer
 };
 
+// Maximum rows to fetch for resource trends to avoid OOM
+// 7 days × 10 servers × 60 min/hr × 24 hr ≈ 100,800 raw rows
+// After hourly grouping this is far fewer; cap at 10,000 raw rows as safety guard
+const RESOURCE_TRENDS_MAX_ROWS = 10000;
+
 // Helper to get server specs from metadata or defaults
 function getServerSpecs(server: any): { cpuCores: number; totalMemory: number } {
   const metadata = server.metadata as any || {};
@@ -78,22 +83,35 @@ function getServerSpecs(server: any): { cpuCores: number; totalMemory: number } 
 export class AnalyticsService {
   /**
    * Get analytics summary for dashboard
+   *
+   * Fix: metrics include now uses take:1 to avoid loading full 7-day history
+   * for every server in a single JOIN.
    */
   async getSummary(startTime?: Date, endTime?: Date): Promise<AnalyticsSummary> {
+    const start = startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const end = endTime || new Date();
+    const queryStart = Date.now();
+
     const servers = await prisma.server.findMany({
       include: {
         gpus: true,
         metrics: {
           where: {
             recordedAt: {
-              gte: startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-              lte: endTime || new Date(),
+              gte: start,
+              lte: end,
             },
           },
           orderBy: { recordedAt: 'desc' },
+          // Fix: only need the most recent metric per server for current utilization
+          take: 1,
         },
       },
     });
+
+    console.log(
+      `[Analytics] getSummary servers=${servers.length} range=${start.toISOString()}~${end.toISOString()} duration=${Date.now() - queryStart}ms`
+    );
 
     // Calculate total cost
     let totalCost = 0;
@@ -118,7 +136,7 @@ export class AnalyticsService {
           const cpuUtil = Number(latestMetric.cpuUsage || 0);
           const memUtil = Number(latestMetric.memoryUsage || 0);
           const gpuUtil = latestMetric.gpuUsage ? Number(latestMetric.gpuUsage) : 0;
-          
+
           const avgUtil = (cpuUtil + memUtil + (server.gpus.length > 0 ? gpuUtil : cpuUtil)) / (server.gpus.length > 0 ? 3 : 2);
           totalUtilization += avgUtil;
 
@@ -155,14 +173,14 @@ export class AnalyticsService {
     const maxPossibleCost = servers.reduce((sum, s) => {
       if (s.status === ServerStatus.ONLINE) {
         const specs = getServerSpecs(s);
-        return sum + 
+        return sum +
           specs.cpuCores * COST_RATES.cpuPerCoreHour * 24 * 7 +
           specs.totalMemory * COST_RATES.memoryPerGbHour * 24 * 7 +
           s.gpus.length * COST_RATES.gpuPerHour * 24 * 7;
       }
       return sum;
     }, 0);
-    
+
     const savings = maxPossibleCost * (1 - avgUtilization / 100) * 0.3; // 30% of unused resources as savings
 
     return {
@@ -182,10 +200,14 @@ export class AnalyticsService {
 
   /**
    * Get resource usage trends over time
+   *
+   * Fix: Added take: RESOURCE_TRENDS_MAX_ROWS (10000) to prevent loading
+   * hundreds of thousands of rows into memory when the metrics table is large.
    */
   async getResourceTrends(startTime?: Date, endTime?: Date): Promise<ResourceTrendPoint[]> {
     const start = startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const end = endTime || new Date();
+    const queryStart = Date.now();
 
     const metrics = await prisma.serverMetric.findMany({
       where: {
@@ -195,7 +217,14 @@ export class AnalyticsService {
         },
       },
       orderBy: { recordedAt: 'asc' },
+      // Fix: cap rows to avoid OOM on large datasets
+      take: RESOURCE_TRENDS_MAX_ROWS,
     });
+
+    console.log(
+      `[Analytics] getResourceTrends range=${start.toISOString()}~${end.toISOString()} ` +
+      `rows=${metrics.length}(max=${RESOURCE_TRENDS_MAX_ROWS}) duration=${Date.now() - queryStart}ms`
+    );
 
     // Group metrics by hour
     const hourlyData = new Map<string, {
@@ -209,7 +238,7 @@ export class AnalyticsService {
     for (const metric of metrics) {
       if (!metric.recordedAt) continue;
       const hourKey = new Date(metric.recordedAt).toISOString().slice(0, 13) + ':00:00.000Z';
-      
+
       if (!hourlyData.has(hourKey)) {
         hourlyData.set(hourKey, { cpu: [], memory: [], gpu: [], network: [], disk: [] });
       }
@@ -228,7 +257,7 @@ export class AnalyticsService {
     const trends: ResourceTrendPoint[] = [];
     for (const [time, data] of hourlyData) {
       const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-      
+
       trends.push({
         time: new Date(time).toLocaleString('zh-CN', {
           month: 'short',
@@ -244,6 +273,7 @@ export class AnalyticsService {
       });
     }
 
+    console.log(`[Analytics] getResourceTrends aggregated to ${trends.length} hourly buckets`);
     return trends.length > 0 ? trends : this.generateMockTrends(start, end);
   }
 
@@ -277,11 +307,11 @@ export class AnalyticsService {
       if (server.status === ServerStatus.ONLINE) {
         const specs = getServerSpecs(server);
         const hours = 7 * 24; // Weekly cost
-        
+
         cpuCost += specs.cpuCores * COST_RATES.cpuPerCoreHour * hours;
         memoryCost += specs.totalMemory * COST_RATES.memoryPerGbHour * hours;
         gpuCost += server.gpus.length * COST_RATES.gpuPerHour * hours;
-        
+
         // Estimate network and storage
         const metric = server.metrics[0];
         if (metric) {
@@ -353,11 +383,11 @@ export class AnalyticsService {
     const utilization: ServerUtilization[] = servers.map((server) => {
       const latestMetric = server.metrics[0];
       const specs = getServerSpecs(server);
-      
+
       const cpuUsage = latestMetric ? Number(latestMetric.cpuUsage || 0) : 0;
       const memoryUsage = latestMetric ? Number(latestMetric.memoryUsage || 0) : 0;
       const gpuUsage = latestMetric?.gpuUsage ? Number(latestMetric.gpuUsage) : null;
-      
+
       // Calculate overall utilization (weighted average)
       const util = server.gpus.length > 0
         ? (cpuUsage * 0.3 + memoryUsage * 0.3 + (gpuUsage || 0) * 0.4)
@@ -365,7 +395,7 @@ export class AnalyticsService {
 
       // Calculate cost
       const hours = 7 * 24;
-      const cost = 
+      const cost =
         specs.cpuCores * COST_RATES.cpuPerCoreHour * hours +
         specs.totalMemory * COST_RATES.memoryPerGbHour * hours +
         server.gpus.length * COST_RATES.gpuPerHour * hours;
@@ -396,10 +426,10 @@ export class AnalyticsService {
    */
   async getEfficiencyReport(): Promise<EfficiencyReport> {
     const utilization = await this.getServerUtilization();
-    
+
     const serverEfficiency = utilization.map((server) => {
       const recommendations: string[] = [];
-      
+
       if (server.cpuUsage < 40) {
         recommendations.push('Low CPU usage - consider consolidating workloads');
       }
@@ -440,7 +470,7 @@ export class AnalyticsService {
     const trends: ResourceTrendPoint[] = [];
     const duration = endTime.getTime() - startTime.getTime();
     const hours = Math.min(Math.floor(duration / (60 * 60 * 1000)), 168); // Max 168 hours (7 days)
-    
+
     for (let i = hours; i >= 0; i -= Math.max(1, Math.floor(hours / 48))) {
       const time = new Date(endTime.getTime() - i * 60 * 60 * 1000);
       trends.push({

@@ -18,7 +18,7 @@ export class CacheService {
     healthCheck: 30,                  // 30 seconds (frequent checks)
     default: 3600,                    // 1 hour
   };
-  
+
   // Cache warming configuration (Day 7)
   private warmupKeys = [
     'list:users:all',
@@ -26,7 +26,7 @@ export class CacheService {
     'list:gpus:all',
     'list:tasks:all',
   ];
-  
+
   private hits: number = 0;
   private misses: number = 0;
   private size: number = 0;
@@ -186,7 +186,9 @@ export class CacheService {
    * Cache list data with optimized TTL
    */
   async cacheList(type: 'users' | 'servers' | 'tasks' | 'gpus', data: any): Promise<boolean> {
-    const ttl = this.ttlConfig[`${type}List` as keyof typeof this.ttlConfig] || this.ttlConfig.default;
+    // TTL config keys use singular form: userList, serverList, taskList, gpuList
+    const singular = type.replace(/s$/, ''); // 'users' → 'user', 'servers' → 'server'
+    const ttl = this.ttlConfig[`${singular}List` as keyof typeof this.ttlConfig] || this.ttlConfig.default;
     return this.set(`list:${type}:all`, data, ttl);
   }
 
@@ -300,16 +302,34 @@ export class CacheService {
 
   /**
    * Invalidate specific cache pattern (Day 7)
+   *
+   * Fix: Replaced `KEYS` (O(N) blocking scan) with `SCAN` (non-blocking iteration).
+   * `KEYS` blocks the entire Redis server during scan; `SCAN` iterates in small
+   * batches and is safe to use in production.
    */
   async invalidatePattern(pattern: string): Promise<number> {
-    const keys = await this.redis.keys(pattern);
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
-      this.size = Math.max(0, this.size - keys.length);
-      console.log(`[Cache] Invalidated ${keys.length} keys matching pattern: ${pattern}`);
-      return keys.length;
+    const startTime = Date.now();
+    const matchedKeys: string[] = [];
+
+    let cursor = '0';
+    do {
+      // SCAN count:100 means "try to return ~100 keys per call" (approximate)
+      const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      matchedKeys.push(...keys);
+    } while (cursor !== '0');
+
+    if (matchedKeys.length > 0) {
+      await this.redis.del(...matchedKeys);
+      this.size = Math.max(0, this.size - matchedKeys.length);
     }
-    return 0;
+
+    const duration = Date.now() - startTime;
+    console.log(
+      `[Cache] invalidatePattern pattern=${pattern} found=${matchedKeys.length} keys duration=${duration}ms`
+    );
+
+    return matchedKeys.length;
   }
 
   /**

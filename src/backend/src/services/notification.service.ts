@@ -62,7 +62,7 @@ export interface NotificationPreferences {
 
 /**
  * Notification Service
- * 
+ *
  * Handles alert notifications across multiple channels:
  * - Email notifications
  * - DingTalk webhook notifications
@@ -78,7 +78,7 @@ export class NotificationService {
     this.emailService = new EmailService();
     this.emailTemplateService = new EmailTemplateService();
     this.dingtalkWebhookUrl = process.env.DINGTALK_WEBHOOK_URL || '';
-    
+
     this.preferences = {
       emailEnabled: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
       dingtalkEnabled: !!this.dingtalkWebhookUrl,
@@ -223,8 +223,12 @@ export class NotificationService {
 
   /**
    * Save notification to database
+   *
+   * Fix: Replaced the serial `for...await` loop (N individual INSERTs) with a
+   * single `createMany()` call. This reduces DB round-trips from N to 1.
    */
   private async saveNotificationToDatabase(notification: AlertNotification): Promise<void> {
+    const startTime = Date.now();
     try {
       // Get all admin users as recipients
       const adminUsers = await prisma.user.findMany({
@@ -238,20 +242,25 @@ export class NotificationService {
         },
       });
 
-      for (const user of adminUsers) {
-        await prisma.emailNotification.create({
-          data: {
-            userId: user.id,
-            type: notification.type,
-            subject: notification.title,
-            body: notification.message,
-            status: 'SENT',
-            sentAt: new Date(),
-          },
-        });
+      if (adminUsers.length === 0) {
+        console.log('[Notification] saveToDb no admin users found, skipping DB write');
+        return;
       }
 
-      console.log('[Notification] Notifications saved to database');
+      // Fix: use createMany() instead of a for...await loop of individual create() calls
+      await prisma.emailNotification.createMany({
+        data: adminUsers.map((user) => ({
+          userId: user.id,
+          type: notification.type,
+          subject: notification.title,
+          body: notification.message,
+          status: 'SENT',
+          sentAt: new Date(),
+        })),
+      });
+
+      const duration = Date.now() - startTime;
+      console.log(`[Notification] saveToDb recipients=${adminUsers.length} duration=${duration}ms`);
     } catch (error) {
       console.error('[Notification] Database save failed:', error);
     }
@@ -304,7 +313,7 @@ ${notification.metadata?.details ? `\n**详情**: ${notification.metadata.detail
     const currentTime = now.getHours() * 60 + now.getMinutes();
     const [startHour, startMin] = this.preferences.quietHours.start.split(':').map(Number);
     const [endHour, endMin] = this.preferences.quietHours.end.split(':').map(Number);
-    
+
     const startTime = startHour * 60 + startMin;
     const endTime = endHour * 60 + endMin;
 

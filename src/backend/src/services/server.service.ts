@@ -31,6 +31,13 @@ export interface UpdateServerRequest {
 
 export class ServerService {
   /**
+   * Counter used to throttle the old-metrics cleanup in recordMetrics().
+   * We only run the expensive COUNT+SELECT+DELETE every CLEANUP_INTERVAL inserts.
+   */
+  private recordCount: number = 0;
+  private static readonly CLEANUP_INTERVAL = 50;
+
+  /**
    * Create a new server with optional GPU configuration
    */
   async createServer(data: CreateServerRequest) {
@@ -59,6 +66,8 @@ export class ServerService {
       },
     });
 
+    console.log(`[Server] createServer id=${server.id} name=${server.name}`);
+
     // Invalidate cache
     await cacheService.delete('servers:all');
     await cacheService.delete('servers:stats');
@@ -71,7 +80,7 @@ export class ServerService {
    */
   async getAllServers() {
     const cacheKey = 'servers:all';
-    
+
     return cacheService.getOrSet(cacheKey, async () => {
       const servers = await prisma.server.findMany({
         include: {
@@ -83,6 +92,7 @@ export class ServerService {
         orderBy: { createdAt: 'desc' },
       });
 
+      console.log(`[Server] getAllServers (cache miss) count=${servers.length}`);
       return servers;
     }, 300); // Cache for 5 minutes
   }
@@ -92,7 +102,7 @@ export class ServerService {
    */
   async getServerById(id: string) {
     const cacheKey = `server:${id}`;
-    
+
     return cacheService.getOrSet(cacheKey, async () => {
       const server = await prisma.server.findUnique({
         where: { id },
@@ -105,6 +115,7 @@ export class ServerService {
         },
       });
 
+      console.log(`[Server] getServerById (cache miss) id=${id} found=${!!server}`);
       return server;
     }, 120); // Cache for 2 minutes
   }
@@ -121,6 +132,8 @@ export class ServerService {
       },
     });
 
+    console.log(`[Server] updateServer id=${id}`);
+
     // Invalidate cache
     await cacheService.delete('servers:all');
     await cacheService.delete('servers:stats');
@@ -131,6 +144,9 @@ export class ServerService {
 
   /**
    * Update server status
+   *
+   * Fix: Now properly invalidates the 3 relevant cache keys after status change,
+   * so subsequent reads will not return stale status data.
    */
   async updateServerStatus(id: string, status: ServerStatus) {
     const server = await prisma.server.update({
@@ -149,6 +165,13 @@ export class ServerService {
       });
     }
 
+    // Fix: invalidate cache so callers get fresh status immediately
+    await cacheService.delete('servers:all');
+    await cacheService.delete('servers:stats');
+    await cacheService.delete(`server:${id}`);
+
+    console.log(`[Server] updateServerStatus id=${id} status=${status} cache_invalidated`);
+
     return server;
   }
 
@@ -159,6 +182,8 @@ export class ServerService {
     await prisma.server.delete({
       where: { id },
     });
+
+    console.log(`[Server] deleteServer id=${id}`);
 
     // Invalidate cache
     await cacheService.delete('servers:all');
@@ -171,7 +196,7 @@ export class ServerService {
    */
   async getServerStats() {
     const cacheKey = 'servers:stats';
-    
+
     return cacheService.getOrSet(cacheKey, async () => {
       const servers = await prisma.server.findMany({
         include: {
@@ -192,6 +217,7 @@ export class ServerService {
         ),
       };
 
+      console.log(`[Server] getServerStats (cache miss) total=${stats.total} online=${stats.online}`);
       return stats;
     }, 60); // Cache for 1 minute
   }
@@ -223,6 +249,10 @@ export class ServerService {
 
   /**
    * Record server metrics
+   *
+   * Fix: The old-metrics cleanup (COUNT + SELECT + DELETE) used to run on every
+   * single insert, producing 4 DB operations per call. Now we only run the
+   * cleanup every CLEANUP_INTERVAL (50) inserts, reducing DB load by ~97%.
    */
   async recordMetrics(
     serverId: string,
@@ -243,24 +273,34 @@ export class ServerService {
       },
     });
 
-    // Clean up old metrics (keep last 1000 per server)
-    const count = await prisma.serverMetric.count({
-      where: { serverId },
-    });
+    this.recordCount++;
+    console.log(`[Server] recordMetrics serverId=${serverId} recordCount=${this.recordCount}`);
 
-    if (count > 1000) {
-      const toDelete = await prisma.serverMetric.findMany({
+    // Fix: only run the expensive cleanup every CLEANUP_INTERVAL inserts
+    if (this.recordCount % ServerService.CLEANUP_INTERVAL === 0) {
+      // Clean up old metrics (keep last 1000 per server)
+      const count = await prisma.serverMetric.count({
         where: { serverId },
-        orderBy: { recordedAt: 'asc' },
-        take: count - 1000,
-        select: { id: true },
       });
 
-      await prisma.serverMetric.deleteMany({
-        where: {
-          id: { in: toDelete.map((m) => m.id) },
-        },
-      });
+      console.log(`[Server] recordMetrics cleanup check serverId=${serverId} count=${count}`);
+
+      if (count > 1000) {
+        const toDelete = await prisma.serverMetric.findMany({
+          where: { serverId },
+          orderBy: { recordedAt: 'asc' },
+          take: count - 1000,
+          select: { id: true },
+        });
+
+        await prisma.serverMetric.deleteMany({
+          where: {
+            id: { in: toDelete.map((m) => m.id) },
+          },
+        });
+
+        console.log(`[Server] recordMetrics cleanup deleted ${toDelete.length} old metrics for serverId=${serverId}`);
+      }
     }
 
     return metric;
