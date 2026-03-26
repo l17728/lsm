@@ -2,4 +2,3 @@
 export { useChat } from './useChat'
 export type { Message, ConnectionStatus } from './useChat'
 export { useKeyboardShortcuts } from './useKeyboardShortcuts'
-export { useTouchGestures } from './useTouchGestures'
