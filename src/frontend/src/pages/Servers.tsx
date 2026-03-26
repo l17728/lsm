@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Alert } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined } from '@ant-design/icons'
-import { serverApi } from '../services/api'
+import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, message, Alert, Card, Row, Col, Typography, Empty, Statistic, Checkbox, Popconfirm } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined, DesktopOutlined, ClusterOutlined, UserOutlined, ClockCircleOutlined, CloseOutlined } from '@ant-design/icons'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { serverApi, clusterApi } from '../services/api'
 import ExportButton from '../components/ExportButton'
 import BatchProgressBar, { BatchProgressItem } from '../components/BatchProgressBar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorDetails, { ErrorDetailItem } from '../components/ErrorDetails'
 import type { ColumnsType } from 'antd/es/table'
+
+const { Title, Text } = Typography
 
 interface Server {
   id: string
@@ -20,6 +23,30 @@ interface Server {
   gpus: any[]
   createdAt: string
   updatedAt: string
+  clusterServers?: any[]
+}
+
+interface Cluster {
+  id: string
+  name: string
+  code: string
+  type: string
+  status: string
+  totalServers: number
+  totalGpus: number
+  totalCpuCores: number
+  totalMemory: number
+  servers?: Array<{
+    server: Server
+    priority: number
+    role?: string
+  }>
+  assignee?: {
+    id: string
+    username: string
+    email: string
+  }
+  assignmentEnd?: string
 }
 
 interface BatchOperationState {
@@ -33,12 +60,63 @@ interface BatchOperationState {
 }
 
 const Servers: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [servers, setServers] = useState<Server[]>([])
   const [modalVisible, setModalVisible] = useState(false)
   const [editingServer, setEditingServer] = useState<Server | null>(null)
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
   const [form] = Form.useForm()
+
+  // Right panel state for cluster drill-down
+  const [drillDownVisible, setDrillDownVisible] = useState(false)
+  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null)
+  const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null)
+  const [clusterLoading, setClusterLoading] = useState(false)
+
+  // Check for drill-down params on mount
+  useEffect(() => {
+    const clusterId = searchParams.get('cluster')
+    const highlightServer = searchParams.get('highlight')
+    
+    if (clusterId) {
+      setSelectedClusterId(clusterId)
+      setDrillDownVisible(true)
+      loadClusterDetail(clusterId)
+    }
+  }, [searchParams])
+
+  // Load cluster detail for drill-down view
+  const loadClusterDetail = async (clusterId: string) => {
+    setClusterLoading(true)
+    try {
+      const response = await clusterApi.getById(clusterId)
+      setSelectedCluster(response.data.data)
+    } catch (error: any) {
+      message.error('加载集群详情失败')
+    } finally {
+      setClusterLoading(false)
+    }
+  }
+
+  // Close drill-down panel
+  const handleCloseDrillDown = () => {
+    setDrillDownVisible(false)
+    setSelectedClusterId(null)
+    setSelectedCluster(null)
+    // Clear URL params
+    searchParams.delete('cluster')
+    searchParams.delete('highlight')
+    setSearchParams(searchParams)
+  }
+
+  // Navigate back to cluster
+  const handleBackToCluster = () => {
+    if (selectedClusterId) {
+      navigate(`/clusters?highlight=${selectedClusterId}`)
+    }
+  }
 
   // Batch operation state
   const [batchState, setBatchState] = useState<BatchOperationState>({
@@ -544,7 +622,18 @@ const Servers: React.FC = () => {
   ]
 
   return (
-    <div>
+    <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 120px)' }}>
+      {/* Left Panel: Server Management */}
+      <div style={{ flex: drillDownVisible ? '0 0 60%' : 1, minWidth: 0, transition: 'flex 0.3s' }}>
+        <Card 
+          title={
+            <Space>
+              <DesktopOutlined />
+              <span>服务器管理</span>
+            </Space>
+          }
+          style={{ height: '100%', overflow: 'auto' }}
+        >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1>Servers</h1>
         <Space>
@@ -752,11 +841,129 @@ const Servers: React.FC = () => {
         onExport={handleExportErrors}
         onClose={() => setErrorDetailsVisible(false)}
       />
+        </Card>
+      </div>
+
+      {/* Right Panel: Cluster Drill-Down View */}
+      {drillDownVisible && (
+        <div style={{ flex: '0 0 38%', minWidth: 0 }}>
+          <Card
+            title={
+              <Space>
+                <ClusterOutlined />
+                <span>集群详情</span>
+              </Space>
+            }
+            extra={
+              <Space>
+                <Button 
+                  size="small" 
+                  onClick={handleBackToCluster}
+                  icon={<ClusterOutlined />}
+                >
+                  返回集群
+                </Button>
+                <Button 
+                  size="small" 
+                  icon={<CloseOutlined />}
+                  onClick={handleCloseDrillDown}
+                />
+              </Space>
+            }
+            style={{ height: '100%', overflow: 'auto' }}
+            loading={clusterLoading}
+          >
+            {selectedCluster ? (
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                {/* Cluster Info */}
+                <div>
+                  <Title level={5}>{selectedCluster.name}</Title>
+                  <Space>
+                    <Tag color={selectedCluster.status === 'AVAILABLE' ? 'green' : 'blue'}>
+                      {selectedCluster.status}
+                    </Tag>
+                    <Tag>{selectedCluster.type}</Tag>
+                  </Space>
+                </div>
+
+                {/* Assignee Info */}
+                {selectedCluster.assignee && (
+                  <div>
+                    <Text type="secondary">使用者: </Text>
+                    <UserOutlined style={{ marginRight: 4 }} />
+                    <Text>{selectedCluster.assignee.username}</Text>
+                    {selectedCluster.assignmentEnd && (
+                      <div>
+                        <ClockCircleOutlined style={{ marginRight: 4 }} />
+                        <Text type="secondary">
+                          至 {new Date(selectedCluster.assignmentEnd).toLocaleString()}
+                        </Text>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Resources */}
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <Card size="small">
+                      <Statistic title="服务器" value={selectedCluster.totalServers} suffix="台" />
+                    </Card>
+                  </Col>
+                  <Col span={12}>
+                    <Card size="small">
+                      <Statistic title="GPU" value={selectedCluster.totalGpus} suffix="块" />
+                    </Card>
+                  </Col>
+                </Row>
+
+                {/* Server Cards */}
+                <Title level={5}>服务器列表</Title>
+                {selectedCluster.servers && selectedCluster.servers.length > 0 ? (
+                  <Row gutter={[8, 8]}>
+                    {selectedCluster.servers.map((s) => (
+                      <Col key={s.server.id} span={24}>
+                        <Card
+                          size="small"
+                          hoverable
+                          style={{
+                            borderColor: searchParams.get('highlight') === s.server.id ? '#1890ff' : undefined,
+                            borderWidth: searchParams.get('highlight') === s.server.id ? 2 : 1,
+                          }}
+                        >
+                          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                              <Text strong>{s.server.name}</Text>
+                              <Tag color={s.server.status === 'ONLINE' ? 'green' : 'default'}>
+                                {s.server.status}
+                              </Tag>
+                            </Space>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {s.server.hostname || s.server.ipAddress}
+                            </Text>
+                            <Space size="small">
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                GPU: {s.server.gpuCount}
+                              </Text>
+                              {s.role && <Tag color="blue" style={{ fontSize: 10 }}>{s.role}</Tag>}
+                            </Space>
+                          </Space>
+                        </Card>
+                      </Col>
+                    ))}
+                  </Row>
+                ) : (
+                  <Empty description="暂无服务器" />
+                )}
+              </Space>
+            ) : (
+              <Empty description="选择一个集群查看详情" />
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
-
-// Import Checkbox and Popconfirm from antd
-import { Checkbox, Popconfirm } from 'antd';
 
 export default Servers

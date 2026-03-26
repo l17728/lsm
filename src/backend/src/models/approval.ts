@@ -232,6 +232,16 @@ export const ROLE_DECISION_MATRIX: Record<UserRole, Record<string, DecisionCateg
     permission: DecisionCategory.NOTIFY,
     system: DecisionCategory.APPROVAL,
   },
+  SUPER_ADMIN: {
+    query: DecisionCategory.AUTO,
+    info: DecisionCategory.AUTO,
+    preference: DecisionCategory.AUTO,
+    task: DecisionCategory.AUTO,
+    reservation: DecisionCategory.AUTO,
+    resource: DecisionCategory.AUTO,
+    permission: DecisionCategory.AUTO,
+    system: DecisionCategory.AUTO,
+  },
 };
 
 /**

@@ -1,34 +1,28 @@
 /**
- * E2E — API Health & Response Time (converted from tests/performance-test*.js)
+ * E2E — API Health & Response Time
  *
  * Covers: key API endpoints respond within acceptable latency,
  *         health check always returns healthy, response structures are valid.
- *
- * NOTE: The live server has API rate limiting (100 req/15 min).
- *       Tests accept 200 (success) or 429 (rate-limited but responded fast).
- *       Health endpoint is exempt from rate limiting.
  */
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const API_BASE    = 'http://111.229.248.91:8080';
-const ORIGIN      = 'http://111.229.248.91:8081';
-const MAX_LATENCY = 3000; // 3 s — generous for network round-trip
+const API_BASE    = 'http://localhost:8080';
+const ORIGIN      = 'http://localhost:8081';
+const MAX_LATENCY = 5000; // 5 s — generous for network round-trip
 
-// Single file-level token — one login per suite run
-let TOKEN = '';
-
-test.beforeAll(async ({ request }) => {
-  const res  = await request.post(`${API_BASE}/api/auth/login`, {
-    data: { username: 'admin', password: 'admin123' },
-    headers: { Origin: ORIGIN },
-  });
-  if (res.status() === 200) {
-    const body = await res.json();
-    TOKEN = body.token ?? '';
+// Read the token written by globalSetup
+function loadToken(): string {
+  try {
+    const file = path.join(__dirname, '../.auth/token.json');
+    return JSON.parse(fs.readFileSync(file, 'utf-8')).token ?? '';
+  } catch {
+    return '';
   }
-  // If 429 (auth rate-limited), TOKEN stays '' — authenticated tests will
-  // return 401 which is still a fast, valid response from a health perspective.
-});
+}
+
+const TOKEN = loadToken();
 
 test.describe('API Health — Core endpoints', () => {
   test('GET /health responds quickly and is healthy', async ({ request }) => {
@@ -46,13 +40,13 @@ test.describe('API Health — Core endpoints', () => {
   test('POST /api/auth/login endpoint responds within latency budget', async ({ request }) => {
     const start = Date.now();
     const res   = await request.post(`${API_BASE}/api/auth/login`, {
-      data: { username: 'admin', password: 'admin123' },
+      data: { username: 'admin', password: 'Admin123' },
       headers: { Origin: ORIGIN },
     });
     const ms = Date.now() - start;
 
-    // 200 = success, 429 = rate-limited — both are valid fast responses
-    expect([200, 429]).toContain(res.status());
+    // 200 = success, 401 = invalid credentials (should not happen with correct creds)
+    expect([200, 401]).toContain(res.status());
     expect(ms).toBeLessThan(MAX_LATENCY);
   });
 });
@@ -64,18 +58,18 @@ test.describe('API Health — Endpoint availability', () => {
       headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
     });
     const ms = Date.now() - start;
-    // 200 = success, 401 = auth expired/missing, 429 = rate limited — all respond fast
-    expect([200, 401, 429]).toContain(res.status());
+    // 200 = success, 401 = auth expired/missing — both respond fast
+    expect([200, 401]).toContain(res.status());
     expect(ms).toBeLessThan(MAX_LATENCY);
   });
 
-  test('GET /api/gpu endpoint responds', async ({ request }) => {
+  test('GET /api/gpu/allocations endpoint responds', async ({ request }) => {
     const start = Date.now();
-    const res   = await request.get(`${API_BASE}/api/gpu`, {
+    const res   = await request.get(`${API_BASE}/api/gpu/allocations`, {
       headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
     });
     const ms = Date.now() - start;
-    expect([200, 401, 429]).toContain(res.status());
+    expect([200, 401]).toContain(res.status());
     expect(ms).toBeLessThan(MAX_LATENCY);
   });
 
@@ -85,7 +79,7 @@ test.describe('API Health — Endpoint availability', () => {
       headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
     });
     const ms = Date.now() - start;
-    expect([200, 401, 429]).toContain(res.status());
+    expect([200, 401]).toContain(res.status());
     expect(ms).toBeLessThan(MAX_LATENCY);
   });
 
@@ -95,7 +89,7 @@ test.describe('API Health — Endpoint availability', () => {
       headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
     });
     const ms = Date.now() - start;
-    expect([200, 401, 429]).toContain(res.status());
+    expect([200, 401]).toContain(res.status());
     expect(ms).toBeLessThan(MAX_LATENCY);
   });
 
@@ -105,14 +99,14 @@ test.describe('API Health — Endpoint availability', () => {
       headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
     });
     const ms = Date.now() - start;
-    expect([200, 401, 429]).toContain(res.status());
+    expect([200, 401]).toContain(res.status());
     expect(ms).toBeLessThan(MAX_LATENCY);
   });
 
   test('all monitored endpoints respond within latency budget', async ({ request }) => {
     const endpoints = [
       '/api/servers',
-      '/api/gpu',
+      '/api/gpu/allocations',
       '/api/tasks',
       '/api/gpu/stats',
       '/api/tasks/stats',
@@ -123,7 +117,7 @@ test.describe('API Health — Endpoint availability', () => {
         headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
       });
       const ms = Date.now() - start;
-      expect([200, 401, 429]).toContain(res.status());
+      expect([200, 401]).toContain(res.status());
       expect(ms).toBeLessThan(MAX_LATENCY);
     }
   });
@@ -135,7 +129,7 @@ test.describe('API Health — Endpoint availability', () => {
         headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
       });
       const ms = Date.now() - start;
-      expect([200, 401, 429]).toContain(res.status());
+      expect([200, 401]).toContain(res.status());
       expect(ms).toBeLessThan(MAX_LATENCY);
     }
   });

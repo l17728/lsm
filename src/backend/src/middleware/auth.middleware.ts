@@ -58,6 +58,23 @@ export const requireAdmin = authorize(UserRole.ADMIN);
 export const requireManager = authorize(UserRole.MANAGER, UserRole.ADMIN);
 
 /**
+ * Convenience middleware for super admin only routes
+ * Super admin has full access to cluster management and resource optimization
+ */
+export const requireSuperAdmin = authorize(UserRole.SUPER_ADMIN);
+
+/**
+ * Convenience middleware for super admin and admin routes
+ */
+export const requireSuperAdminOrAdmin = authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN);
+
+/**
+ * Convenience middleware for resource managers (MANAGER, ADMIN, SUPER_ADMIN)
+ * Resource managers can create and manage resource requests
+ */
+export const requireResourceManager = authorize(UserRole.MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN);
+
+/**
  * Alias for authenticate middleware (backward compatibility)
  */
 export const authMiddleware = authenticate;

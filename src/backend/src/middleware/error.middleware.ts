@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { safeLogger } from './logging.middleware';
 
 /**
  * Application error class
@@ -47,6 +48,7 @@ export interface ErrorResponse {
     message: string;
     details?: any;
     timestamp: string;
+    requestId?: string;
   };
 }
 
@@ -60,9 +62,10 @@ export function errorHandler(
   next: NextFunction
 ): void {
   // Log error
-  console.error(`[Error] ${new Date().toISOString()}`, {
+  safeLogger.error(`[Error] ${req.method} ${req.path}`, {
     message: err.message,
     code: (err as AppError).code,
+    requestId: (req as any).requestId,
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     path: req.path,
     method: req.method,
@@ -78,6 +81,7 @@ export function errorHandler(
         details:
           process.env.NODE_ENV === 'development' ? err.details : undefined,
         timestamp: new Date().toISOString(),
+        requestId: (req as any).requestId,
       },
     };
 

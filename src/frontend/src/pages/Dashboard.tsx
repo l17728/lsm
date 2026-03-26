@@ -5,6 +5,7 @@ import {
   RocketOutlined,
   ClockCircleOutlined,
   UserOutlined,
+  ClusterOutlined,
 } from '@ant-design/icons'
 
 // Icon aliases for compatibility
@@ -12,7 +13,7 @@ const ServerOutlined = ApiOutlined;
 const GpuOutlined = RocketOutlined;
 const TaskOutlined = ClockCircleOutlined;
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { serverApi, gpuApi, taskApi, monitoringApi } from '../services/api'
+import { serverApi, gpuApi, taskApi, monitoringApi, clusterApi } from '../services/api'
 import { wsService } from '../services/websocket'
 
 const Dashboard: React.FC = () => {
@@ -21,6 +22,7 @@ const Dashboard: React.FC = () => {
   const [gpuStats, setGpuStats] = useState<any>(null)
   const [taskStats, setTaskStats] = useState<any>(null)
   const [clusterStats, setClusterStats] = useState<any>(null)
+  const [clusterSummary, setClusterSummary] = useState<any>(null)
   const [alerts, setAlerts] = useState<any[]>([])
   const [metricsData, setMetricsData] = useState<any[]>([])
 
@@ -54,11 +56,12 @@ const Dashboard: React.FC = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [serverRes, gpuRes, taskRes, clusterRes, alertsRes] = await Promise.allSettled([
+      const [serverRes, gpuRes, taskRes, clusterRes, clusterSummaryRes, alertsRes] = await Promise.allSettled([
         serverApi.getStats(),
         gpuApi.getStats(),
         taskApi.getStats(),
         monitoringApi.getClusterStats(),
+        clusterApi.getStats(),
         monitoringApi.getAlerts(),
       ])
 
@@ -88,6 +91,12 @@ const Dashboard: React.FC = () => {
       } else {
         console.error('[Dashboard] Failed to load cluster stats:', clusterRes.reason)
         message.error('集群统计数据加载失败，请刷新重试')
+      }
+
+      if (clusterSummaryRes.status === 'fulfilled') {
+        setClusterSummary(clusterSummaryRes.value.data.data)
+      } else {
+        console.error('[Dashboard] Failed to load cluster summary:', clusterSummaryRes.reason)
       }
 
       if (alertsRes.status === 'fulfilled') {
@@ -154,7 +163,7 @@ const Dashboard: React.FC = () => {
 
       {/* Statistics Cards */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="Servers"
@@ -170,7 +179,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="GPUs"
@@ -186,7 +195,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="Tasks"
@@ -202,7 +211,23 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={6}>
+        <Col span={5}>
+          <Card>
+            <Statistic
+              title="Clusters"
+              value={clusterSummary?.byStatus?.available || 0}
+              suffix={`/ ${clusterSummary?.total || 0}`}
+              prefix={<ClusterOutlined />}
+              valueStyle={{ color: '#13c2c2' }}
+            />
+            <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+              <Tag color="green">空闲: {clusterSummary?.byStatus?.available || 0}</Tag>
+              <Tag color="blue">使用中: {clusterSummary?.byStatus?.allocated || 0}</Tag>
+            </div>
+          </Card>
+        </Col>
+
+        <Col span={4}>
           <Card>
             <Statistic
               title="Resource Usage"

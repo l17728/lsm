@@ -1,9 +1,9 @@
 # LSM 运维手册 (Operations Manual)
 
-**版本**: 3.1.0  
-**最后更新**: 2026-03-15 (Day 18)  
-**状态**: 生产就绪 ✅  
-**维护团队**: DevOps 团队  
+**版本**: 3.2.1
+**最后更新**: 2026-03-18
+**状态**: 生产就绪 ✅
+**维护团队**: DevOps 团队
 **项目**: LSM (Laboratory Server Management System)
 
 ---
@@ -42,6 +42,10 @@
 - [第 16 章 自动扩缩容服务运维](#第-16-章-自动扩缩容服务运维)
 - [第 17 章 故障自愈服务运维](#第-17-章-故障自愈服务运维)
 - [第 18 章 智能告警降噪服务运维](#第-18-章-智能告警降噪服务运维)
+
+### 第六部分 v3.2.1 可观测性篇
+
+- [第 19 章 结构化日志与请求追踪](#第-19-章-结构化日志与请求追踪)
 
 ### 附录
 
@@ -2415,10 +2419,153 @@ curl -X POST http://localhost:4000/api/alert-dedup/alerts/:id/resolve
 
 ---
 
-**运维手册版本**: 3.1.0  
-**最后更新**: 2026-03-15 (Day 18)  
-**页数**: 约 45+ 页  
-**字数**: 约 16,000+ 字
+## 第六部分 v3.2.1 可观测性篇
+
+---
+
+### 第 19 章 结构化日志与请求追踪
+
+#### 19.1 概述
+
+从 v3.2.1 起，LSM 后端全面启用结构化日志和请求级追踪，便于跨日志关联定位问题。
+
+**三大改进**：
+1. **requestId 注入** — 每个 HTTP 请求分配唯一 UUID
+2. **SafeLogger** — 自动脱敏敏感字段的结构化日志器
+3. **统一错误响应** — 错误 JSON 中包含 `requestId`
+
+#### 19.2 requestId 追踪机制
+
+##### 19.2.1 生成规则
+
+```
+requestId = crypto.randomUUID()
+# 格式: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+# 示例: a1b2c3d4-e5f6-4789-abcd-ef0123456789
+```
+
+##### 19.2.2 请求日志格式
+
+```
+[2026-03-18T10:30:00.000Z] GET /api/servers 200 45ms requestId=a1b2c3d4-e5f6-4789-abcd-ef0123456789
+[2026-03-18T10:30:01.000Z] POST /api/auth/*** 401 12ms requestId=b2c3d4e5-f6a7-4890-bcde-f01234567890
+```
+
+> 注意：`/password`、`/token`、`/secret`、`/key` 路径自动脱敏为 `/***`
+
+##### 19.2.3 错误响应中的 requestId
+
+当 API 返回错误时，响应 JSON 包含 `requestId`：
+```json
+{
+  "success": false,
+  "error": {
+    "code": "AUTHENTICATION_ERROR",
+    "message": "Authentication required",
+    "timestamp": "2026-03-18T10:30:01.000Z",
+    "requestId": "b2c3d4e5-f6a7-4890-bcde-f01234567890"
+  }
+}
+```
+
+#### 19.3 SafeLogger 使用规范
+
+SafeLogger 定义于 `src/backend/src/middleware/logging.middleware.ts`，提供四个方法：
+
+| 方法 | 用途 | 示例场景 |
+|------|------|---------|
+| `safeLogger.info()` | 正常业务事件 | 用户登录成功、资源分配 |
+| `safeLogger.warn()` | 可疑或需关注的事件 | 登录失败、用户删除 |
+| `safeLogger.error()` | 错误和异常 | catch 块异常、服务不可用 |
+| `safeLogger.debug()` | 调试信息（dev 环境） | 中间步骤、变量值 |
+
+**自动脱敏字段**（不会出现在日志中）：
+`password`, `token`, `secret`, `authorization`, `cookie`, `apiKey`
+
+#### 19.4 用 requestId 排查问题
+
+##### 场景：用户报告 API 调用失败
+
+1. **获取 requestId**
+   前端报错弹窗或 Network 面板中查看响应体的 `error.requestId` 字段
+
+2. **搜索后端日志**
+   ```bash
+   # Docker 环境
+   docker logs lsm-backend 2>&1 | grep "requestId=a1b2c3d4"
+
+   # 日志文件（如有）
+   grep "requestId=a1b2c3d4" /var/log/lsm/backend.log
+
+   # 按时间范围 + requestId 搜索（推荐与 Grafana Loki 结合使用）
+   ```
+
+3. **解读日志链路**
+   ```
+   [10:30:00.000Z] POST /api/gpu/allocate 200 45ms requestId=a1b2
+   # 对应完整的请求入口到响应全链路
+   ```
+
+4. **检查完整上下文**
+   - 请求路径和方法
+   - HTTP 状态码
+   - 耗时（识别慢请求）
+   - 任何 warn/error 日志
+
+##### 场景：发现异常慢请求
+
+```bash
+# 找出所有耗时 > 2000ms 的请求
+grep -E "[0-9]{4,}ms requestId=" /var/log/lsm/backend.log | awk -F'ms' '{if ($1+0 > 2000) print}'
+```
+
+#### 19.5 日志级别配置
+
+在 `.env` 中设置：
+```env
+LOG_LEVEL=info    # debug | info | warn | error
+NODE_ENV=production  # production 环境不输出 debug 日志
+```
+
+#### 19.6 日志存储与轮转
+
+**Docker 配置（推荐）**：
+```yaml
+# docker-compose.yml
+services:
+  backend:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+```
+
+**日志聚合（可选）**：
+推荐与以下方案集成：
+- **Grafana Loki** + `requestId` 标签索引（最佳选择）
+- **ELK Stack** — Elasticsearch + Logstash + Kibana
+- **简单方案** — logrotate + 定期归档
+
+#### 19.7 告警：日志异常监控
+
+在 Grafana 中配置告警规则：
+
+```promql
+# 5 分钟内错误率 > 5%
+rate(lsm_http_errors_total[5m]) / rate(lsm_http_requests_total[5m]) > 0.05
+
+# 平均响应时间 > 1s
+rate(lsm_http_request_duration_seconds_sum[5m])
+  / rate(lsm_http_request_duration_seconds_count[5m]) > 1
+```
+
+---
+
+**运维手册版本**: 3.2.1
+**最后更新**: 2026-03-18
+**页数**: 约 55+ 页
+**字数**: 约 20,000+ 字
 
 ---
 

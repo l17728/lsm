@@ -66,20 +66,22 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ size = 'default' }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 32,
-        height: 32,
-        border: 'none',
+        width: 36,
+        height: 36,
+        border: '1px solid #d9d9d9',
         borderRadius: '6px',
-        backgroundColor: 'transparent',
-        color: 'var(--text-primary, #333)',
+        backgroundColor: '#fff',
+        color: '#333',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = 'var(--bg-secondary, #f5f5f5)';
+        e.currentTarget.style.backgroundColor = '#f5f5f5';
+        e.currentTarget.style.borderColor = '#1890ff';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'transparent';
+        e.currentTarget.style.backgroundColor = '#fff';
+        e.currentTarget.style.borderColor = '#d9d9d9';
       }}
     >
       {theme === 'light' ? (

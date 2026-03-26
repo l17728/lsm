@@ -14,6 +14,8 @@ jest.mock('../../services/auth.service', () => ({
   register: jest.fn(),
   login: jest.fn(),
   logout: jest.fn(),
+  refreshToken: jest.fn(),
+  revokeRefreshToken: jest.fn(),
   getCurrentUser: jest.fn(),
   changePassword: jest.fn(),
   getAllUsers: jest.fn(),
@@ -370,6 +372,145 @@ describe('Auth Routes', () => {
         .set('Authorization', 'Bearer token');
 
       expect(response.status).toBe(403);
+    });
+  });
+
+  // ============================================
+  // Refresh Token Tests
+  // ============================================
+  describe('POST /api/auth/refresh', () => {
+    it('should refresh tokens successfully with valid refresh token', async () => {
+      const mockResult = {
+        token: 'new-jwt-token',
+        refreshToken: 'new-refresh-token',
+        user: {
+          id: 'user-1',
+          username: 'testuser',
+          email: 'test@example.com',
+          role: 'USER',
+        },
+      };
+      (authService.refreshToken as jest.Mock).mockResolvedValue(mockResult);
+
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: 'valid-refresh-token' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.token).toBe('new-jwt-token');
+      expect(response.body.data.refreshToken).toBe('new-refresh-token');
+      expect(response.body.data.user.username).toBe('testuser');
+    });
+
+    it('should reject refresh without token', async () => {
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('should reject refresh with empty token', async () => {
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: '' });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should reject refresh with invalid/expired token', async () => {
+      (authService.refreshToken as jest.Mock).mockRejectedValue(
+        new Error('Invalid or expired refresh token')
+      );
+
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: 'invalid-refresh-token' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('REFRESH_TOKEN_INVALID');
+    });
+
+    it('should reject refresh with revoked token', async () => {
+      (authService.refreshToken as jest.Mock).mockRejectedValue(
+        new Error('Invalid or expired refresh token')
+      );
+
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: 'revoked-refresh-token' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.message).toContain('Invalid or expired');
+    });
+  });
+
+  // ============================================
+  // Token Rotation Security Tests
+  // ============================================
+  describe('Token Rotation Security', () => {
+    it('should return new refresh token on successful refresh (rotation)', async () => {
+      const mockResult = {
+        token: 'new-access-token',
+        refreshToken: 'brand-new-refresh-token',
+        user: { id: 'user-1', username: 'testuser', email: 'test@example.com', role: 'USER' },
+      };
+      (authService.refreshToken as jest.Mock).mockResolvedValue(mockResult);
+
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: 'old-refresh-token' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.refreshToken).not.toBe('old-refresh-token');
+      expect(response.body.data.refreshToken).toBe('brand-new-refresh-token');
+    });
+
+    it('should return expiresIn on successful login', async () => {
+      const mockResult = {
+        token: 'jwt-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 900, // 15 minutes
+        user: { id: 'user-1', username: 'testuser', email: 'test@example.com', role: 'USER' },
+      };
+      (authService.login as jest.Mock).mockResolvedValue(mockResult);
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ username: 'testuser', password: 'Password123' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.expiresIn).toBe(900);
+      expect(response.body.data.refreshToken).toBeDefined();
+    });
+  });
+
+  // ============================================
+  // Session Management Tests
+  // ============================================
+  describe('Session Management', () => {
+    it('should revoke session on logout', async () => {
+      (authService.logout as jest.Mock).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(response.status).toBe(200);
+      expect(authService.logout).toHaveBeenCalledWith('valid-token');
+    });
+
+    it('should handle logout with invalid token gracefully', async () => {
+      (authService.logout as jest.Mock).mockResolvedValue(undefined);
+
+      const response = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', 'Bearer invalid-token');
+
+      expect(response.status).toBe(200);
     });
   });
 });

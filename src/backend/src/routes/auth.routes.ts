@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { user_role as UserRole } from '@prisma/client';
 import { validate, userSchemas } from '../middleware/validation.middleware';
+import { safeLogger } from '../middleware/logging.middleware';
 
 const router = Router();
 
@@ -68,11 +69,13 @@ router.post(
         password,
       });
 
+      safeLogger.info('User registered', { username });
       res.status(201).json({
         success: true,
         data: user,
       });
     } catch (error: any) {
+      safeLogger.error('Auth error', { operation: 'register', error });
       res.status(400).json({
         success: false,
         error: error.message,
@@ -92,20 +95,56 @@ router.post(
     body('username').notEmpty().withMessage('Username required'),
     body('password').notEmpty().withMessage('Password required'),
   ],
+  handleValidationErrors,
   async (req, res) => {
     try {
       const { username, password } = req.body;
 
       const result = await authService.login({ username, password });
 
+      safeLogger.info('User login', { userId: result.user?.id, username });
       res.json({
         success: true,
         data: result,
       });
     } catch (error: any) {
+      safeLogger.warn('Login failed', { username: req.body?.username });
       res.status(401).json({
         success: false,
         error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh access token using refresh token
+ * @access  Public (requires refresh token in body)
+ */
+router.post(
+  '/refresh',
+  [body('refreshToken').notEmpty().withMessage('Refresh token required')],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+
+      const result = await authService.refreshToken(refreshToken);
+
+      safeLogger.info('Token refreshed', { userId: result.user?.id });
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      safeLogger.warn('Token refresh failed', { error: error.message });
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'REFRESH_TOKEN_INVALID',
+          message: error.message,
+        },
       });
     }
   }
@@ -122,11 +161,13 @@ router.post('/logout', authenticate, async (req: AuthRequest, res) => {
 
     await authService.logout(token);
 
+    safeLogger.info('User logout', { userId: (req as AuthRequest).user?.userId });
     res.json({
       success: true,
       message: 'Logged out successfully',
     });
   } catch (error: any) {
+    safeLogger.error('Auth error', { operation: 'logout', error });
     res.status(500).json({
       success: false,
       error: error.message,
@@ -188,11 +229,13 @@ router.put(
 
       await authService.changePassword(userId, oldPassword, newPassword);
 
+      safeLogger.info('Password changed', { userId });
       res.json({
         success: true,
         message: 'Password changed successfully',
       });
     } catch (error: any) {
+      safeLogger.error('Auth error', { operation: 'changePassword', error });
       res.status(400).json({
         success: false,
         error: error.message,
@@ -237,7 +280,12 @@ router.get('/users', authenticate, async (req: AuthRequest, res) => {
 router.put(
   '/users/:id/role',
   authenticate,
-  [body('role').isIn(['ADMIN', 'MANAGER', 'USER']).withMessage('Invalid role')],
+  [
+    body('role')
+      .isIn(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER'])
+      .withMessage('Invalid role. Must be one of: SUPER_ADMIN, ADMIN, MANAGER, USER'),
+  ],
+  handleValidationErrors,
   async (req: AuthRequest, res) => {
     try {
       if (req.user!.role !== UserRole.ADMIN) {
@@ -252,11 +300,13 @@ router.put(
 
       const user = await authService.updateUserRole(id, role as UserRole);
 
+      safeLogger.info('Role updated', { targetId: id, newRole: role, by: req.user!.userId });
       res.json({
         success: true,
         data: user,
       });
     } catch (error: any) {
+      safeLogger.error('Auth error', { operation: 'updateRole', error });
       res.status(400).json({
         success: false,
         error: error.message,
@@ -283,11 +333,13 @@ router.delete('/users/:id', authenticate, async (req: AuthRequest, res) => {
 
     await authService.deleteUser(id);
 
+    safeLogger.warn('User deleted', { targetId: id, by: req.user!.userId });
     res.json({
       success: true,
       message: 'User deleted successfully',
     });
   } catch (error: any) {
+    safeLogger.error('Auth error', { operation: 'deleteUser', error });
     res.status(400).json({
       success: false,
       error: error.message,

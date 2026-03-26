@@ -39,6 +39,7 @@
     "home": "Home",
     "dashboard": "Dashboard",
     "servers": "Servers",
+    "clusters": "Clusters",
     "gpus": "GPU Resources",
     "tasks": "Tasks",
     "users": "Users",

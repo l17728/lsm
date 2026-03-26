@@ -1,8 +1,8 @@
 # LSM Project - Complete Documentation
 
-**Version**: 3.0.0  
-**Last Updated**: 2026-03-12  
-**Status**: Production Ready
+**Version**: 3.2.2
+**Last Updated**: 2026-03-26
+**Status**: Production Ready ✅
 
 ---
 
@@ -18,23 +18,29 @@
 8. [Deployment](#deployment)
 9. [Monitoring](#monitoring)
 10. [Security](#security)
-11. [Troubleshooting](#troubleshooting)
+11. [Testing](#testing)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-Laboratory Server Management System (LSM) is a comprehensive platform for managing laboratory server resources, GPU allocation, and task scheduling.
+Laboratory Server Management System (LSM) is a comprehensive platform for managing laboratory server resources, GPU allocation, task scheduling, and AI-assisted operations.
 
 ### Key Capabilities
 
 - 🖥️ **Server Management** - Manage multiple servers with status tracking
 - 🎮 **GPU Allocation** - Dynamic GPU resource allocation and recycling
-- 📋 **Task Scheduling** - Priority-based task scheduling system
+- 📋 **Task Scheduling** - Priority-based task scheduling with AI optimization
 - 📊 **Real-time Monitoring** - Live monitoring with WebSocket updates
-- 🔐 **Security** - JWT authentication, 2FA, audit logging
-- 📧 **Notifications** - Email notifications for events
+- 🔐 **Security** - JWT authentication, 2FA, structured audit logging with requestId
+- 📧 **Notifications** - Multi-channel notifications (email, WebSocket)
 - 📱 **Mobile Ready** - Responsive design for mobile devices
+- 🤖 **AI Agent** - LSM Agent powered by OpenClaw for natural language operations
+- 📅 **Reservations** - GPU/server resource reservation and scheduling
+- 📈 **Analytics** - Resource utilization analytics and cost reports
+- 🔄 **Auto-scaling** - Intelligent auto-scaling and self-healing (v3.1.0+)
+- 🧠 **AI Scheduling** - Intelligent time slot recommendations for cluster reservations (v3.2.2+)
 
 ---
 
@@ -45,15 +51,25 @@ Laboratory Server Management System (LSM) is a comprehensive platform for managi
 | Feature | Status | Description |
 |---------|--------|-------------|
 | User Authentication | ✅ | JWT-based auth with 2FA |
-| Server Management | ✅ | CRUD operations for servers |
+| Server Management | ✅ | CRUD operations with batch operations |
 | GPU Allocation | ✅ | Dynamic allocation with filtering |
-| Task Scheduling | ✅ | Priority-based scheduling |
-| Real-time Monitoring | ✅ | WebSocket-based updates |
+| Task Scheduling | ✅ | Priority-based scheduling with AI assist |
+| Real-time Monitoring | ✅ | WebSocket-based live metrics |
 | Email Notifications | ✅ | Event-driven email alerts |
-| Data Export | ✅ | CSV/Excel export |
+| Data Export | ✅ | CSV/Excel/JSON export |
 | Mobile Responsive | ✅ | Mobile-first design |
-| Audit Logging | ✅ | Complete audit trail |
+| Audit Logging | ✅ | Structured audit trail with requestId |
 | Redis Caching | ✅ | Performance optimization |
+| Resource Reservations | ✅ | Calendar-based GPU/server booking (v3.2.0+) |
+| AI Agent (LSM Agent) | ✅ | Natural language operations via OpenClaw |
+| Analytics Dashboard | ✅ | Cost & utilization analysis (v3.2.0+) |
+| Cluster Management | ✅ | Create/manage clusters with server groups |
+| Cluster Reservations | ✅ | Reserve clusters with approval workflow |
+| **AI Time Slot Recommendations** | ✅ | **Smart scheduling suggestions (v3.2.2+)** |
+| Auto-scaling | ✅ | Reactive/predictive scaling (v3.1.0+) |
+| Self-healing | ✅ | Automated fault detection & repair (v3.1.0+) |
+| Alert Deduplication | ✅ | Intelligent alert noise reduction (v3.1.0+) |
+| MCP Integration | ✅ | Model Context Protocol for AI tooling |
 
 ---
 
@@ -386,6 +402,62 @@ lsof -i :4000
 kill -9 <PID>
 ```
 
+#### Debugging with requestId
+
+Every API response (especially errors) includes a `requestId` field. Use it to correlate frontend errors with backend logs:
+
+```bash
+# Find all log entries for a specific request
+grep "requestId=abc-123" /var/log/lsm/backend.log
+
+# Error responses include requestId in the JSON body:
+# { "success": false, "error": { "code": "...", "requestId": "abc-123", ... } }
+```
+
+---
+
+## Testing
+
+### Test Suite Overview
+
+| Suite | Framework | Tests | Pass Rate |
+|-------|-----------|-------|-----------|
+| Backend Unit + Integration | Jest | 783/832 | 94% |
+| Frontend Pages | Vitest | 58/60 | 97% |
+| E2E (Playwright) | Playwright | 98/98 | 100% |
+
+### Running Tests
+
+```bash
+# Backend tests (with coverage)
+cd src/backend
+npm test -- --coverage
+
+# Frontend tests
+cd src/frontend
+npm run test:run
+
+# E2E tests (requires running app)
+cd e2e
+npx playwright test
+```
+
+### Coverage
+
+| Metric | Current |
+|--------|---------|
+| Backend Statements | ~34% |
+| Backend Branches | ~26% |
+| Backend Functions | ~33% |
+| Backend Lines | ~35% |
+
+### Test File Locations
+
+- **Backend integration**: `src/backend/src/__tests__/integration/`
+- **Backend services**: `src/backend/src/__tests__/services/`
+- **Frontend pages**: `src/frontend/src/pages/__tests__/`
+- **E2E specs**: `e2e/tests/`
+
 ---
 
 ## Support
@@ -397,6 +469,6 @@ For issues and questions:
 
 ---
 
-**Last Updated**: 2026-03-12  
-**Version**: 3.0.0  
-**Status**: Production Ready
+**Last Updated**: 2026-03-18
+**Version**: 3.2.1
+**Status**: Production Ready ✅

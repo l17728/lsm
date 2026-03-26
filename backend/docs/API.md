@@ -1,7 +1,7 @@
 # LSM 项目 API 文档
 
-**版本**: 3.1.0  
-**最后更新**: 2026-03-13  
+**版本**: 3.2.2  
+**最后更新**: 2026-03-26  
 **生成方式**: Swagger + 手动补充
 
 ---
@@ -17,6 +17,8 @@
 7. [导出 API](#导出-api)
 8. [缓存 API](#缓存-api)
 9. [邮件通知 API](#邮件通知-api)
+10. [集群 API](#集群-api)
+11. [集群预约 API](#集群预约-api)
 
 ---
 
@@ -919,6 +921,391 @@ Content-Disposition: attachment; filename="users-2026-03-13.xlsx"
 
 ---
 
+## 集群 API
+
+### GET /api/clusters
+
+获取所有集群列表
+
+**查询参数**:
+- `status` (可选): 状态过滤 (AVAILABLE/ALLOCATED/RESERVED/MAINTENANCE)
+- `type` (可选): 类型过滤 (COMPUTE/TRAINING/INFERENCE/GENERAL/CUSTOM)
+
+**响应**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "string",
+      "name": "string",
+      "code": "string",
+      "description": "string",
+      "type": "string",
+      "status": "string",
+      "tags": ["string"],
+      "totalServers": "number",
+      "totalGpus": "number",
+      "totalCpuCores": "number",
+      "totalMemory": "number",
+      "assignee": {
+        "id": "string",
+        "username": "string",
+        "email": "string"
+      },
+      "createdAt": "string",
+      "updatedAt": "string"
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/clusters/stats
+
+获取集群统计信息
+
+**响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "total": "number",
+    "byStatus": {
+      "available": "number",
+      "allocated": "number",
+      "reserved": "number",
+      "maintenance": "number"
+    },
+    "resources": {
+      "totalServers": "number",
+      "totalGpus": "number",
+      "totalCpuCores": "number",
+      "totalMemory": "number"
+    }
+  }
+}
+```
+
+---
+
+### POST /api/clusters
+
+创建新集群
+
+**请求头**: `Authorization: Bearer <token>`
+
+**权限**: SUPER_ADMIN
+
+**请求体**:
+```json
+{
+  "name": "string",
+  "code": "string",
+  "description": "string",
+  "type": "string",
+  "tags": ["string"]
+}
+```
+
+**响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "string",
+    "name": "string",
+    "code": "string",
+    "status": "AVAILABLE"
+  }
+}
+```
+
+---
+
+### PUT /api/clusters/:id
+
+更新集群信息
+
+**路径参数**: `id` - 集群 ID
+
+**请求头**: `Authorization: Bearer <token>`
+
+**请求体**:
+```json
+{
+  "name": "string",
+  "description": "string",
+  "type": "string",
+  "status": "string"
+}
+```
+
+---
+
+### DELETE /api/clusters/:id
+
+删除集群
+
+**路径参数**: `id` - 集群 ID
+
+**权限**: SUPER_ADMIN
+
+---
+
+### POST /api/clusters/:clusterId/servers
+
+向集群添加服务器
+
+**路径参数**: `clusterId` - 集群 ID
+
+**请求体**:
+```json
+{
+  "serverId": "string",
+  "priority": "number",
+  "role": "string"
+}
+```
+
+---
+
+### DELETE /api/clusters/:clusterId/servers/:serverId
+
+从集群移除服务器
+
+---
+
+## 集群预约 API
+
+### GET /api/cluster-reservations
+
+获取所有预约列表
+
+**查询参数**:
+- `status` (可选): 状态过滤 (PENDING/APPROVED/REJECTED/ACTIVE/COMPLETED/CANCELLED)
+- `clusterId` (可选): 集群 ID 过滤
+- `userId` (可选): 用户 ID 过滤
+- `startTime` (可选): 开始时间过滤
+- `endTime` (可选): 结束时间过滤
+
+**权限**: MANAGER+
+
+**响应**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "string",
+      "clusterId": "string",
+      "userId": "string",
+      "startTime": "string",
+      "endTime": "string",
+      "purpose": "string",
+      "status": "string",
+      "queuePosition": "number",
+      "cluster": {
+        "id": "string",
+        "name": "string",
+        "code": "string"
+      },
+      "user": {
+        "id": "string",
+        "username": "string",
+        "email": "string"
+      },
+      "createdAt": "string"
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/cluster-reservations/my
+
+获取当前用户的预约列表
+
+**权限**: MANAGER+
+
+---
+
+### GET /api/cluster-reservations/pending
+
+获取待审批的预约列表
+
+**权限**: SUPER_ADMIN
+
+---
+
+### POST /api/cluster-reservations
+
+创建预约申请
+
+**请求头**: `Authorization: Bearer <token>`
+
+**权限**: MANAGER+
+
+**请求体**:
+```json
+{
+  "clusterId": "string",
+  "startTime": "string (ISO 8601)",
+  "endTime": "string (ISO 8601)",
+  "purpose": "string",
+  "teamId": "string (可选)"
+}
+```
+
+**响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "string",
+    "status": "PENDING",
+    "queuePosition": "number | null"
+  }
+}
+```
+
+**说明**:
+- 预约需要 SUPER_ADMIN 审批
+- 如果时间有冲突，自动进入等待队列并分配 `queuePosition`
+
+---
+
+### PUT /api/cluster-reservations/:id/approve
+
+审批通过预约
+
+**路径参数**: `id` - 预约 ID
+
+**权限**: SUPER_ADMIN
+
+**响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "string",
+    "status": "APPROVED",
+    "approvedBy": "string",
+    "approvedAt": "string"
+  }
+}
+```
+
+---
+
+### PUT /api/cluster-reservations/:id/reject
+
+拒绝预约
+
+**路径参数**: `id` - 预约 ID
+
+**权限**: SUPER_ADMIN
+
+**请求体**:
+```json
+{
+  "reason": "string"
+}
+```
+
+---
+
+### PUT /api/cluster-reservations/:id/cancel
+
+取消预约
+
+**路径参数**: `id` - 预约 ID
+
+**权限**: 预约所有者
+
+---
+
+### PUT /api/cluster-reservations/:id/release
+
+提前释放资源
+
+**路径参数**: `id` - 预约 ID
+
+**权限**: 预约所有者
+
+---
+
+### GET /api/cluster-reservations/recommend-time-slots
+
+🤖 **AI 智能推荐最佳预约时间段**
+
+**查询参数**:
+- `clusterId` (必填): 集群 ID
+- `duration` (必填): 时长（分钟）
+- `preferredStartTime` (可选): 首选开始时间 (ISO 8601)
+- `preferredEndTime` (可选): 首选结束时间 (ISO 8601)
+
+**权限**: MANAGER+
+
+**响应**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "startTime": "string (ISO 8601)",
+      "endTime": "string (ISO 8601)",
+      "score": "number (0-100)",
+      "confidence": "number (0-1)",
+      "reasons": ["string"],
+      "queuePosition": "number | null"
+    }
+  ]
+}
+```
+
+**推荐理由示例**:
+- `"无时间冲突"`
+- `"避开高峰时段"`
+- `"工作日时段"`
+- `"上午时段效率较高"`
+- `"时长与历史使用模式匹配"`
+- `"需排队等待"`
+
+**评分维度**:
+1. **时间邻近度** (25分): 越近越好，但非立即
+2. **避开高峰** (20分): 非高峰时段加分
+3. **工作日偏好** (15分): 工作日加分
+4. **上午偏好** (15分): 9-12AM 加分
+5. **时长匹配** (10分): 与历史使用模式匹配加分
+6. **无冲突** (15分): 无时间冲突加分
+
+**置信度**:
+- 基于历史数据量和波动性计算
+- 数据量 >= 30 条且稳定: 0.85
+- 数据量不足或波动大: 0.65
+
+**使用示例**:
+```javascript
+// 获取 2 小时预约的 AI 推荐
+const response = await fetch(
+  '/api/cluster-reservations/recommend-time-slots?' +
+  'clusterId=cluster-1&duration=120'
+);
+
+// 带首选时间范围
+const response = await fetch(
+  '/api/cluster-reservations/recommend-time-slots?' +
+  'clusterId=cluster-1&duration=120' +
+  '&preferredStartTime=2026-03-27T09:00:00Z' +
+  '&preferredEndTime=2026-03-27T18:00:00Z'
+);
+```
+
+---
+
 ## 错误响应格式
 
 所有 API 错误统一返回以下格式:
@@ -977,6 +1364,6 @@ Authorization: Bearer <your_jwt_token>
 
 ---
 
-**文档版本**: 3.1.0  
-**最后更新**: 2026-03-13  
+**文档版本**: 3.2.2  
+**最后更新**: 2026-03-26  
 **维护者**: 后端开发团队

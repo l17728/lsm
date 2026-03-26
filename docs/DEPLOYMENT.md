@@ -682,10 +682,103 @@ docker-compose exec backend npx prisma generate
 - [ ] JWT_SECRET 已设置为随机字符串
 - [ ] HTTPS 已配置 (生产环境)
 - [ ] 防火墙规则已配置
-- [ ] 速率限制已启用
+- [ ] 速率限制已启用 (见下方配置)
 - [ ] CORS 白名单已配置
 - [ ] 审计日志已启用
 - [ ] 依赖漏洞已扫描
+
+---
+
+## 限流配置
+
+### 概述
+
+LSM 系统提供两层限流保护：
+1. **API 限流** - 限制所有 API 端点的请求频率
+2. **认证限流** - 专门针对登录/注册等认证端点的严格限流
+
+### 默认配置
+
+**开发环境：限流默认关闭**
+
+为了便于开发和测试，限流功能在开发环境下默认关闭。这意味着：
+- 开发时不会因为频繁请求而被限制
+- E2E 测试可以正常执行
+- 调试时不会受到限流干扰
+
+### 生产环境启用限流
+
+**⚠️ 重要：生产环境必须启用限流以防止暴力破解和 DDoS 攻击**
+
+在 `.env` 文件中添加以下配置：
+
+```env
+# 限流配置 - 生产环境必须启用
+RATE_LIMIT_ENABLED=true        # 启用 API 限流 (15分钟内最多100次请求)
+AUTH_RATE_LIMIT_ENABLED=true   # 启用认证限流 (15分钟内最多20次登录尝试)
+```
+
+### 限流参数说明
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `RATE_LIMIT_ENABLED` | `false` | 是否启用 API 全局限流 |
+| `AUTH_RATE_LIMIT_ENABLED` | `false` | 是否启用认证端点限流 |
+| API 限流窗口 | 15 分钟 | 时间窗口 |
+| API 限流上限 | 100 次 | 每个 IP 在窗口内最大请求数 |
+| 认证限流窗口 | 15 分钟 | 认证端点时间窗口 |
+| 认证限流上限 | 20 次 | 每个 IP 在窗口内最大登录尝试 |
+
+### 限流响应
+
+当触发限流时，API 返回以下响应：
+
+```json
+// API 限流
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests, please try again later."
+  }
+}
+
+// 认证限流
+{
+  "success": false,
+  "error": {
+    "code": "AUTH_RATE_LIMIT_EXCEEDED",
+    "message": "Too many authentication attempts, please try again later."
+  }
+}
+```
+
+### 响应头信息
+
+限流启用后，响应头会包含限流状态：
+
+```
+RateLimit-Limit: 100
+RateLimit-Remaining: 95
+RateLimit-Policy: 100;w=900
+```
+
+### 验证限流是否生效
+
+```bash
+# 检查响应头是否包含 RateLimit 信息
+curl -I http://localhost:8080/api/servers
+
+# 如果看到 RateLimit-Limit 头，说明限流已启用
+# 如果没有看到，说明限流未启用
+```
+
+### 生产部署检查清单
+
+- [ ] `RATE_LIMIT_ENABLED=true` 已设置
+- [ ] `AUTH_RATE_LIMIT_ENABLED=true` 已设置
+- [ ] 验证限流响应头正常返回
+- [ ] 测试触发限流后的错误响应
 
 ### 性能检查
 

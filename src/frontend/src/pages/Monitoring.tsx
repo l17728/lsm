@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Table, Tag, Alert, Statistic, Spin } from 'antd'
+import { Card, Row, Col, Table, Tag, Alert, Statistic, Spin, message } from 'antd'
 import {
   WarningOutlined,
   CheckCircleOutlined,
@@ -48,18 +48,35 @@ const Monitoring: React.FC = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [healthRes, alertsRes, clusterRes] = await Promise.all([
+      const [healthRes, alertsRes, clusterRes] = await Promise.allSettled([
         monitoringApi.getHealth(),
         monitoringApi.getAlerts(),
         monitoringApi.getClusterStats(),
       ])
 
-      setHealth(healthRes.data.data)
-      setAlerts(alertsRes.data.data)
-      setClusterStats(clusterRes.data.data)
-      generateMetricsData(healthRes.data.data)
-    } catch (error: any) {
-      console.error('Failed to load monitoring data:', error)
+      if (healthRes.status === 'fulfilled') {
+        setHealth(healthRes.value.data.data)
+        generateMetricsData(healthRes.value.data.data)
+      } else {
+        console.error('[Monitoring] Failed to load server health:', healthRes.reason)
+        message.error('服务器健康数据加载失败，请刷新重试')
+        generateMetricsData([])
+      }
+
+      if (alertsRes.status === 'fulfilled') {
+        setAlerts(alertsRes.value.data.data)
+      } else {
+        console.error('[Monitoring] Failed to load alerts:', alertsRes.reason)
+        // alerts 降级为空列表，不中断其他数据展示
+        setAlerts([])
+      }
+
+      if (clusterRes.status === 'fulfilled') {
+        setClusterStats(clusterRes.value.data.data)
+      } else {
+        console.error('[Monitoring] Failed to load cluster stats:', clusterRes.reason)
+        message.error('集群统计数据加载失败，请刷新重试')
+      }
     } finally {
       setLoading(false)
     }

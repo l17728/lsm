@@ -32,8 +32,10 @@ const Users: React.FC = () => {
     try {
       const response = await authApi.getUsers()
       setUsers(response.data.data)
+      console.log(`[Users] Loaded ${response.data.data?.length ?? 0} users`)
     } catch (error: any) {
-      message.error('Failed to load users')
+      console.error('[Users] Failed to load users:', error)
+      message.error('用户列表加载失败，请刷新重试')
     } finally {
       setLoading(false)
     }

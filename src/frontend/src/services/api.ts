@@ -25,6 +25,24 @@ apiClient.interceptors.request.use(
   }
 )
 
+// Flag to prevent multiple refresh attempts
+let isRefreshing = false
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void
+  reject: (reason?: unknown) => void
+}> = []
+
+const processQueue = (error: AxiosError | null, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  failedQueue = []
+}
+
 /**
  * Retry a failed request with exponential back-off.
  *
@@ -48,35 +66,94 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * Attempt to refresh the access token
+ */
+async function refreshAccessToken(): Promise<{ token: string; refreshToken: string }> {
+  const refreshToken = useAuthStore.getState().refreshToken
+
+  if (!refreshToken) {
+    throw new Error('No refresh token available')
+  }
+
+  const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+    refreshToken,
+  })
+
+  const { token, refreshToken: newRefreshToken, user } = response.data.data
+
+  // Update auth store with new tokens
+  useAuthStore.getState().updateTokens(token, newRefreshToken)
+
+  return { token, refreshToken: newRefreshToken }
+}
+
 // Response interceptor to handle errors and retry logic
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    // Handle 401 – immediately logout, no retry
-    if (error.response?.status === 401) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
-      return Promise.reject(error)
-    }
+    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean; _retryCount?: number }
 
-    const config = error.config as AxiosRequestConfig & { _retryCount?: number }
+    // Handle 401 - try to refresh token first
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      // If this is the refresh endpoint itself failing, logout immediately
+      if (originalRequest.url?.includes('/auth/refresh')) {
+        useAuthStore.getState().logout()
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
+      if (isRefreshing) {
+        // Queue this request while we're refreshing
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        })
+          .then((token) => {
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`
+            }
+            return apiClient(originalRequest)
+          })
+          .catch((err) => Promise.reject(err))
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        const { token } = await refreshAccessToken()
+        processQueue(null, token)
+
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${token}`
+        }
+        return apiClient(originalRequest)
+      } catch (refreshError) {
+        processQueue(refreshError as AxiosError, null)
+        useAuthStore.getState().logout()
+        window.location.href = '/login'
+        return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
+      }
+    }
 
     // Initialise retry counter on the request config
-    if (config._retryCount === undefined) {
-      config._retryCount = 0
+    if (originalRequest._retryCount === undefined) {
+      originalRequest._retryCount = 0
     }
 
-    if (shouldRetry(error) && config._retryCount < MAX_RETRIES) {
-      config._retryCount++
-      const delayMs = RETRY_DELAYS_MS[config._retryCount - 1] ?? 1000
+    if (shouldRetry(error) && originalRequest._retryCount < MAX_RETRIES) {
+      originalRequest._retryCount++
+      const delayMs = RETRY_DELAYS_MS[originalRequest._retryCount - 1] ?? 1000
 
       console.warn(
-        `[API] retry attempt ${config._retryCount}/${MAX_RETRIES} for ${config.method?.toUpperCase()} ${config.url} ` +
+        `[API] retry attempt ${originalRequest._retryCount}/${MAX_RETRIES} for ${originalRequest.method?.toUpperCase()} ${originalRequest.url} ` +
         `(waiting ${delayMs}ms, reason: ${error.message})`
       )
 
       await sleep(delayMs)
-      return apiClient(config)
+      return apiClient(originalRequest)
     }
 
     return Promise.reject(error)
@@ -92,6 +169,8 @@ export const authApi = {
   register: (username: string, email: string, password: string) =>
     apiClient.post('/auth/register', { username, email, password }),
   logout: () => apiClient.post('/auth/logout'),
+  refresh: (refreshToken: string) =>
+    apiClient.post('/auth/refresh', { refreshToken }),
   getCurrentUser: () => apiClient.get('/auth/me'),
   getUsers: () => apiClient.get('/auth/users'),
   updateUserRole: (userId: string, role: string) =>
@@ -180,4 +259,93 @@ export const analyticsApi = {
   getEfficiencyReport: () => apiClient.get('/analytics/efficiency-report'),
   exportReport: (params?: { startTime?: string; endTime?: string; format?: 'json' | 'csv' }) =>
     apiClient.get('/analytics/export', { params, responseType: 'blob' }),
+}
+
+// Cluster API
+export const clusterApi = {
+  getAll: (filters?: { status?: string; type?: string }) =>
+    apiClient.get('/clusters', { params: filters }),
+  getById: (id: string) => apiClient.get(`/clusters/${id}`),
+  getStats: () => apiClient.get('/clusters/stats'),
+  getAvailableServers: () => apiClient.get('/clusters/available-servers'),
+  create: (data: {
+    name: string
+    code: string
+    description?: string
+    type?: string
+    tags?: string[]
+  }) => apiClient.post('/clusters', data),
+  update: (id: string, data: {
+    name?: string
+    description?: string
+    type?: string
+    status?: string
+  }) => apiClient.put(`/clusters/${id}`, data),
+  delete: (id: string) => apiClient.delete(`/clusters/${id}`),
+  addServer: (clusterId: string, data: {
+    serverId: string
+    priority?: number
+    role?: string
+  }) => apiClient.post(`/clusters/${clusterId}/servers`, data),
+  removeServer: (clusterId: string, serverId: string) =>
+    apiClient.delete(`/clusters/${clusterId}/servers/${serverId}`),
+  allocate: (clusterId: string, data: {
+    userId: string
+    teamId?: string
+    startTime: string
+    endTime: string
+    purpose?: string
+  }) => apiClient.post(`/clusters/${clusterId}/allocate`, data),
+  release: (clusterId: string) => apiClient.post(`/clusters/${clusterId}/release`),
+}
+
+// Cluster Reservation API (for MANAGER users)
+export const clusterReservationApi = {
+  // Get all reservations (filtered)
+  getAll: (filters?: {
+    status?: string
+    clusterId?: string
+    userId?: string
+    startTime?: string
+    endTime?: string
+  }) => apiClient.get('/cluster-reservations', { params: filters }),
+  
+  // Get my reservations
+  getMy: () => apiClient.get('/cluster-reservations/my'),
+  
+  // Get pending reservations (SUPER_ADMIN only)
+  getPending: () => apiClient.get('/cluster-reservations/pending'),
+  
+  // Get reservation by ID
+  getById: (id: string) => apiClient.get(`/cluster-reservations/${id}`),
+  
+  // Create reservation request
+  create: (data: {
+    clusterId: string
+    startTime: string
+    endTime: string
+    purpose?: string
+    teamId?: string
+  }) => apiClient.post('/cluster-reservations', data),
+  
+  // Approve reservation (SUPER_ADMIN only)
+  approve: (id: string) => apiClient.put(`/cluster-reservations/${id}/approve`),
+  
+  // Reject reservation (SUPER_ADMIN only)
+  reject: (id: string, reason?: string) =>
+    apiClient.put(`/cluster-reservations/${id}/reject`, { reason }),
+  
+  // Cancel reservation (owner only)
+  cancel: (id: string) => apiClient.put(`/cluster-reservations/${id}/cancel`),
+  
+  // Release resources early (owner only)
+  release: (id: string) => apiClient.put(`/cluster-reservations/${id}/release`),
+
+  // Get AI-recommended time slots
+  recommendTimeSlots: (params: {
+    clusterId: string
+    duration: number
+    preferredStartTime?: string
+    preferredEndTime?: string
+  }) => apiClient.get('/cluster-reservations/recommend-time-slots', { params }),
 }

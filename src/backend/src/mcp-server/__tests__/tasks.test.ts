@@ -5,13 +5,44 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { prisma } from '../../__mocks__/prisma';
-import { serverService } from '../../__mocks__/server.service';
 
-jest.mock('../../utils/prisma', () => require('../../__mocks__/prisma'));
-jest.mock('../../services/server.service', () => require('../../__mocks__/server.service'));
+// Mock modules before importing the actual module
+jest.mock('../../utils/prisma', () => ({
+  prisma: {
+    task: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      groupBy: jest.fn(),
+    },
+    server: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+    },
+    gpu: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    gpuAllocation: {
+      findMany: jest.fn(),
+      update: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('../../services/server.service', () => ({
+  serverService: {
+    getById: jest.fn(),
+    getAll: jest.fn(),
+  },
+}));
 
 import { registerTaskTools } from '../tools/tasks';
+import { prisma } from '../../utils/prisma';
+import { serverService } from '../../services/server.service';
 
 describe('Task Tools', () => {
   let mockServer: McpServer;

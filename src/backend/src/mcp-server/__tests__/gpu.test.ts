@@ -5,12 +5,33 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { prisma } from '../../__mocks__/prisma';
 
-jest.mock('../../utils/prisma', () => require('../../__mocks__/prisma'));
-jest.mock('../../services/server.service', () => require('../../__mocks__/server.service'));
+// Mock modules before importing the actual module
+jest.mock('../../utils/prisma', () => ({
+  prisma: {
+    gpu: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    gpuAllocation: {
+      create: jest.fn(),
+      update: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    server: {
+      findUnique: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('../../services/server.service', () => ({
+  serverService: {
+    getById: jest.fn(),
+  },
+}));
 
 import { registerGpuTools } from '../tools/gpu';
+import { prisma } from '../../utils/prisma';
 
 describe('GPU Tools', () => {
   let mockServer: McpServer;

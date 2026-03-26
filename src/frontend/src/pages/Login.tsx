@@ -17,9 +17,9 @@ const Login: React.FC = () => {
     setLoading(true)
     try {
       const response = await authApi.login(values.username, values.password)
-      const { token, user } = response.data.data
+      const { token, refreshToken, user } = response.data.data
 
-      login(token, user)
+      login(token, refreshToken, user)
       wsService.connect()
 
       message.success('Login successful!')

@@ -1,21 +1,159 @@
 # LSM 项目测试覆盖率提升报告
 
+**最后更新**: 2026-03-18 (v3.2.1)
+
 ## 概述
 
-本报告记录了对 LSM (GPU 资源调度管理系统) 项目进行测试覆盖率提升的工作。
+本报告记录了 LSM 项目从 v3.2.0 基线到 v3.2.1 的测试覆盖率提升工作，涵盖 P1（日志）、P2（后端集成测试）、P3（后端服务单元测试）、P4（前端页面测试）四个阶段。
 
-**项目位置:** `/root/.openclaw/workspace/lsm-project/src/backend`
+**项目位置:** `/root/.openclaw/workspace/lsm-project`
 
-## 1. 当前覆盖率分析
+---
 
-### 整体覆盖率现状
+## 1. 覆盖率对比
 
-| 指标 | 当前值 | 目标值 | 差距 |
-|------|--------|--------|------|
-| 语句覆盖率 (Statements) | 13.27% | 85% | -71.73% |
-| 分支覆盖率 (Branches) | 11.86% | 85% | -73.14% |
-| 函数覆盖率 (Functions) | 14.55% | 85% | -70.45% |
-| 行覆盖率 (Lines) | 13.49% | 85% | -71.51% |
+### 1.1 后端覆盖率（Jest）
+
+| 指标 | v3.2.0 基线 | v3.2.1 | 提升 |
+|------|-------------|--------|------|
+| 语句覆盖率 (Statements) | 13.27% | **33.98%** | +20.71pp |
+| 分支覆盖率 (Branches) | 11.86% | **25.81%** | +13.95pp |
+| 函数覆盖率 (Functions) | 14.55% | **32.52%** | +17.97pp |
+| 行覆盖率 (Lines) | 13.49% | **35.02%** | +21.53pp |
+
+### 1.2 测试数量
+
+| 项目 | 基线 | v3.2.1 | 新增 |
+|------|------|--------|------|
+| 后端 Jest 测试 | 489 | **783** | +294 |
+| 前端 Vitest 测试 | 35 | **58** | +23 |
+| E2E Playwright 测试 | 98 | **98** | 0（无回归） |
+
+---
+
+## 2. 新增测试文件清单
+
+### P2 — 后端集成测试（21 文件）
+
+| 文件 | 覆盖路由 | 用例数 |
+|------|---------|--------|
+| `integration/monitoring.routes.test.ts` | GET /api/monitoring/* | 6 |
+| `integration/analytics.routes.test.ts` | GET /api/analytics/* | 7 |
+| `integration/notification.routes.test.ts` | POST /api/notifications/* | 7 |
+| `integration/export.routes.test.ts` | GET/POST /api/export/* | 16 |
+| `integration/docs.routes.test.ts` | GET /api/docs/* | 8 |
+| `integration/feedback.routes.test.ts` | GET/POST /api/feedback/* | 7 |
+| `integration/preferences.routes.test.ts` | GET/PUT /api/preferences/* | 6 |
+| `integration/websocket.routes.test.ts` | GET /api/websocket/* | 4 |
+| `integration/openclaw.routes.test.ts` | POST /api/openclaw/* | 5 |
+| `integration/agent.routes.test.ts` | GET/POST /api/agent/* | 8 |
+| `integration/alert-rules.routes.test.ts` | GET/POST/DELETE /api/alert-rules/* | 8 |
+| `integration/prometheus.routes.test.ts` | GET /api/prometheus/* | 2 |
+| `integration/notification-history.routes.test.ts` | GET/DELETE /api/notification-history/* | 12 |
+| `integration/mcp.routes.test.ts` | GET/POST /api/mcp/* | 12 |
+| `integration/autoscaling.routes.test.ts` | GET/POST /api/autoscaling/* | 20 |
+| `integration/cache-warmup.routes.test.ts` | GET/POST /api/cache-warmup/* | 16 |
+| `integration/self-healing.routes.test.ts` | GET/POST /api/self-healing/* | 20 |
+| `integration/alert-dedup.routes.test.ts` | GET/POST /api/alert-dedup/* | 14 |
+| `integration/gpu.routes.test.ts` | GET/POST /api/gpu/* | 11 |
+| `integration/task.routes.test.ts` | GET/POST /api/tasks/* | 15 |
+| `integration/reservation.routes.test.ts` | GET/POST /api/reservations/* | 10 |
+
+### P3 — 后端服务单元测试（18 文件）
+
+| 文件 | 服务 | 用例数 |
+|------|------|--------|
+| `services/audit.service.test.ts` | audit.service.ts | 8 |
+| `services/cache-warmup.service.test.ts` | cache-warmup.service.ts | 11 |
+| `services/deployment.service.test.ts` | deployment.service.ts | 11 |
+| `services/email-queue.service.test.ts` | email-queue.service.ts | 5 |
+| `services/email-template.service.test.ts` | email-template.service.ts | 6 |
+| `services/enhanced-export.service.test.ts` | enhanced-export.service.ts | 7 |
+| `services/notification-history.service.test.ts` | notification-history.service.ts | 14 |
+| `services/preferences.service.test.ts` | preferences.service.ts | 5 |
+| `services/read-write-split.service.test.ts` | read-write-split.service.ts | 9 |
+| `services/redis-queue.service.test.ts` | redis-queue.service.ts | 6 |
+| `services/resource-quota.service.test.ts` | resource-quota.service.ts | 8 |
+| `services/team-member.service.test.ts` | team-member.service.ts | 11 |
+| `services/websocket-notification.service.test.ts` | websocket-notification.service.ts | 6 |
+| `services/websocket-session.service.test.ts` | websocket-session.service.ts | 9 |
+| `services/2fa.service.test.ts` | 2fa.service.ts | — |
+| `services/team.service.test.ts` | team.service.ts | — |
+| `services/openclaw.service.test.ts` | openclaw.service.ts | — |
+| `services/reservation.service.test.ts` | reservation.service.ts | — |
+
+### P4 — 前端页面测试（16 文件）
+
+| 文件 | 页面组件 | 用例数 |
+|------|---------|--------|
+| `pages/__tests__/Dashboard.test.tsx` | Dashboard | 3 |
+| `pages/__tests__/GPUs.test.tsx` | GPUs | 3 |
+| `pages/__tests__/Tasks.test.tsx` | Tasks | 3 |
+| `pages/__tests__/Servers.test.tsx` | Servers | 3 |
+| `pages/__tests__/Login.test.tsx` | Login | 3 |
+| `pages/__tests__/Analytics.test.tsx` | Analytics | 3 |
+| `pages/__tests__/ChatPage.test.tsx` | ChatPage | 2 |
+| `pages/__tests__/DocsPage.test.tsx` | DocsPage | 3 |
+| `pages/__tests__/FeedbackPage.test.tsx` | FeedbackPage | 3 |
+| `pages/__tests__/Monitoring.test.tsx` | Monitoring | 3 |
+| `pages/__tests__/Reservations.test.tsx` | Reservations | 3 |
+| `pages/__tests__/ReservationForm.test.tsx` | ReservationForm | 2 |
+| `pages/__tests__/MyReservations.test.tsx` | MyReservations | 2 |
+| `pages/__tests__/Users.test.tsx` | Users | 3 |
+| `pages/__tests__/Settings.test.tsx` | Settings | 2 |
+| `pages/__tests__/RequirementsPage.test.tsx` | RequirementsPage | 2 |
+
+---
+
+## 3. 关键 Mock 模式
+
+### 后端集成测试 — Auth Middleware Mock
+```ts
+authenticate: (req: any, _res: any, next: any) => {
+  // 使用 if (!req.user) 检查，允许测试内提前设置 ADMIN/MANAGER 角色
+  if (!req.user) { req.user = { userId: 'user-1', username: 'testuser', role: 'USER' }; }
+  next();
+},
+```
+
+### 后端服务测试 — Prisma Mock
+```ts
+// jest.config.js moduleNameMapper 自动映射
+// src/__mocks__/prisma.ts 提供所有模型的 jest.fn() mock
+(prisma.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(prisma));
+```
+
+### 前端测试 — Ant Design + jsdom
+```ts
+// src/test/setup.ts 中必须 mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({ matches: false, ... })),
+});
+// 有 dayjs 兼容问题的 Ant Design 组件（如 TimePicker）需在测试中单独 mock：
+vi.mock('antd', async () => {
+  const actual = await vi.importActual('antd');
+  return { ...actual, TimePicker: () => null };
+});
+```
+
+---
+
+## 4. 预存失败说明（不在本次修复范围）
+
+### 后端（16 个测试套件）
+`auth.service`, `server.service`, `gpu.service`, `cache.service`, `export.service`, `ai-scheduler`, `mcp-server`, `auth.routes`, `server.routes`, `error.middleware`, `auth.middleware`, `analytics.service`, `approval.service`
+
+### 前端（1 个测试套件，2 个用例）
+`ChatWindow.test.tsx` — 2 个用例因元素选择器严格模式问题和 textarea 定位问题预存失败
+
+---
+
+## 5. E2E 验证结果
+
+运行 `cd e2e && npx playwright test` — **98/98 全部通过**，确认 P1-P4 无功能回归。
+
+
 
 ### 各模块覆盖率详情
 

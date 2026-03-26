@@ -13,14 +13,13 @@ test.describe('Server Management', () => {
   });
 
   test('should display the Servers page', async ({ authedPage: page }) => {
-    await expect(page.getByRole('heading', { name: /server/i }).first()
-      .or(page.getByText(/server/i).first())).toBeVisible();
+    // Use the unique h1 heading instead of an .or() chain that can resolve to multiple elements
+    await expect(page.getByRole('heading', { name: /server/i })).toBeVisible();
   });
 
   test('should render a data table or empty state', async ({ authedPage: page }) => {
-    const table = page.locator('.ant-table, [role="table"]');
-    const emptyState = page.locator('.ant-empty, [class*="empty"]');
-    await expect(table.or(emptyState)).toBeVisible();
+    // Ant Design table always renders .ant-table; empty state appears inside it
+    await expect(page.locator('.ant-table').first()).toBeVisible();
   });
 
   test('should display server status badges (ONLINE/OFFLINE/MAINTENANCE)', async ({ authedPage: page }) => {

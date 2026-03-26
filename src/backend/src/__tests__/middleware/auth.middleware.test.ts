@@ -6,18 +6,25 @@
 
 import { Request, Response, NextFunction } from 'express';
 
-// Mock the auth service first
+// Mock @prisma/client for UserRole - must be before any imports that use it
+jest.mock('@prisma/client', () => ({
+  user_role: {
+    SUPER_ADMIN: 'SUPER_ADMIN',
+    ADMIN: 'ADMIN',
+    MANAGER: 'MANAGER',
+    USER: 'USER',
+  },
+}));
+
+// Mock the auth service
 jest.mock('../../services/auth.service', () => ({
   verifyToken: jest.fn(),
   __esModule: true,
   default: {
     verifyToken: jest.fn(),
   },
-}));
-
-// Mock @prisma/client for UserRole
-jest.mock('@prisma/client', () => ({
-  user_role: {
+  UserRole: {
+    SUPER_ADMIN: 'SUPER_ADMIN',
     ADMIN: 'ADMIN',
     MANAGER: 'MANAGER',
     USER: 'USER',

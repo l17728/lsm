@@ -10,6 +10,8 @@ import { useAuthStore } from './store/authStore'
 const Login           = lazy(() => import('./pages/Login'))
 const Dashboard       = lazy(() => import('./pages/Dashboard'))
 const Servers         = lazy(() => import('./pages/Servers'))
+const Clusters        = lazy(() => import('./pages/Clusters'))
+const ClusterApproval = lazy(() => import('./pages/ClusterApproval'))
 const GPUs            = lazy(() => import('./pages/GPUs'))
 const Tasks           = lazy(() => import('./pages/Tasks'))
 const Monitoring      = lazy(() => import('./pages/Monitoring'))
@@ -67,18 +69,20 @@ function App() {
             <Content style={{ margin: '16px', padding: 24, borderRadius: 8 }}>
               <Suspense fallback={PageLoading}>
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
+<Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/servers" element={<Servers />} />
+                  <Route path="/clusters" element={<Clusters />} />
+                  <Route path="/clusters/approval" element={<ClusterApproval />} />
                   <Route path="/gpus" element={<GPUs />} />
                   <Route path="/tasks" element={<Tasks />} />
-                  <Route path="/monitoring" element={<Monitoring />} />
-                  <Route path="/analytics" element={<Analytics />} />
-                  <Route path="/users" element={<Users />} />
                   <Route path="/reservations" element={<Reservations />} />
                   <Route path="/reservations/new" element={<ReservationForm />} />
                   <Route path="/reservations/mine" element={<MyReservations />} />
+                  <Route path="/monitoring" element={<Monitoring />} />
+                  <Route path="/analytics" element={<Analytics />} />
                   <Route path="/chat" element={<ChatPage />} />
+                  <Route path="/users" element={<Users />} />
                   <Route path="/docs" element={<DocsPage />} />
                   <Route path="/feedback" element={<FeedbackPage />} />
                   <Route path="/requirements" element={<RequirementsPage />} />

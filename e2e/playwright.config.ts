@@ -1,6 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as path from 'path';
+
+// Storage state written by global-setup.ts; loaded by the authedPage fixture.
+export const AUTH_FILE = path.join(__dirname, '.auth/admin.json');
 
 export default defineConfig({
+  globalSetup: require.resolve('./global-setup'),
+
   testDir: './tests',
   fullyParallel: false,      // run sequentially to avoid state conflicts
   retries: 1,
@@ -10,7 +16,7 @@ export default defineConfig({
   expect: { timeout: 12000 },
 
   use: {
-    baseURL: 'http://111.229.248.91:8081',
+    baseURL: 'http://localhost:8081',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

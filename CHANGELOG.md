@@ -1,5 +1,108 @@
 # LSM 项目版本更新日志
 
+## [v3.2.2] - 2026-03-26
+
+### 🤖 AI 智能调度增强
+
+#### 集群预约 AI 时间槽推荐
+- 新增 `recommendTimeSlots()` 方法，智能分析最佳预约时间段
+- 基于历史使用模式分析（高峰时段、平均时长、利用率）
+- 多维度评分算法：时间邻近度、避开高峰、工作日偏好、冲突检测
+- 返回最多 5 个推荐时间段，按评分降序排列
+- 支持自定义时长（1/2/4/8 小时）和首选时间范围
+
+#### 前端 AI 推荐集成
+- 预约表单中新增 AI 推荐卡片
+- 显示推荐时间段、置信度、评分和推荐理由
+- 点击推荐自动填充时间选择器
+- Duration 选择器支持快速切换时长
+
+#### Dashboard 增强
+- 新增 Clusters 统计卡片
+- 显示集群总数、空闲/使用中状态
+- 5 卡片布局：Servers, GPUs, Tasks, Clusters, Resource Usage
+
+### 📊 测试覆盖率提升
+
+| 模块 | 新增测试 | 总测试数 |
+|------|---------|---------|
+| 后端单元测试 | +7 | 23 |
+| 后端集成测试 | +5 | 19 |
+| 前端测试 | +5 | 16 |
+
+### 🔧 API 端点
+
+**AI 时间槽推荐**:
+- `GET /api/cluster-reservations/recommend-time-slots` - 获取 AI 推荐时间段
+  - 参数: `clusterId`, `duration`, `preferredStartTime?`, `preferredEndTime?`
+  - 返回: 推荐时间段列表（含评分、置信度、理由）
+
+### 📁 文件变更
+
+**新增/修改**:
+- `src/backend/src/services/cluster-reservation.service.ts` - 新增 `recommendTimeSlots()` 及辅助方法
+- `src/backend/src/routes/cluster-reservation.routes.ts` - 新增推荐端点
+- `src/frontend/src/pages/Dashboard.tsx` - 新增集群卡片
+- `src/frontend/src/pages/Clusters.tsx` - AI 推荐卡片集成
+- `src/frontend/src/services/api.ts` - 新增 `recommendTimeSlots()` API
+
+**测试文件**:
+- `src/backend/src/__tests__/services/cluster-reservation.service.test.ts` - +7 测试
+- `src/backend/src/__tests__/integration/cluster-reservation.routes.test.ts` - +5 测试
+- `src/frontend/src/pages/__tests__/Clusters.test.tsx` - +5 测试
+- `src/frontend/src/pages/__tests__/Dashboard.test.tsx` - 更新集群卡片测试
+
+### 🐛 Bug 修复
+
+- 修复 `Clusters.test.tsx` 中 `jest.Mocked` 类型错误（改用 vitest `vi.mocked`）
+- 修复 `Dashboard.test.tsx` 中 mock.calls 类型注解错误
+- 修复 `Monitoring.tsx` 中缺失的 `message` 导入
+- 修复 `api.test.ts` 中重复属性和 null 类型错误
+- 添加缺失的 `BrowserRouter` 包装器解决 `useNavigate` 错误
+
+---
+
+## [v3.2.1] - 2026-03-18
+
+### 🔍 可观测性增强 (P1 — Logging)
+
+#### 结构化请求日志
+- 所有 HTTP 请求现在自动注入唯一 `requestId`（`crypto.randomUUID()`）
+- 请求日志格式统一：`[timestamp] METHOD /path STATUS duration requestId=xxx`
+- 敏感路径（`/password`, `/token`, `/secret`, `/key`）自动脱敏为 `/***`
+- 错误响应 JSON 中包含 `requestId`，便于跨日志关联排查
+
+#### SafeLogger 全面覆盖
+- `auth.routes.ts` 全流程接入 `safeLogger`：注册、登录成功/失败、登出、改密码、角色变更、删除用户、所有异常分支
+- `error.middleware.ts` 将 `console.error` 替换为 `safeLogger.error`，并在错误响应中注入 `requestId`
+- 日志自动屏蔽 `password`/`token`/`secret`/`authorization` 等敏感字段
+
+### 🧪 测试覆盖率提升 (P2–P4)
+
+#### 后端集成测试 +21 文件 (P2)
+新增路由集成测试覆盖所有 23 个路由文件，包括：
+`monitoring`, `analytics`, `notification`, `export`, `docs`, `feedback`, `preferences`, `websocket`, `openclaw`, `agent`, `alert-rules`, `prometheus`, `autoscaling`, `cache-warmup`, `self-healing`, `alert-dedup`, `mcp`, `notification-history`
+
+#### 后端服务单元测试 +14 文件 (P3)
+新增服务单元测试，覆盖：
+`audit`, `cache-warmup`, `deployment`, `email-queue`, `email-template`, `enhanced-export`, `notification-history`, `preferences`, `read-write-split`, `redis-queue`, `resource-quota`, `team-member`, `websocket-notification`, `websocket-session`
+
+#### 前端页面测试 +12 文件 (P4)
+新增 Vitest 页面测试，覆盖所有 16 个前端页面：
+`Login`, `Analytics`, `ChatPage`, `DocsPage`, `FeedbackPage`, `Monitoring`, `Reservations`, `ReservationForm`, `MyReservations`, `Users`, `Settings`, `RequirementsPage`（含 Dashboard/GPUs/Tasks/Servers 原有测试）
+
+### 📊 覆盖率变化
+
+| 指标 | v3.2.0 前 | v3.2.1 |
+|------|-----------|--------|
+| 后端 Statements | ~17% | **~34%** |
+| 后端 Branches | ~14.7% | **~26%** |
+| 后端测试数 | 489 | **783** |
+| 前端测试数 | 35 | **58** |
+| E2E 测试 | 98/98 ✅ | **98/98 ✅** |
+
+---
+
 ## [v3.1.0] - 2026-03-14
 
 ### 🎉 新增功能

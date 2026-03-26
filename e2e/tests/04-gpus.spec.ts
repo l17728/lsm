@@ -12,21 +12,16 @@ test.describe('GPU Management', () => {
   });
 
   test('should display the GPU Resources page', async ({ authedPage: page }) => {
-    await expect(
-      page.getByRole('heading', { name: /gpu/i }).first()
-        .or(page.getByText(/gpu resource/i).first())
-    ).toBeVisible();
+    // Target the h1 specifically to avoid matching sub-headings like "My GPU Allocations"
+    await expect(page.locator('h1').filter({ hasText: /gpu/i })).toBeVisible();
   });
 
   test('should show GPU statistics cards (Total / Available / Allocated)', async ({ authedPage: page }) => {
-    // Statistic titles
-    await expect(page.getByText(/total gpu/i).or(page.getByText(/total/i).first())).toBeVisible();
+    await expect(page.getByText(/total gpu/i).first()).toBeVisible();
   });
 
   test('should render allocation table or empty state', async ({ authedPage: page }) => {
-    const table = page.locator('.ant-table');
-    const empty = page.locator('.ant-empty');
-    await expect(table.or(empty)).toBeVisible();
+    await expect(page.locator('.ant-table').first()).toBeVisible();
   });
 
   test('should show Allocate GPU button', async ({ authedPage: page }) => {

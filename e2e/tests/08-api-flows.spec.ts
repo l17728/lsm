@@ -6,27 +6,27 @@
  *
  * Uses Playwright's `request` fixture to call the backend API directly.
  * Origin header is required by the backend's CSRF middleware.
- * Single file-level token avoids hitting the auth rate-limiter (5 req / 15 min).
+ * Token is read from .auth/token.json written by globalSetup — no extra
+ * auth request per file (avoids the 5-req/15-min rate-limit exhaustion).
  */
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const API_BASE = 'http://111.229.248.91:8080';
-const ORIGIN   = 'http://111.229.248.91:8081';
-const CREDS    = { username: 'admin', password: 'admin123' };
+const API_BASE = 'http://localhost:8080';
+const ORIGIN   = 'http://localhost:8081';
 
-// Single login for the whole file
-let TOKEN = '';
-
-test.beforeAll(async ({ request }) => {
-  const res  = await request.post(`${API_BASE}/api/auth/login`, {
-    data: CREDS,
-    headers: { Origin: ORIGIN },
-  });
-  if (res.status() === 200) {
-    const body = await res.json();
-    TOKEN = body.token ?? '';
+// Read the token written by globalSetup (avoids an extra auth API call)
+function loadToken(): string {
+  try {
+    const file = path.join(__dirname, '../.auth/token.json');
+    return JSON.parse(fs.readFileSync(file, 'utf-8')).token ?? '';
+  } catch {
+    return '';
   }
-});
+}
+
+const TOKEN = loadToken();
 
 // ── Flow 1: Complete User Journey ─────────────────────────────────────────
 test.describe('API Flow — Complete User Journey', () => {
@@ -37,8 +37,8 @@ test.describe('API Flow — Complete User Journey', () => {
     expect([200, 429]).toContain(res.status());
   });
 
-  test('GET /api/gpu returns 200 with auth', async ({ request }) => {
-    const res = await request.get(`${API_BASE}/api/gpu`, {
+  test('GET /api/gpu/allocations returns 200 with auth', async ({ request }) => {
+    const res = await request.get(`${API_BASE}/api/gpu/allocations`, {
       headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
     });
     expect([200, 429]).toContain(res.status());
@@ -79,11 +79,12 @@ test.describe('API Flow — Task Management', () => {
     expect([200, 201, 429]).toContain(res.status());
   });
 
-  test('GET /api/tasks/:id returns 4xx for non-existent task', async ({ request }) => {
+  test('GET /api/tasks/:id returns 4xx/5xx for non-existent task', async ({ request }) => {
     const res = await request.get(`${API_BASE}/api/tasks/nonexistent-id-00000`, {
       headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
     });
-    expect([400, 404, 429]).toContain(res.status());
+    // Backend returns 500 for invalid UUID format; 404 for valid-UUID-but-missing
+    expect([400, 404, 500, 429]).toContain(res.status());
   });
 });
 

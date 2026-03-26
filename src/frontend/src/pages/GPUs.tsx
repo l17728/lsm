@@ -45,15 +45,24 @@ const GPUs: React.FC = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [statsRes, allocationsRes] = await Promise.all([
+      const [statsRes, allocationsRes] = await Promise.allSettled([
         gpuApi.getStats(),
         gpuApi.getMyAllocations(),
       ])
 
-      setStats(statsRes.data.data)
-      setAllocations(allocationsRes.data.data)
-    } catch (error: any) {
-      message.error('Failed to load GPU data')
+      if (statsRes.status === 'fulfilled') {
+        setStats(statsRes.value.data.data)
+      } else {
+        console.error('[GPUs] Failed to load GPU stats:', statsRes.reason)
+        message.error('GPU 统计数据加载失败，请刷新重试')
+      }
+
+      if (allocationsRes.status === 'fulfilled') {
+        setAllocations(allocationsRes.value.data.data)
+      } else {
+        console.error('[GPUs] Failed to load GPU allocations:', allocationsRes.reason)
+        message.error('GPU 分配列表加载失败，请刷新重试')
+      }
     } finally {
       setLoading(false)
     }

@@ -12,10 +12,13 @@ import {
   BookOutlined,
   BugOutlined,
   FileTextOutlined,
+  ClusterOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { MenuProps } from 'antd'
+import { useAuthStore } from '../store/authStore'
 
 const { Sider } = Layout
 
@@ -28,8 +31,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
+  const { user } = useAuthStore()
+  
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
-  const menuItems: MenuProps['items'] = [
+  const baseMenuItems: MenuProps['items'] = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
@@ -39,6 +45,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       key: '/servers',
       icon: <ApiOutlined />,
       label: t('navigation.servers'),
+    },
+    {
+      key: '/clusters',
+      icon: <ClusterOutlined />,
+      label: t('navigation.clusters'),
     },
     {
       key: '/gpus',
@@ -75,6 +86,18 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       icon: <TeamOutlined />,
       label: t('navigation.users'),
     },
+  ]
+  
+  // Add SUPER_ADMIN only menu items
+  const adminMenuItems: MenuProps['items'] = isSuperAdmin ? [
+    {
+      key: '/clusters/approval',
+      icon: <CheckCircleOutlined />,
+      label: '预约审批',
+    },
+  ] : []
+  
+  const bottomMenuItems: MenuProps['items'] = [
     {
       key: '/docs',
       icon: <BookOutlined />,
@@ -91,6 +114,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       label: t('navigation.requirements'),
     },
   ]
+  
+  const menuItems: MenuProps['items'] = [...baseMenuItems, ...adminMenuItems, ...bottomMenuItems]
 
   const handleClick: MenuProps['onClick'] = (e) => {
     navigate(e.key)

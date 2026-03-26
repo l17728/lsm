@@ -42,10 +42,10 @@ test.describe('Dashboard', () => {
     await expect(chartSection).toBeVisible();
   });
 
-  test('should display alerts section', async ({ authedPage: page }) => {
-    // Alerts card or empty state
-    const alertsArea = page.getByText(/alert/i).first();
-    await expect(alertsArea).toBeVisible();
+  test('should display task status distribution section', async ({ authedPage: page }) => {
+    // Dashboard shows a task status chart (not a separate "alerts" card)
+    const section = page.getByText(/task status|任务状态/i).first();
+    await expect(section).toBeVisible();
   });
 
   test('should navigate to Servers page via sidebar', async ({ authedPage: page }) => {

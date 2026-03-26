@@ -25,6 +25,9 @@ import docsRoutes from './routes/docs.routes';
 import feedbackRoutes from './routes/feedback.routes';
 import agentRoutes from './routes/agent.routes';
 import openclawRoutes from './routes/openclaw.routes';
+import clusterRoutes from './routes/cluster.routes';
+import clusterReservationRoutes from './routes/cluster-reservation.routes';
+import resourceRequestRoutes from './routes/resource-request.routes';
 import WebSocketHandler, { initializeWebSocket } from './utils/websocket';
 import monitoringService from './services/monitoring.service';
 import { cacheWarmupService } from './services/cache-warmup.service';
@@ -66,15 +69,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use(csrfProtection);
 
 // ============================================
+// Request ID injection
+// ============================================
+app.use((req: any, _res, next) => {
+  req.requestId = (crypto as any).randomUUID ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  next();
+});
+
+// ============================================
 // Request Logging (with sensitive data masking)
 // ============================================
-app.use((req, res, next) => {
+app.use((req: any, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
     // Mask sensitive paths
     const maskedPath = req.path.replace(/\/(password|token|secret|key)/gi, '/***');
-    console.log(`${req.method} ${maskedPath} ${res.statusCode} ${duration}ms`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${maskedPath} ${res.statusCode} ${duration}ms requestId=${req.requestId}`);
   });
   next();
 });
@@ -115,6 +126,9 @@ app.use('/api/docs', docsRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/openclaw', openclawRoutes);
+app.use('/api/clusters', clusterRoutes);
+app.use('/api/cluster-reservations', clusterReservationRoutes);
+app.use('/api/requests', resourceRequestRoutes);
 
 // 404 handler
 app.use((req, res) => {

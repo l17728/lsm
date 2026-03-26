@@ -40,10 +40,15 @@ test.describe('Authentication', () => {
   });
 
   baseTest('should login successfully with valid credentials', async ({ page }) => {
+    // Extend per-test timeout: page load takes ~30 s on the Vite dev server,
+    // leaving insufficient time within the 60 s global timeout for the redirect.
+    baseTest.setTimeout(90000);
     await page.goto('/login', GOTO_OPTS);
     await page.getByPlaceholder(/username|用户名/i).fill(ADMIN_USER.username);
     await page.getByPlaceholder(/password|密码/i).fill(ADMIN_USER.password);
     await page.getByRole('button', { name: /login|登录/i }).click();
+    // 45 s for the redirect; if auth is rate-limited the redirect won't happen
+    // and the test will fail clearly with a timeout explaining why.
     await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45000 });
     // Should land on dashboard or home
     await expect(page).not.toHaveURL(/login/);

@@ -36,6 +36,9 @@ vi.mock('../../services/api', () => ({
     getClusterStats: vi.fn(),
     getAlerts: vi.fn(),
   },
+  clusterApi: {
+    getStats: vi.fn(),
+  },
 }))
 
 // ─── Mock WebSocket service ───────────────────────────────────────────────────
@@ -78,7 +81,7 @@ vi.mock('antd', async (importOriginal) => {
 import Dashboard from '../Dashboard'
 
 // ─── Import mocked modules ────────────────────────────────────────────────────
-import { serverApi, gpuApi, taskApi, monitoringApi } from '../../services/api'
+import { serverApi, gpuApi, taskApi, monitoringApi, clusterApi } from '../../services/api'
 import { wsService } from '../../services/websocket'
 
 // ─── Test data ────────────────────────────────────────────────────────────────
@@ -87,6 +90,11 @@ const mockGpuStats = { total: 20, available: 15, allocated: 5 }
 const mockTaskStats = { total: 50, running: 5, pending: 10, completed: 30, failed: 5 }
 const mockClusterStats = {
   usage: { avgCpuUsage: 65.5, avgMemoryUsage: 72.3, avgGpuUsage: 45.0 },
+}
+const mockClusterSummary = {
+  total: 5,
+  byStatus: { available: 2, allocated: 2, reserved: 1, maintenance: 0 },
+  resources: { totalServers: 20, totalGpus: 80, totalCpuCores: 320, totalMemory: 1280 },
 }
 const mockAlerts: any[] = []
 
@@ -103,6 +111,9 @@ function mockAllSuccess() {
   } as any)
   vi.mocked(monitoringApi.getClusterStats).mockResolvedValue({
     data: { success: true, data: mockClusterStats },
+  } as any)
+  vi.mocked(clusterApi.getStats).mockResolvedValue({
+    data: { success: true, data: mockClusterSummary },
   } as any)
   vi.mocked(monitoringApi.getAlerts).mockResolvedValue({
     data: { success: true, data: mockAlerts },
@@ -176,11 +187,19 @@ describe('Dashboard', () => {
         expect(screen.getByText('Tasks')).toBeInTheDocument()
       })
     })
+
+    it('应该显示 Clusters 统计卡片', async () => {
+      render(<Dashboard />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Clusters')).toBeInTheDocument()
+      })
+    })
   })
 
   // ─── API calls ──────────────────────────────────────────────────────────────
   describe('API 调用', () => {
-    it('挂载时应该调用所有 5 个 API', async () => {
+    it('挂载时应该调用所有 6 个 API', async () => {
       render(<Dashboard />)
 
       await waitFor(() => {
@@ -189,6 +208,7 @@ describe('Dashboard', () => {
         expect(taskApi.getStats).toHaveBeenCalledTimes(1)
         expect(monitoringApi.getClusterStats).toHaveBeenCalledTimes(1)
         expect(monitoringApi.getAlerts).toHaveBeenCalledTimes(1)
+        expect(clusterApi.getStats).toHaveBeenCalledTimes(1)
       })
     })
 
@@ -258,6 +278,7 @@ describe('Dashboard', () => {
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(monitoringApi.getClusterStats).mockRejectedValue(new Error('err'))
       vi.mocked(monitoringApi.getAlerts).mockRejectedValue(new Error('err'))
+      vi.mocked(clusterApi.getStats).mockRejectedValue(new Error('err'))
 
       const { container } = render(<Dashboard />)
 
@@ -273,6 +294,7 @@ describe('Dashboard', () => {
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(monitoringApi.getClusterStats).mockRejectedValue(new Error('err'))
       vi.mocked(monitoringApi.getAlerts).mockRejectedValue(new Error('err'))
+      vi.mocked(clusterApi.getStats).mockRejectedValue(new Error('err'))
 
       const { container } = render(<Dashboard />)
 
@@ -349,24 +371,26 @@ describe('Dashboard', () => {
       })
 
       // message.error should NOT have been called for alerts
-      const errorCalls: string[] = mockMessageError.mock.calls.map((c: [string]) => c[0])
+      const errorCalls: string[] = mockMessageError.mock.calls.map((c) => c[0] as string)
       const alertErrorCalled = errorCalls.some((msg) =>
         msg.toLowerCase().includes('alert') || msg.includes('告警')
       )
       expect(alertErrorCalled).toBe(false)
     })
 
-    it('全部 API 失败时应调用 4 条 message.error（alerts 除外）', async () => {
+    it('全部 API 失败时应调用 4 条 message.error（alerts 和 clusterSummary 除外）', async () => {
       vi.mocked(serverApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(gpuApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(monitoringApi.getClusterStats).mockRejectedValue(new Error('err'))
       vi.mocked(monitoringApi.getAlerts).mockRejectedValue(new Error('err'))
+      vi.mocked(clusterApi.getStats).mockRejectedValue(new Error('err'))
 
       render(<Dashboard />)
 
       await waitFor(() => {
-        // 4 modules show error: server, gpu, task, cluster (alerts silently ignores)
+        // 4 modules show error: server, gpu, task, monitoring cluster stats
+        // (alerts and clusterSummary silently ignore errors)
         expect(mockMessageError).toHaveBeenCalledTimes(4)
       })
     })

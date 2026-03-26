@@ -51,6 +51,8 @@ const Header: React.FC<HeaderProps> = ({ collapsed, setCollapsed }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        background: '#fff',
+        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.08)',
       }}
     >
       <Button
@@ -68,8 +70,8 @@ const Header: React.FC<HeaderProps> = ({ collapsed, setCollapsed }) => {
         <LanguageSwitcher />
         
         {/* User Info & Avatar */}
-        <Space>
-          <span>{user?.username}</span>
+        <Space style={{ color: '#333' }}>
+          <span style={{ fontWeight: 500 }}>{user?.username}</span>
           <Dropdown menu={{ items: menuItems }} placement="bottomRight">
             <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff', cursor: 'pointer' }} />
           </Dropdown>

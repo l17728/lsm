@@ -29,6 +29,10 @@ declare global {
 /**
  * Rate limiting configuration
  * Prevents brute-force attacks and DDoS
+ * 
+ * SECURITY NOTE: Rate limiting is DISABLED by default in development mode.
+ * For production deployment, set RATE_LIMIT_ENABLED=true in environment variables.
+ * See DEPLOYMENT.md for details.
  */
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -42,14 +46,19 @@ export const rateLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: () => process.env.RATE_LIMIT_ENABLED !== 'true', // Disabled by default, enable in production
 });
 
 /**
  * Strict rate limiter for authentication routes
+ * 
+ * SECURITY NOTE: Auth rate limiting is DISABLED by default in development mode.
+ * For production deployment, set AUTH_RATE_LIMIT_ENABLED=true in environment variables.
+ * See DEPLOYMENT.md for details.
  */
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
+  max: 20, // Limit each IP to 20 requests per windowMs
   message: {
     success: false,
     error: {
@@ -58,6 +67,7 @@ export const authRateLimiter = rateLimit({
     },
   },
   skipSuccessfulRequests: false,
+  skip: () => process.env.AUTH_RATE_LIMIT_ENABLED !== 'true', // Disabled by default, enable in production
 });
 
 /**
@@ -126,11 +136,25 @@ export function applySecurity(app: Express) {
   // Apply Helmet security headers
   applyHelmet(app);
 
-  // Apply rate limiting to all routes
-  app.use('/api', rateLimiter);
+  // Rate limiting configuration
+  const isRateLimitEnabled = process.env.RATE_LIMIT_ENABLED === 'true';
+  const isAuthRateLimitEnabled = process.env.AUTH_RATE_LIMIT_ENABLED === 'true';
 
-  // Apply strict rate limiting to auth routes
-  app.use('/api/auth', authRateLimiter);
+  // Apply rate limiting to all routes (only if enabled)
+  if (isRateLimitEnabled) {
+    app.use('/api', rateLimiter);
+    console.log('[Security] API rate limiting enabled (100 requests per 15 minutes)');
+  } else {
+    console.log('[Security] API rate limiting DISABLED (development mode)');
+  }
+
+  // Apply strict rate limiting to auth routes (only if enabled)
+  if (isAuthRateLimitEnabled) {
+    app.use('/api/auth', authRateLimiter);
+    console.log('[Security] Auth rate limiting enabled (20 requests per 15 minutes)');
+  } else {
+    console.log('[Security] Auth rate limiting DISABLED (development mode)');
+  }
 
   // Trust proxy (for correct IP detection behind reverse proxy)
   app.set('trust proxy', 1);

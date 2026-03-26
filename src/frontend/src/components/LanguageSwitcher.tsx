@@ -54,18 +54,19 @@ const LanguageSwitcher: React.FC = () => {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          padding: '8px 12px',
-          border: '1px solid var(--border-color)',
+          gap: '6px',
+          padding: '6px 12px',
+          border: '1px solid #d9d9d9',
           borderRadius: '6px',
-          backgroundColor: 'var(--bg-primary)',
-          color: 'var(--text-primary)',
+          backgroundColor: '#fff',
+          color: '#333',
           cursor: 'pointer',
           transition: 'all 0.2s ease',
+          fontSize: '14px',
         }}
       >
         <span style={{ fontSize: '16px' }}>{currentLangData?.flag}</span>
-        <span style={{ fontSize: '14px' }}>{currentLangData?.label}</span>
+        <span>{currentLangData?.label}</span>
         <svg
           width="12"
           height="12"
@@ -101,10 +102,10 @@ const LanguageSwitcher: React.FC = () => {
               top: '100%',
               right: 0,
               marginTop: '4px',
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-color)',
+              backgroundColor: '#fff',
+              border: '1px solid #d9d9d9',
               borderRadius: '6px',
-              boxShadow: 'var(--shadow-lg)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
               zIndex: 999,
               minWidth: '140px',
               overflow: 'hidden',
@@ -121,8 +122,8 @@ const LanguageSwitcher: React.FC = () => {
                   width: '100%',
                   padding: '10px 12px',
                   border: 'none',
-                  backgroundColor: currentLang === lang.code ? 'var(--bg-secondary)' : 'transparent',
-                  color: 'var(--text-primary)',
+                  backgroundColor: currentLang === lang.code ? '#e6f7ff' : 'transparent',
+                  color: '#333',
                   cursor: 'pointer',
                   textAlign: 'left',
                   fontSize: '14px',
@@ -130,7 +131,7 @@ const LanguageSwitcher: React.FC = () => {
                 }}
                 onMouseEnter={(e) => {
                   if (currentLang !== lang.code) {
-                    e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                    e.currentTarget.style.backgroundColor = '#f5f5f5';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -147,7 +148,7 @@ const LanguageSwitcher: React.FC = () => {
                     height="16"
                     viewBox="0 0 16 16"
                     fill="none"
-                    stroke="var(--primary-color)"
+                    stroke="#1890ff"
                     strokeWidth="2"
                     style={{ marginLeft: 'auto' }}
                   >

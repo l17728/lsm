@@ -5,9 +5,14 @@ import prisma from '../utils/prisma';
 import config from '../config';
 import { user_role as UserRole } from '@prisma/client';
 import { emailService } from './email.service';
+import { safeLogger } from '../middleware/logging.middleware';
 
 // Re-export UserRole for use in other modules
 export { UserRole };
+
+// Token expiration constants
+const ACCESS_TOKEN_EXPIRES = '15m'; // 15 minutes
+const REFRESH_TOKEN_EXPIRES_DAYS = 7; // 7 days
 
 export interface LoginRequest {
   username: string;
@@ -82,12 +87,15 @@ export class AuthService {
   async login(data: LoginRequest) {
     const { username, password } = data;
 
+    safeLogger.debug('Login attempt', { username });
+
     // Find user
     const user = await prisma.user.findUnique({
       where: { username },
     });
 
     if (!user) {
+      safeLogger.warn('Login failed: user not found', { username });
       throw new Error('Invalid credentials');
     }
 
@@ -95,6 +103,7 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
+      safeLogger.warn('Login failed: invalid password', { username, userId: user.id });
       throw new Error('Invalid credentials');
     }
 
@@ -106,20 +115,43 @@ export class AuthService {
     };
 
     const token = jwt.sign(tokenPayload, config.jwtSecret, {
-      expiresIn: config.jwtExpiresIn as any,
+      expiresIn: ACCESS_TOKEN_EXPIRES as any,
     });
 
-    // Create session
+    // Generate refresh token
+    const refreshToken = this.generateRefreshToken();
+    const refreshExpiresAt = new Date(
+      Date.now() + REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000
+    );
+
+    // Create session with both tokens
     const session = await prisma.session.create({
       data: {
         userId: user.id,
         token,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        refreshToken,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        refreshExpiresAt,
       },
+    });
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    safeLogger.info('Login successful', { 
+      userId: user.id, 
+      username: user.username,
+      sessionId: session.id,
+      refreshExpiresAt: refreshExpiresAt.toISOString()
     });
 
     return {
       token,
+      refreshToken,
+      expiresIn: 15 * 60, // 15 minutes in seconds
       user: {
         id: user.id,
         username: user.username,
@@ -133,9 +165,18 @@ export class AuthService {
    * Logout user (invalidate session)
    */
   async logout(token: string) {
-    await prisma.session.deleteMany({
+    safeLogger.debug('Logout attempt');
+    
+    const result = await prisma.session.updateMany({
       where: { token },
+      data: { isRevoked: true },
     });
+
+    if (result.count > 0) {
+      safeLogger.info('Session revoked on logout', { sessionsRevoked: result.count });
+    } else {
+      safeLogger.warn('Logout: no active session found for token');
+    }
   }
 
   /**
@@ -245,6 +286,128 @@ export class AuthService {
     await prisma.user.delete({
       where: { id: userId },
     });
+  }
+
+  /**
+   * Generate refresh token
+   */
+  private generateRefreshToken(): string {
+    return uuidv4() + '-' + Date.now().toString(36);
+  }
+
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshToken(refreshToken: string) {
+    safeLogger.debug('Token refresh attempt');
+
+    // Find session with this refresh token
+    const session = await prisma.session.findFirst({
+      where: {
+        refreshToken,
+        isRevoked: false,
+        refreshExpiresAt: { gt: new Date() },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      safeLogger.warn('Token refresh failed: invalid or expired refresh token');
+      throw new Error('Invalid or expired refresh token');
+    }
+
+    safeLogger.debug('Valid session found for refresh', { 
+      sessionId: session.id, 
+      userId: session.user.id 
+    });
+
+    // Generate new access token
+    const tokenPayload: TokenPayload = {
+      userId: session.user.id,
+      username: session.user.username,
+      role: session.user.role,
+    };
+
+    const newAccessToken = jwt.sign(tokenPayload, config.jwtSecret, {
+      expiresIn: ACCESS_TOKEN_EXPIRES as any,
+    });
+
+    // Generate new refresh token (rotation for security)
+    const newRefreshToken = this.generateRefreshToken();
+    const refreshExpiresAt = new Date(
+      Date.now() + REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000
+    );
+
+    // Update session with new tokens
+    await prisma.session.update({
+      where: { id: session.id },
+      data: {
+        token: newAccessToken,
+        refreshToken: newRefreshToken,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        refreshExpiresAt,
+      },
+    });
+
+    safeLogger.info('Token refresh successful', {
+      userId: session.user.id,
+      username: session.user.username,
+      sessionId: session.id,
+      newRefreshExpiresAt: refreshExpiresAt.toISOString()
+    });
+
+    return {
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: session.user,
+    };
+  }
+
+  /**
+   * Revoke refresh token (for logout)
+   */
+  async revokeRefreshToken(refreshToken: string) {
+    safeLogger.debug('Revoking refresh token');
+    
+    const result = await prisma.session.updateMany({
+      where: { refreshToken },
+      data: { isRevoked: true },
+    });
+
+    if (result.count > 0) {
+      safeLogger.info('Refresh token revoked', { sessionsAffected: result.count });
+    }
+  }
+
+  /**
+   * Clean up expired sessions
+   */
+  async cleanupExpiredSessions() {
+    safeLogger.debug('Starting expired sessions cleanup');
+    
+    const result = await prisma.session.deleteMany({
+      where: {
+        OR: [
+          { refreshExpiresAt: { lt: new Date() } },
+          { isRevoked: true },
+        ],
+      },
+    });
+
+    if (result.count > 0) {
+      safeLogger.info('Expired sessions cleaned up', { deletedCount: result.count });
+    }
+
+    return result.count;
   }
 }
 

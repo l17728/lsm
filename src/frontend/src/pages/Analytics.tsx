@@ -111,7 +111,10 @@ const AnalyticsDashboard: React.FC = () => {
         analyticsApi.getResourceTrends(getTimeRangeParams()).catch(() => ({ data: { data: generateMockTrends() } })),
         analyticsApi.getCostBreakdown(getTimeRangeParams()).catch(() => ({ data: { data: generateMockCostData() } })),
         analyticsApi.getServerUtilization().catch(() => ({ data: { data: generateMockUtilization() } })),
-        monitoringApi.getClusterStats(),
+        monitoringApi.getClusterStats().catch((err: any) => {
+          console.error('[Analytics] Failed to load cluster stats:', err)
+          return { data: { data: null } }
+        }),
       ])
 
       setSummary(summaryRes.data.data)

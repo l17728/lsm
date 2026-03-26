@@ -36,6 +36,16 @@ model User {
   teamMemberships       TeamMember[]              // 团队成员关系
   invitedMembers        TeamMember[]              @relation("InvitedBy")              // 邀请的成员
   currentTeam           Team?                     @relation("CurrentTeam", fields: [currentTeamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  // 集群管理关联
+  createdClusters       Cluster[]                 @relation("ClusterCreator")
+  assignedClusters      Cluster[]                 @relation("ClusterAssignee")
+  clusterAllocations    ClusterAllocation[]
+  clusterReservations   ClusterReservation[]      // 发起的集群预约
+  approvedClusterReservations ClusterReservation[] @relation("ClusterReservationApprover") // 审批的集群预约
+  rejectedClusterReservations ClusterReservation[] @relation("ClusterReservationRejecter") // 拒绝的集群预约
+  resourceRequests      ResourceRequest[]         @relation("Requester")
+  approvedRequests      ResourceRequest[]         @relation("RequestApprover")
+  requestApprovals      RequestApproval[]
 
   @@index([email], map: "idx_users_email")
   @@index([username], map: "idx_users_username")
@@ -44,16 +54,19 @@ model User {
 }
 
 model Session {
-  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  token     String    @unique
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
-  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  isRevoked Boolean?  @default(false) @map("is_revoked")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  token        String    @unique
+  refreshToken String?   @unique @map("refresh_token")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  refreshExpiresAt DateTime? @map("refresh_expires_at") @db.Timestamptz(6)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  isRevoked    Boolean?  @default(false) @map("is_revoked")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([token], map: "idx_sessions_token")
   @@index([userId], map: "idx_sessions_user_id")
+  @@index([refreshToken], map: "idx_sessions_refresh_token")
   @@map("sessions")
 }
 
@@ -82,6 +95,8 @@ model Server {
   reservationSlots  ReservationSlot[]
   // 多租户关联
   team              Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  // 集群管理关联
+  clusterServers    ClusterServer[]
 
   @@index([status], map: "idx_servers_status")
   @@index([teamId], map: "idx_servers_team_id")
@@ -378,9 +393,10 @@ enum task_status {
 }
 
 enum user_role {
-  ADMIN
-  MANAGER
-  USER
+  SUPER_ADMIN  // 超级管理员 - 集群管理、资源调配
+  ADMIN        // 系统管理员 - 系统配置
+  MANAGER      // 资源管理员 - 申请资源
+  USER         // 普通用户
 }
 
 // ==================== 多租户枚举 ====================
@@ -449,6 +465,7 @@ model Team {
   reservations  Reservation[]
   auditLogs     AuditLog[]
   currentUsers  User[]        @relation("CurrentTeam")
+  clusterAllocations ClusterAllocation[]
 
   @@index([slug], map: "idx_teams_slug")
   @@index([status], map: "idx_teams_status")
@@ -615,4 +632,265 @@ model ResourceQuota {
   @@index([targetId], map: "idx_resource_quotas_target_id")
   @@index([teamId], map: "idx_resource_quotas_team_id")
   @@map("resource_quotas")
+}
+
+// ==================== 集群管理枚举 ====================
+
+enum cluster_status {
+  AVAILABLE     // 可用 - 可分配给申请者
+  ALLOCATED     // 已分配 - 正在被使用
+  RESERVED      // 已预约 - 等待使用时间
+  MAINTENANCE   // 维护中
+  OFFLINE       // 离线
+}
+
+enum cluster_type {
+  COMPUTE       // 计算集群
+  TRAINING      // 训练集群  
+  INFERENCE     // 推理集群
+  GENERAL       // 通用集群
+  CUSTOM        // 自定义
+}
+
+enum request_status {
+  DRAFT         // 草稿
+  PENDING       // 待审批
+  APPROVED      // 已批准
+  REJECTED      // 已拒绝
+  FULFILLED     // 已交付
+  CANCELLED     // 已取消
+  EXPIRED       // 已过期
+}
+
+enum request_priority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL      // 关键任务
+  URGENT        // 紧急
+}
+
+// ==================== 集群管理模型 ====================
+
+// 集群定义
+model Cluster {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name            String          @unique @db.VarChar(100)
+  code            String          @unique @db.VarChar(50)
+  description     String?         @db.Text
+  type            cluster_type    @default(GENERAL)
+  status          cluster_status  @default(AVAILABLE)
+  
+  // 资源配置
+  totalServers    Int             @default(0) @map("total_servers")
+  totalGpus       Int             @default(0) @map("total_gpus")
+  totalCpuCores   Int             @default(0) @map("total_cpu_cores")
+  totalMemory     Int             @default(0) @map("total_memory")
+  
+  // 使用情况
+  usedServers     Int             @default(0) @map("used_servers")
+  usedGpus        Int             @default(0) @map("used_gpus")
+  
+  // 分配信息
+  assignedTo      String?         @map("assigned_to") @db.Uuid
+  assignedAt      DateTime?       @map("assigned_at") @db.Timestamptz(6)
+  assignmentEnd   DateTime?       @map("assignment_end") @db.Timestamptz(6)
+  
+  // 标签和元数据
+  tags            Json?           @default("[]")
+  capabilities    Json?           @default("{}")
+  constraints     Json?           @default("{}")
+  metadata        Json?           @default("{}")
+  
+  // 审计
+  createdBy       String          @map("created_by") @db.Uuid
+  createdAt       DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // 关联
+  servers         ClusterServer[]
+  allocations     ClusterAllocation[]
+  reservations    ClusterReservation[]  // 集群预约
+  requests        ResourceRequest[]
+  creator         User            @relation("ClusterCreator", fields: [createdBy], references: [id])
+  assignee        User?           @relation("ClusterAssignee", fields: [assignedTo], references: [id])
+  
+  @@index([status], map: "idx_clusters_status")
+  @@index([type], map: "idx_clusters_type")
+  @@index([assignedTo], map: "idx_clusters_assigned_to")
+  @@map("clusters")
+}
+
+// 集群-服务器关联
+model ClusterServer {
+  id          String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  clusterId   String      @map("cluster_id") @db.Uuid
+  serverId    String      @map("server_id") @db.Uuid
+  addedAt     DateTime?   @default(now()) @map("added_at") @db.Timestamptz(6)
+  addedBy     String?     @map("added_by") @db.Uuid
+  priority    Int         @default(0)
+  role        String?     @db.VarChar(50)
+  metadata    Json?       @default("{}")
+  
+  cluster     Cluster     @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  server      Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  
+  @@unique([clusterId, serverId], map: "idx_cluster_servers_unique")
+  @@index([clusterId], map: "idx_cluster_servers_cluster_id")
+  @@index([serverId], map: "idx_cluster_servers_server_id")
+  @@map("cluster_servers")
+}
+
+// 集群分配记录
+model ClusterAllocation {
+  id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  clusterId       String      @map("cluster_id") @db.Uuid
+  userId          String      @map("user_id") @db.Uuid
+  teamId          String?     @map("team_id") @db.Uuid
+  
+  startTime       DateTime    @map("start_time") @db.Timestamptz(6)
+  endTime         DateTime    @map("end_time") @db.Timestamptz(6)
+  actualStart     DateTime?   @map("actual_start") @db.Timestamptz(6)
+  actualEnd       DateTime?   @map("actual_end") @db.Timestamptz(6)
+  
+  requestId       String?     @unique @map("request_id") @db.Uuid
+  purpose         String?     @db.Text
+  status          String      @default("ACTIVE")
+  
+  gpuHours        Decimal?    @map("gpu_hours") @db.Decimal(10, 2)
+  cost            Decimal?    @db.Decimal(12, 2)
+  
+  metadata        Json?       @default("{}")
+  createdAt       DateTime?   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  cluster         Cluster     @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team            Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  request         ResourceRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  
+  @@index([clusterId], map: "idx_cluster_allocations_cluster_id")
+  @@index([userId], map: "idx_cluster_allocations_user_id")
+  @@index([startTime, endTime], map: "idx_cluster_allocations_time_range")
+  @@map("cluster_allocations")
+}
+
+// 集群预约 - MANAGER 用户预约集群使用
+model ClusterReservation {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  clusterId       String    @map("cluster_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  teamId          String?   @map("team_id") @db.Uuid
+  
+  // 预约时间
+  startTime       DateTime  @map("start_time") @db.Timestamptz(6)
+  endTime         DateTime  @map("end_time") @db.Timestamptz(6)
+  purpose         String?   @db.Text
+  
+  // 状态: PENDING(待审批) -> APPROVED(已批准) -> ACTIVE(使用中) -> COMPLETED(已完成)
+  // 或: PENDING -> REJECTED(已拒绝) / CANCELLED(已取消)
+  status          String    @default("PENDING")
+  
+  // 审批信息 (需要 SUPER_ADMIN 审批)
+  approvedBy      String?   @map("approved_by") @db.Uuid
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  rejectedBy      String?   @map("rejected_by") @db.Uuid
+  rejectedAt      DateTime? @map("rejected_at") @db.Timestamptz(6)
+  rejectionReason String?   @map("rejection_reason") @db.Text
+  
+  // 等待队列 (时间冲突时排队)
+  queuePosition   Int?      @map("queue_position")
+  
+  // 实际使用时间
+  actualStartTime DateTime? @map("actual_start_time") @db.Timestamptz(6)
+  actualEndTime   DateTime? @map("actual_end_time") @db.Timestamptz(6)
+  
+  metadata        Json?     @default("{}")
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  // 关联
+  cluster         Cluster   @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approver        User?     @relation("ClusterReservationApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  rejecter        User?     @relation("ClusterReservationRejecter", fields: [rejectedBy], references: [id], onDelete: SetNull)
+  
+  @@index([clusterId, status], map: "idx_cluster_reservations_cluster_status")
+  @@index([userId, status], map: "idx_cluster_reservations_user_status")
+  @@index([status, startTime], map: "idx_cluster_reservations_status_time")
+  @@index([clusterId, startTime, endTime], map: "idx_cluster_reservations_time_range")
+  @@map("cluster_reservations")
+}
+
+// 资源申请
+model ResourceRequest {
+  id              String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  requestCode     String              @unique @map("request_code") @db.VarChar(50)
+  requesterId     String              @map("requester_id") @db.Uuid
+  teamId          String?             @map("team_id") @db.Uuid
+  
+  title           String              @db.VarChar(200)
+  description     String?             @db.Text
+  purpose         String?             @db.Text
+  
+  minServers      Int?                @map("min_servers")
+  maxServers      Int?                @map("max_servers")
+  minGpus         Int?                @map("min_gpus")
+  maxGpus         Int?                @map("max_gpus")
+  minCpuCores     Int?                @map("min_cpu_cores")
+  minMemory       Int?                @map("min_memory")
+  gpuModel        String?             @map("gpu_model") @db.VarChar(100)
+  
+  startTime       DateTime            @map("start_time") @db.Timestamptz(6)
+  endTime         DateTime            @map("end_time") @db.Timestamptz(6)
+  duration        Int?
+  
+  status          request_status      @default(DRAFT)
+  priority        request_priority    @default(NORMAL)
+  
+  approvedBy      String?             @map("approved_by") @db.Uuid
+  approvedAt      DateTime?           @map("approved_at") @db.Timestamptz(6)
+  rejectionReason String?             @map("rejection_reason") @db.Text
+  
+  assignedClusterId String?           @map("assigned_cluster_id") @db.Uuid
+  optimizationResult Json?            @map("optimization_result")
+  optimizationMode  String?           @map("optimization_mode") @db.VarChar(20)
+  
+  constraints     Json?               @default("{}")
+  metadata        Json?               @default("{}")
+  createdAt       DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  requester       User                @relation("Requester", fields: [requesterId], references: [id])
+  approver        User?               @relation("RequestApprover", fields: [approvedBy], references: [id])
+  assignedCluster Cluster?            @relation(fields: [assignedClusterId], references: [id], onDelete: SetNull)
+  allocation      ClusterAllocation?
+  approvals       RequestApproval[]
+  
+  @@index([requesterId], map: "idx_resource_requests_requester_id")
+  @@index([status], map: "idx_resource_requests_status")
+  @@index([priority], map: "idx_resource_requests_priority")
+  @@index([startTime, endTime], map: "idx_resource_requests_time_range")
+  @@index([teamId], map: "idx_resource_requests_team_id")
+  @@map("resource_requests")
+}
+
+// 申请审批记录
+model RequestApproval {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  requestId       String          @map("request_id") @db.Uuid
+  approverId      String          @map("approver_id") @db.Uuid
+  level           Int             @default(1)
+  status          approval_status @default(PENDING)
+  comment         String?         @db.Text
+  approvedAt      DateTime?       @map("approved_at") @db.Timestamptz(6)
+  createdAt       DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  
+  request         ResourceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver        User            @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  
+  @@unique([requestId, level], map: "idx_request_approvals_unique_level")
+  @@index([requestId], map: "idx_request_approvals_request_id")
+  @@index([approverId], map: "idx_request_approvals_approver_id")
+  @@map("request_approvals")
 }

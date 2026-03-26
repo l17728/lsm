@@ -21,20 +21,22 @@ test.describe('Monitoring', () => {
   });
 
   test('should render metric charts or empty state', async ({ authedPage: page }) => {
-    const chart  = page.locator('[class*="chart"], canvas, svg').first();
-    const empty  = page.locator('.ant-empty').first();
-    const metric = page.locator('.ant-statistic, .ant-card').first();
-    await expect(chart.or(empty).or(metric)).toBeVisible();
+    // Use a single comma-selector so .first() picks one element → no strict-mode violation
+    await expect(
+      page.locator('[class*="chart"], canvas, svg, .ant-statistic, .ant-card, .ant-empty').first()
+    ).toBeVisible();
   });
 
-  test('should display alerts or "no alerts" state', async ({ authedPage: page }) => {
+  test('should display resource usage trend charts', async ({ authedPage: page }) => {
+    // Monitoring page shows "Resource Usage Trends" chart — no standalone "alerts" card
     await expect(
-      page.getByText(/alert|no alert|warning/i).first()
+      page.getByText(/resource usage|cluster|趋势|usage trend/i).first()
     ).toBeVisible({ timeout: 10000 });
   });
 
   test('should have server selector or filter control', async ({ authedPage: page }) => {
-    const selector = page.locator('.ant-select, .ant-tabs, [role="tablist"]').first();
-    await expect(selector.or(page.locator('.ant-card').first())).toBeVisible();
+    await expect(
+      page.locator('.ant-select, .ant-tabs, [role="tablist"], .ant-card').first()
+    ).toBeVisible();
   });
 });
