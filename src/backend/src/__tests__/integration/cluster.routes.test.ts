@@ -16,6 +16,7 @@ jest.mock('../../middleware/auth.middleware', () => ({
   }),
   requireSuperAdmin: jest.fn((req, res, next) => next()),
   requireSuperAdminOrAdmin: jest.fn((req, res, next) => next()),
+  requireManager: jest.fn((req, res, next) => next()),
 }));
 
 // Mock cluster service
