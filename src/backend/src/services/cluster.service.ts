@@ -546,7 +546,9 @@ export class ClusterService {
    * Invalidate cache
    */
   private async invalidateCache(clusterId?: string) {
-    await cacheService.delete(`${ClusterService.CACHE_PREFIX}all:`);
+    // Clear all cluster list caches (with any filter params)
+    await cacheService.invalidatePattern(`${ClusterService.CACHE_PREFIX}all:*`);
+    
     if (clusterId) {
       await cacheService.delete(`${ClusterService.CACHE_PREFIX}${clusterId}`);
     }
