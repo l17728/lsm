@@ -280,6 +280,32 @@ export class AuthService {
   }
 
   /**
+   * Update user info (admin only)
+   */
+  async updateUser(userId: string, data: { displayName?: string; welink?: string; phone?: string; role?: UserRole }) {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        displayName: data.displayName,
+        welink: data.welink,
+        phone: data.phone,
+        role: data.role,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        displayName: true,
+        welink: true,
+        phone: true,
+      },
+    });
+
+    return user;
+  }
+
+  /**
    * Delete user (admin only)
    */
   async deleteUser(userId: string) {

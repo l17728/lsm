@@ -29,6 +29,18 @@ const createClusterValidation = [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('code').trim().notEmpty().matches(/^[A-Z0-9_-]+$/).withMessage('Code must be uppercase letters, numbers, underscore or hyphen'),
   body('type').optional().isIn(['COMPUTE', 'TRAINING', 'INFERENCE', 'GENERAL', 'CUSTOM']),
+  // 新增环境信息字段
+  body('envName').optional().trim().isLength({ max: 100 }),
+  body('envAlias').optional().trim().isLength({ max: 100 }),
+  body('subEnvAlias').optional().trim().isLength({ max: 100 }),
+  body('prometheusAddress').optional().trim().isLength({ max: 50 }),
+  body('deviceInfo').optional().trim(),
+  body('loginIp').optional().trim().isLength({ max: 50 }),
+  body('usageScenario').optional().trim(),
+  // 责任人
+  body('testOwnerId').optional().isUUID(),
+  body('teamOwnerId').optional().isUUID(),
+  body('userId').optional().isUUID(),
 ];
 
 const updateClusterValidation = [
@@ -36,6 +48,18 @@ const updateClusterValidation = [
   body('name').optional().trim().notEmpty(),
   body('type').optional().isIn(['COMPUTE', 'TRAINING', 'INFERENCE', 'GENERAL', 'CUSTOM']),
   body('status').optional().isIn(['AVAILABLE', 'ALLOCATED', 'RESERVED', 'MAINTENANCE', 'OFFLINE']),
+  // 新增环境信息字段
+  body('envName').optional().trim().isLength({ max: 100 }),
+  body('envAlias').optional().trim().isLength({ max: 100 }),
+  body('subEnvAlias').optional().trim().isLength({ max: 100 }),
+  body('prometheusAddress').optional().trim().isLength({ max: 50 }),
+  body('deviceInfo').optional().trim(),
+  body('loginIp').optional().trim().isLength({ max: 50 }),
+  body('usageScenario').optional().trim(),
+  // 责任人
+  body('testOwnerId').optional().isUUID(),
+  body('teamOwnerId').optional().isUUID(),
+  body('userId').optional().isUUID(),
 ];
 
 const addServerValidation = [

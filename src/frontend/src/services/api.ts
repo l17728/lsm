@@ -178,6 +178,8 @@ export const authApi = {
     apiClient.post('/auth/refresh', { refreshToken }),
   getCurrentUser: () => apiClient.get('/auth/me'),
   getUsers: () => apiClient.get('/auth/users'),
+  updateUser: (userId: string, data: { displayName?: string; welink?: string; phone?: string; role?: string }) =>
+    apiClient.put(`/auth/users/${userId}`, data),
   updateUserRole: (userId: string, role: string) =>
     apiClient.put(`/auth/users/${userId}/role`, { role }),
   deleteUser: (userId: string) => apiClient.delete(`/auth/users/${userId}`),

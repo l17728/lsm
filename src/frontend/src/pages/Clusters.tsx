@@ -41,6 +41,36 @@ interface Cluster {
   totalGpus: number
   totalCpuCores: number
   totalMemory: number
+  // 新增环境信息字段
+  envName?: string           // 环境名称
+  envAlias?: string          // 环境别名
+  subEnvAlias?: string       // 子环境别名
+  prometheusAddress?: string // 普罗地址
+  deviceInfo?: string        // 设备信息
+  loginIp?: string           // 登录IP
+  usageScenario?: string     // 使用场景
+  // 责任人
+  testOwnerId?: string
+  teamOwnerId?: string
+  userId?: string
+  testOwner?: {
+    id: string
+    username: string
+    displayName?: string
+    email: string
+  }
+  teamOwner?: {
+    id: string
+    username: string
+    displayName?: string
+    email: string
+  }
+  user?: {
+    id: string
+    username: string
+    displayName?: string
+    email: string
+  }
   servers?: Array<{
     server: {
       id: string
@@ -175,6 +205,9 @@ const Clusters: React.FC = () => {
   const [manageServersVisible, setManageServersVisible] = useState(false)
   const [availableServers, setAvailableServers] = useState<any[]>([])
   const [loadingServers, setLoadingServers] = useState(false)
+  
+  // 用户列表（用于责任人选择）
+  const [users, setUsers] = useState<any[]>([])
 
   useEffect(() => {
     loadData()
@@ -183,15 +216,17 @@ const Clusters: React.FC = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [clustersRes, statsRes, reservationsRes] = await Promise.all([
+      const [clustersRes, statsRes, reservationsRes, usersRes] = await Promise.all([
         clusterApi.getAll(),
         clusterApi.getStats(),
         clusterReservationApi.getMy().catch(() => ({ data: { data: [] } })),
+        authApi.getUsers().catch(() => ({ data: { data: [] } })),
       ])
       
       setClusters(clustersRes.data.data || [])
       setStats(statsRes.data.data)
       setMyReservations(reservationsRes.data.data || [])
+      setUsers(usersRes.data.data || [])
     } catch (error: any) {
       message.error('加载数据失败')
     } finally {
@@ -326,6 +361,16 @@ const Clusters: React.FC = () => {
       name: cluster.name,
       description: cluster.description,
       type: cluster.type,
+      envName: cluster.envName,
+      envAlias: cluster.envAlias,
+      subEnvAlias: cluster.subEnvAlias,
+      prometheusAddress: cluster.prometheusAddress,
+      deviceInfo: cluster.deviceInfo,
+      loginIp: cluster.loginIp,
+      usageScenario: cluster.usageScenario,
+      testOwnerId: cluster.testOwnerId,
+      teamOwnerId: cluster.teamOwnerId,
+      userId: cluster.userId,
     })
     setCreateModalVisible(true)
   }
@@ -894,51 +939,147 @@ const Clusters: React.FC = () => {
         open={createModalVisible}
         onCancel={() => setCreateModalVisible(false)}
         onOk={() => form.submit()}
-        width={600}
+        width={800}
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
         >
-          {!editingCluster && (
-            <Form.Item
-              name="code"
-              label="集群编码"
-              rules={[
-                { required: true, message: '请输入集群编码' },
-                { pattern: /^[A-Z0-9_-]+$/, message: '编码只能包含大写字母、数字、下划线或连字符' },
-              ]}
-            >
-              <Input placeholder="例如: CLUSTER_01" />
-            </Form.Item>
-          )}
-          <Form.Item
-            name="name"
-            label="集群名称"
-            rules={[{ required: true, message: '请输入集群名称' }]}
-          >
-            <Input placeholder="例如: 训练集群A" />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="描述"
-          >
-            <Input.TextArea rows={3} placeholder="集群描述..." />
-          </Form.Item>
-          <Form.Item
-            name="type"
-            label="集群类型"
-            rules={[{ required: true, message: '请选择集群类型' }]}
-          >
-            <Select placeholder="选择类型">
-              <Select.Option value="COMPUTE">计算</Select.Option>
-              <Select.Option value="TRAINING">训练</Select.Option>
-              <Select.Option value="INFERENCE">推理</Select.Option>
-              <Select.Option value="GENERAL">通用</Select.Option>
-              <Select.Option value="CUSTOM">自定义</Select.Option>
-            </Select>
-          </Form.Item>
+          {/* 基本信息 */}
+          <Title level={5}>基本信息</Title>
+          <Row gutter={16}>
+            <Col span={12}>
+              {!editingCluster && (
+                <Form.Item
+                  name="code"
+                  label="集群编码"
+                  rules={[
+                    { required: true, message: '请输入集群编码' },
+                    { pattern: /^[A-Z0-9_-]+$/, message: '编码只能包含大写字母、数字、下划线或连字符' },
+                  ]}
+                >
+                  <Input placeholder="例如: CLUSTER_01" />
+                </Form.Item>
+              )}
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="name"
+                label="集群名称"
+                rules={[{ required: true, message: '请输入集群名称' }]}
+              >
+                <Input placeholder="例如: 训练集群A" />
+              </Form.Item>
+            </Col>
+          </Row>
+          
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="type"
+                label="集群类型"
+                rules={[{ required: true, message: '请选择集群类型' }]}
+              >
+                <Select placeholder="选择类型">
+                  <Select.Option value="COMPUTE">计算</Select.Option>
+                  <Select.Option value="TRAINING">训练</Select.Option>
+                  <Select.Option value="INFERENCE">推理</Select.Option>
+                  <Select.Option value="GENERAL">通用</Select.Option>
+                  <Select.Option value="CUSTOM">自定义</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="description" label="描述">
+                <Input placeholder="集群描述..." />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* 环境信息 */}
+          <Title level={5} style={{ marginTop: 16 }}>环境信息</Title>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="envName" label="环境名称">
+                <Input placeholder="例如: 生产环境" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="envAlias" label="环境别名">
+                <Input placeholder="例如: PROD" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="subEnvAlias" label="子环境别名">
+                <Input placeholder="例如: PROD-A" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="prometheusAddress" label="普罗地址">
+                <Input placeholder="例如: 192.168.1.100" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="loginIp" label="登录IP">
+                <Input placeholder="例如: 10.0.0.1" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="usageScenario" label="使用场景">
+                <Input placeholder="例如: 模型训练" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item name="deviceInfo" label="设备信息">
+                <Input.TextArea rows={2} placeholder="设备详细信息描述..." />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* 责任人信息 */}
+          <Title level={5} style={{ marginTop: 16 }}>责任人信息</Title>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="testOwnerId" label="测试责任人">
+                <Select placeholder="选择测试责任人" allowClear showSearch optionFilterProp="children">
+                  {users.map(u => (
+                    <Select.Option key={u.id} value={u.id}>
+                      {u.displayName || u.username} ({u.email})
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="teamOwnerId" label="归属团队负责人">
+                <Select placeholder="选择团队负责人" allowClear showSearch optionFilterProp="children">
+                  {users.map(u => (
+                    <Select.Option key={u.id} value={u.id}>
+                      {u.displayName || u.username} ({u.email})
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="userId" label="使用人">
+                <Select placeholder="选择使用人" allowClear showSearch optionFilterProp="children">
+                  {users.map(u => (
+                    <Select.Option key={u.id} value={u.id}>
+                      {u.displayName || u.username} ({u.email})
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
 

@@ -25,6 +25,18 @@ export interface CreateClusterRequest {
   capabilities?: Record<string, any>;
   constraints?: Record<string, any>;
   metadata?: Record<string, any>;
+  // 新增环境信息字段
+  envName?: string;
+  envAlias?: string;
+  subEnvAlias?: string;
+  prometheusAddress?: string;
+  deviceInfo?: string;
+  loginIp?: string;
+  usageScenario?: string;
+  // 责任人
+  testOwnerId?: string;
+  teamOwnerId?: string;
+  userId?: string;
 }
 
 export interface UpdateClusterRequest {
@@ -36,6 +48,18 @@ export interface UpdateClusterRequest {
   capabilities?: Record<string, any>;
   constraints?: Record<string, any>;
   metadata?: Record<string, any>;
+  // 新增环境信息字段
+  envName?: string;
+  envAlias?: string;
+  subEnvAlias?: string;
+  prometheusAddress?: string;
+  deviceInfo?: string;
+  loginIp?: string;
+  usageScenario?: string;
+  // 责任人
+  testOwnerId?: string;
+  teamOwnerId?: string;
+  userId?: string;
 }
 
 export interface AddServerRequest {
@@ -86,6 +110,18 @@ export class ClusterService {
         capabilities: data.capabilities || {},
         constraints: data.constraints || {},
         metadata: data.metadata || {},
+        // 新增环境信息
+        envName: data.envName,
+        envAlias: data.envAlias,
+        subEnvAlias: data.subEnvAlias,
+        prometheusAddress: data.prometheusAddress,
+        deviceInfo: data.deviceInfo,
+        loginIp: data.loginIp,
+        usageScenario: data.usageScenario,
+        // 责任人
+        testOwnerId: data.testOwnerId,
+        teamOwnerId: data.teamOwnerId,
+        userId: data.userId,
         createdBy,
       },
     });
@@ -233,6 +269,18 @@ export class ClusterService {
         capabilities: data.capabilities,
         constraints: data.constraints,
         metadata: data.metadata,
+        // 新增环境信息
+        envName: data.envName,
+        envAlias: data.envAlias,
+        subEnvAlias: data.subEnvAlias,
+        prometheusAddress: data.prometheusAddress,
+        deviceInfo: data.deviceInfo,
+        loginIp: data.loginIp,
+        usageScenario: data.usageScenario,
+        // 责任人
+        testOwnerId: data.testOwnerId,
+        teamOwnerId: data.teamOwnerId,
+        userId: data.userId,
       },
     });
 

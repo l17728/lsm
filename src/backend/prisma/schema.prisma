@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://postgres:postgre@localhost:5432/lsm"
 }
 
 model User {
@@ -13,6 +13,9 @@ model User {
   email         String              @unique @db.VarChar(100)
   passwordHash  String              @map("password_hash") @db.VarChar(255)
   role          user_role           @default(USER)
+  displayName   String?             @map("display_name") @db.VarChar(100)  // 人名
+  welink        String?             @db.VarChar(50)  // WeLink账号，如 l00123456
+  phone         String?             @db.VarChar(20)  // 电话
   metadata      Json?               @default("{}")
   createdAt     DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime?           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -46,6 +49,10 @@ model User {
   resourceRequests      ResourceRequest[]         @relation("Requester")
   approvedRequests      ResourceRequest[]         @relation("RequestApprover")
   requestApprovals      RequestApproval[]
+  // 集群责任人关联
+  testOwnerClusters     Cluster[]                 @relation("ClusterTestOwner")
+  teamOwnerClusters     Cluster[]                 @relation("ClusterTeamOwner")
+  userClusters          Cluster[]                 @relation("ClusterUser")
 
   @@index([email], map: "idx_users_email")
   @@index([username], map: "idx_users_username")
@@ -681,6 +688,15 @@ model Cluster {
   type            cluster_type    @default(GENERAL)
   status          cluster_status  @default(AVAILABLE)
   
+  // 环境信息（新增字段）
+  envName         String?         @map("env_name") @db.VarChar(100)        // 环境名称
+  envAlias        String?         @map("env_alias") @db.VarChar(100)       // 环境别名
+  subEnvAlias     String?         @map("sub_env_alias") @db.VarChar(100)   // 子环境别名
+  prometheusAddress String?       @map("prometheus_address") @db.VarChar(50) // 普罗地址（IP）
+  deviceInfo      String?         @map("device_info") @db.Text             // 设备信息
+  loginIp         String?         @map("login_ip") @db.VarChar(50)         // 登录IP
+  usageScenario   String?         @map("usage_scenario") @db.Text          // 使用场景
+  
   // 资源配置
   totalServers    Int             @default(0) @map("total_servers")
   totalGpus       Int             @default(0) @map("total_gpus")
@@ -690,6 +706,11 @@ model Cluster {
   // 使用情况
   usedServers     Int             @default(0) @map("used_servers")
   usedGpus        Int             @default(0) @map("used_gpus")
+  
+  // 责任人（新增字段）
+  testOwnerId     String?         @map("test_owner_id") @db.Uuid          // 测试责任人ID
+  teamOwnerId     String?         @map("team_owner_id") @db.Uuid          // 归属团队负责人ID
+  userId          String?         @map("user_id") @db.Uuid                // 使用人ID
   
   // 分配信息
   assignedTo      String?         @map("assigned_to") @db.Uuid
@@ -714,6 +735,9 @@ model Cluster {
   requests        ResourceRequest[]
   creator         User            @relation("ClusterCreator", fields: [createdBy], references: [id])
   assignee        User?           @relation("ClusterAssignee", fields: [assignedTo], references: [id])
+  testOwner       User?           @relation("ClusterTestOwner", fields: [testOwnerId], references: [id])
+  teamOwner       User?           @relation("ClusterTeamOwner", fields: [teamOwnerId], references: [id])
+  user            User?           @relation("ClusterUser", fields: [userId], references: [id])
   
   @@index([status], map: "idx_clusters_status")
   @@index([type], map: "idx_clusters_type")

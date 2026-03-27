@@ -11,6 +11,9 @@ interface User {
   username: string
   email: string
   role: string
+  displayName?: string   // 人名
+  welink?: string        // WeLink账号
+  phone?: string         // 电话
   createdAt: string
   updatedAt: string
 }
@@ -43,22 +46,27 @@ const Users: React.FC = () => {
 
   const handleEdit = (user: User) => {
     setEditingUser(user)
-    form.setFieldsValue({ role: user.role })
+    form.setFieldsValue({ 
+      displayName: user.displayName,
+      welink: user.welink,
+      phone: user.phone,
+      role: user.role 
+    })
     setModalVisible(true)
   }
 
   const handleDelete = async (id: string) => {
     if (id === currentUser?.id) {
-      message.error('Cannot delete yourself')
+      message.error('不能删除自己')
       return
     }
 
     try {
       await authApi.deleteUser(id)
-      message.success('User deleted')
+      message.success('用户已删除')
       loadUsers()
     } catch (error: any) {
-      message.error('Failed to delete user')
+      message.error('删除用户失败')
     }
   }
 
@@ -67,15 +75,15 @@ const Users: React.FC = () => {
       const values = await form.validateFields()
 
       if (editingUser) {
-        await authApi.updateUserRole(editingUser.id, values.role)
-        message.success('User role updated')
+        await authApi.updateUser(editingUser.id, values)
+        message.success('用户信息已更新')
       }
 
       setModalVisible(false)
       loadUsers()
     } catch (error: any) {
       if (error.message !== 'Validation failed') {
-        message.error('Failed to update user')
+        message.error('更新用户失败')
       }
     }
   }
@@ -91,35 +99,47 @@ const Users: React.FC = () => {
 
   const columns: ColumnsType<User> = [
     {
-      title: 'Username',
+      title: '用户名',
       dataIndex: 'username',
       key: 'username',
     },
     {
-      title: 'Email',
+      title: '姓名',
+      dataIndex: 'displayName',
+      key: 'displayName',
+      render: (name: string) => name || '-',
+    },
+    {
+      title: '邮箱',
       dataIndex: 'email',
       key: 'email',
     },
     {
-      title: 'Role',
+      title: 'WeLink',
+      dataIndex: 'welink',
+      key: 'welink',
+      render: (welink: string) => welink || '-',
+    },
+    {
+      title: '电话',
+      dataIndex: 'phone',
+      key: 'phone',
+      render: (phone: string) => phone || '-',
+    },
+    {
+      title: '角色',
       dataIndex: 'role',
       key: 'role',
       render: (role: string) => <Tag color={getRoleColor(role)}>{role}</Tag>,
     },
     {
-      title: 'Created At',
+      title: '创建时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (time: string) => new Date(time).toLocaleString(),
     },
     {
-      title: 'Updated At',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      render: (time: string) => new Date(time).toLocaleString(),
-    },
-    {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       render: (_, record) => (
         <Space>
@@ -129,14 +149,14 @@ const Users: React.FC = () => {
             onClick={() => handleEdit(record)}
             disabled={record.id === currentUser?.id}
           >
-            Edit Role
+            编辑
           </Button>
           {record.id !== currentUser?.id && (
             <Popconfirm
-              title="Delete user?"
+              title="确定删除该用户?"
               onConfirm={() => handleDelete(record.id)}
-              okText="Yes"
-              cancelText="No"
+              okText="确定"
+              cancelText="取消"
             >
               <Button type="link" danger icon={<DeleteOutlined />} />
             </Popconfirm>
@@ -146,7 +166,8 @@ const Users: React.FC = () => {
     },
   ]
 
-  const isAdmin = currentUser?.role === 'ADMIN'
+  // SUPER_ADMIN and ADMIN can access user management
+  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN'
 
   if (!isAdmin) {
     return (
@@ -172,21 +193,41 @@ const Users: React.FC = () => {
       />
 
       <Modal
-        title="Edit User Role"
+        title="编辑用户信息"
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
+        width={600}
       >
         <Form form={form} layout="vertical">
           <Form.Item
+            name="displayName"
+            label="姓名"
+          >
+            <Input placeholder="请输入姓名" />
+          </Form.Item>
+          <Form.Item
+            name="welink"
+            label="WeLink账号"
+          >
+            <Input placeholder="例如: l00123456" />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label="电话"
+          >
+            <Input placeholder="请输入电话号码" />
+          </Form.Item>
+          <Form.Item
             name="role"
-            label="Role"
-            rules={[{ required: true, message: 'Please select a role' }]}
+            label="角色"
+            rules={[{ required: true, message: '请选择角色' }]}
           >
             <Select>
-              <Select.Option value="USER">User</Select.Option>
-              <Select.Option value="MANAGER">Manager</Select.Option>
-              <Select.Option value="ADMIN">Admin</Select.Option>
+              <Select.Option value="USER">普通用户</Select.Option>
+              <Select.Option value="MANAGER">管理员</Select.Option>
+              <Select.Option value="ADMIN">超级管理员</Select.Option>
+              <Select.Option value="SUPER_ADMIN">系统管理员</Select.Option>
             </Select>
           </Form.Item>
         </Form>

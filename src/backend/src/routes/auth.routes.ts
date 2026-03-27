@@ -273,6 +273,56 @@ router.get('/users', authenticate, async (req: AuthRequest, res) => {
 });
 
 /**
+ * @route   PUT /api/auth/users/:id
+ * @desc    Update user info (admin only)
+ * @access  Private/Admin
+ */
+router.put(
+  '/users/:id',
+  authenticate,
+  [
+    body('displayName').optional().trim().isLength({ max: 100 }),
+    body('welink').optional().trim().isLength({ max: 50 }),
+    body('phone').optional().trim().isLength({ max: 20 }),
+    body('role').optional().isIn(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER']),
+  ],
+  handleValidationErrors,
+  async (req: AuthRequest, res) => {
+    try {
+      // Check admin permission
+      if (req.user!.role !== 'ADMIN' && req.user!.role !== 'SUPER_ADMIN') {
+        return res.status(403).json({
+          success: false,
+          error: 'Admin access required',
+        });
+      }
+
+      const { id } = req.params;
+      const { displayName, welink, phone, role } = req.body;
+
+      const user = await authService.updateUser(id, {
+        displayName,
+        welink,
+        phone,
+        role: role as UserRole,
+      });
+
+      safeLogger.info('User updated', { targetId: id, by: req.user!.userId });
+      res.json({
+        success: true,
+        data: user,
+      });
+    } catch (error: any) {
+      safeLogger.error('Auth error', { operation: 'updateUser', error });
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
  * @route   PUT /api/auth/users/:id/role
  * @desc    Update user role (admin only)
  * @access  Private/Admin
