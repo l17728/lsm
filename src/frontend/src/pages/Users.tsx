@@ -11,9 +11,9 @@ interface User {
   username: string
   email: string
   role: string
-  displayName?: string   // 人名
-  welink?: string        // WeLink账号
-  phone?: string         // 电话
+  displayName?: string   // Person name
+  welink?: string        // WeLink account
+  phone?: string         // Phone
   createdAt: string
   updatedAt: string
 }
@@ -38,7 +38,7 @@ const Users: React.FC = () => {
       console.log(`[Users] Loaded ${response.data.data?.length ?? 0} users`)
     } catch (error: any) {
       console.error('[Users] Failed to load users:', error)
-      message.error('用户列表加载失败，请刷新重试')
+      message.error('Failed to load user list, please refresh and try again')
     } finally {
       setLoading(false)
     }
@@ -57,16 +57,16 @@ const Users: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (id === currentUser?.id) {
-      message.error('不能删除自己')
+      message.error('Cannot delete yourself')
       return
     }
 
     try {
       await authApi.deleteUser(id)
-      message.success('用户已删除')
+      message.success('User deleted')
       loadUsers()
     } catch (error: any) {
-      message.error('删除用户失败')
+      message.error('Failed to delete user')
     }
   }
 
@@ -76,14 +76,14 @@ const Users: React.FC = () => {
 
       if (editingUser) {
         await authApi.updateUser(editingUser.id, values)
-        message.success('用户信息已更新')
+        message.success('User information updated')
       }
 
       setModalVisible(false)
       loadUsers()
     } catch (error: any) {
       if (error.message !== 'Validation failed') {
-        message.error('更新用户失败')
+        message.error('Failed to update user')
       }
     }
   }
@@ -99,18 +99,18 @@ const Users: React.FC = () => {
 
   const columns: ColumnsType<User> = [
     {
-      title: '用户名',
+      title: 'Username',
       dataIndex: 'username',
       key: 'username',
     },
     {
-      title: '姓名',
+      title: 'Name',
       dataIndex: 'displayName',
       key: 'displayName',
       render: (name: string) => name || '-',
     },
     {
-      title: '邮箱',
+      title: 'Email',
       dataIndex: 'email',
       key: 'email',
     },
@@ -121,25 +121,25 @@ const Users: React.FC = () => {
       render: (welink: string) => welink || '-',
     },
     {
-      title: '电话',
+      title: 'Phone',
       dataIndex: 'phone',
       key: 'phone',
       render: (phone: string) => phone || '-',
     },
     {
-      title: '角色',
+      title: 'Role',
       dataIndex: 'role',
       key: 'role',
       render: (role: string) => <Tag color={getRoleColor(role)}>{role}</Tag>,
     },
     {
-      title: '创建时间',
+      title: 'Created At',
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (time: string) => new Date(time).toLocaleString(),
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'actions',
       render: (_, record) => (
         <Space>
@@ -149,14 +149,14 @@ const Users: React.FC = () => {
             onClick={() => handleEdit(record)}
             disabled={record.id === currentUser?.id}
           >
-            编辑
+            Edit
           </Button>
           {record.id !== currentUser?.id && (
             <Popconfirm
-              title="确定删除该用户?"
+              title="Confirm user deletion?"
               onConfirm={() => handleDelete(record.id)}
-              okText="确定"
-              cancelText="取消"
+              okText="Confirm"
+              cancelText="Cancel"
             >
               <Button type="link" danger icon={<DeleteOutlined />} />
             </Popconfirm>
@@ -193,7 +193,7 @@ const Users: React.FC = () => {
       />
 
       <Modal
-        title="编辑用户信息"
+        title="Edit User Information"
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
@@ -202,32 +202,32 @@ const Users: React.FC = () => {
         <Form form={form} layout="vertical">
           <Form.Item
             name="displayName"
-            label="姓名"
+            label="Name"
           >
-            <Input placeholder="请输入姓名" />
+            <Input placeholder="Please enter name" />
           </Form.Item>
           <Form.Item
             name="welink"
-            label="WeLink账号"
+            label="WeLink Account"
           >
-            <Input placeholder="例如: l00123456" />
+            <Input placeholder="E.g., l00123456" />
           </Form.Item>
           <Form.Item
             name="phone"
-            label="电话"
+            label="Phone"
           >
-            <Input placeholder="请输入电话号码" />
+            <Input placeholder="Please enter phone number" />
           </Form.Item>
           <Form.Item
             name="role"
-            label="角色"
-            rules={[{ required: true, message: '请选择角色' }]}
+            label="Role"
+            rules={[{ required: true, message: 'Please select role' }]}
           >
             <Select>
-              <Select.Option value="USER">普通用户</Select.Option>
-              <Select.Option value="MANAGER">管理员</Select.Option>
-              <Select.Option value="ADMIN">超级管理员</Select.Option>
-              <Select.Option value="SUPER_ADMIN">系统管理员</Select.Option>
+              <Select.Option value="USER">Regular User</Select.Option>
+              <Select.Option value="MANAGER">Manager</Select.Option>
+              <Select.Option value="ADMIN">Super Admin</Select.Option>
+              <Select.Option value="SUPER_ADMIN">System Admin</Select.Option>
             </Select>
           </Form.Item>
         </Form>

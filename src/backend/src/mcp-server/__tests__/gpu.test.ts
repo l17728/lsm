@@ -7,10 +7,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 // Mock modules before importing the actual module
-jest.mock('../../utils/prisma', () => ({
-  prisma: {
+jest.mock('../../utils/prisma', () => {
+  const mockPrisma = {
+    user: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+    },
     gpu: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
     gpuAllocation: {
@@ -21,8 +26,13 @@ jest.mock('../../utils/prisma', () => ({
     server: {
       findUnique: jest.fn(),
     },
-  },
-}));
+  };
+  return {
+    __esModule: true,
+    default: mockPrisma,
+    prisma: mockPrisma,
+  };
+});
 
 jest.mock('../../services/server.service', () => ({
   serverService: {
@@ -41,8 +51,17 @@ describe('GPU Tools', () => {
     jest.clearAllMocks();
     registeredTools = new Map();
     mockServer = {
-      tool: jest.fn((name: string, desc: string, schema: any, handler: Function) => {
-        registeredTools.set(name, { desc, schema, handler });
+      // Support both 3-param (name, desc, handler) and 4-param (name, desc, schema, handler) calls
+      tool: jest.fn((...args: any[]) => {
+        const [name, description, third, fourth] = args;
+        
+        if (typeof fourth === 'function') {
+          // 4-param call
+          registeredTools.set(name, { desc: description, schema: third, handler: fourth });
+        } else if (typeof third === 'function') {
+          // 3-param call (no schema)
+          registeredTools.set(name, { desc: description, schema: undefined, handler: third });
+        }
       }),
     } as unknown as McpServer;
   });
@@ -89,7 +108,7 @@ describe('GPU Tools', () => {
     it('should allocate single GPU successfully', async () => {
       (prisma.user.findFirst as jest.Mock).mockResolvedValue({ id: 'u1', username: 'mcp-system' });
       (prisma.gpu.findMany as jest.Mock).mockResolvedValue([
-        { id: 'g1', model: 'NVIDIA A100', serverId: 's1', status: 'AVAILABLE', server: { id: 's1', status: 'ONLINE' } },
+        { id: 'g1', model: 'NVIDIA A100', serverId: 's1', allocated: false, server: { id: 's1', status: 'ONLINE' } },
       ]);
       (prisma.gpuAllocation.create as jest.Mock).mockResolvedValue({ id: 'a1' });
       (prisma.gpu.update as jest.Mock).mockResolvedValue({});
@@ -122,7 +141,7 @@ describe('GPU Tools', () => {
     it('should return error when insufficient GPUs', async () => {
       (prisma.user.findFirst as jest.Mock).mockResolvedValue({ id: 'u1' });
       (prisma.gpu.findMany as jest.Mock).mockResolvedValue([
-        { id: 'g1', model: 'A100', serverId: 's1', status: 'AVAILABLE', server: { status: 'ONLINE' } },
+        { id: 'g1', model: 'A100', serverId: 's1', allocated: false, server: { status: 'ONLINE' } },
       ]);
 
       registerGpuTools(mockServer);
@@ -151,10 +170,10 @@ describe('GPU Tools', () => {
   describe('lsm_release_gpu - Success Cases', () => {
     it('should release active allocation', async () => {
       (prisma.gpuAllocation.findUnique as jest.Mock).mockResolvedValue({
-        id: 'a1', status: 'ACTIVE', gpuId: 'g1', gpu: { id: 'g1' },
+        id: 'a1', gpuId: 'g1', gpu: { id: 'g1', allocated: true }, releasedAt: null,
       });
-      (prisma.gpuAllocation.update as jest.Mock).mockResolvedValue({ id: 'a1', status: 'COMPLETED' });
-      (prisma.gpu.update as jest.Mock).mockResolvedValue({});
+      (prisma.gpuAllocation.update as jest.Mock).mockResolvedValue({ id: 'a1', releasedAt: new Date() });
+      (prisma.gpu.update as jest.Mock).mockResolvedValue({ id: 'g1', allocated: false });
 
       registerGpuTools(mockServer);
       const tool = registeredTools.get('lsm_release_gpu')!;
@@ -166,9 +185,9 @@ describe('GPU Tools', () => {
       expect(data.released_at).toBeDefined();
     });
 
-    it('should force release non-active allocation', async () => {
+    it('should force release already released allocation', async () => {
       (prisma.gpuAllocation.findUnique as jest.Mock).mockResolvedValue({
-        id: 'a1', status: 'COMPLETED', gpuId: 'g1', gpu: { id: 'g1' },
+        id: 'a1', gpuId: 'g1', gpu: { id: 'g1', allocated: false }, releasedAt: new Date(),
       });
       (prisma.gpuAllocation.update as jest.Mock).mockResolvedValue({});
       (prisma.gpu.update as jest.Mock).mockResolvedValue({});
@@ -194,9 +213,10 @@ describe('GPU Tools', () => {
       expect(data.error.code).toBe('RESOURCE_NOT_FOUND');
     });
 
-    it('should return error for already completed allocation without force', async () => {
+    it('should return error for already released allocation without force', async () => {
+      // The actual implementation checks releasedAt, not status
       (prisma.gpuAllocation.findUnique as jest.Mock).mockResolvedValue({
-        id: 'a1', status: 'COMPLETED', gpuId: 'g1', gpu: { id: 'g1' },
+        id: 'a1', gpuId: 'g1', gpu: { id: 'g1' }, releasedAt: new Date('2024-01-15T10:00:00Z'),
       });
 
       registerGpuTools(mockServer);

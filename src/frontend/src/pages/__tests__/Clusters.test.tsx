@@ -266,7 +266,7 @@ describe('AI Time Slot Recommendations', () => {
             endTime: new Date(Date.now() + 7200000).toISOString(),
             score: 85,
             confidence: 0.85,
-            reasons: ['无时间冲突'],
+            reasons: ['No time conflict'],
             queuePosition: null,
           },
         ],
@@ -307,7 +307,7 @@ describe('AI Time Slot Recommendations', () => {
       endTime: new Date(Date.now() + 7200000).toISOString(),
       score: 85,
       confidence: 0.85,
-      reasons: ['无时间冲突', '工作日时段'],
+      reasons: ['No time conflict', 'Weekday period'],
       queuePosition: null,
     };
     

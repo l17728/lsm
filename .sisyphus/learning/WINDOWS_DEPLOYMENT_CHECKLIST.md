@@ -138,7 +138,99 @@ Add-Content "$dataDir\postgresql.conf" "port = $port"
 
 ---
 
-## 9. 常见错误速查
+## 9. ⚠️ 多实例检测 (新增 2026-03-26)
+
+```powershell
+# 检测多个 PostgreSQL 实例 - CRITICAL!
+$postgresPorts = netstat -ano | findstr ":543"
+if ($postgresPorts.Count -gt 1) {
+    Write-Host "⚠️ 检测到多个 PostgreSQL 实例!" -ForegroundColor Yellow
+    Write-Host $postgresPorts
+    Write-Host "请确认使用哪个实例，并更新所有配置文件" -ForegroundColor Yellow
+}
+```
+
+**多实例处理流程:**
+1. 列出所有实例: `netstat -ano | findstr :543`
+2. 询问用户选择哪个实例
+3. 更新所有配置文件:
+   - `src/backend/.env` → `DATABASE_URL`
+   - `src/backend/prisma/schema.prisma` → `datasource.url`
+4. 清理不需要的实例: `taskkill /PID <pid> /F`
+
+---
+
+## 10. 配置文件一致性检查 (新增 2026-03-26)
+
+```powershell
+# 检查所有配置文件的端口是否一致
+Write-Host "=== 配置文件端口检查 ===" -ForegroundColor Cyan
+
+# 检查 backend .env
+$backendEnv = Select-String -Path "src/backend/.env" -Pattern "localhost:(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+Write-Host "Backend .env 端口: $backendEnv"
+
+# 检查 Prisma schema
+$prismaSchema = Select-String -Path "src/backend/prisma/schema.prisma" -Pattern "localhost:(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+Write-Host "Prisma schema 端口: $prismaSchema"
+
+# 检查前端 .env 是否存在
+if (Test-Path "src/frontend/.env") {
+    Write-Host "Frontend .env: ✅ 存在"
+} else {
+    Write-Host "Frontend .env: ❌ 缺失 - 需要从 .env.example 创建" -ForegroundColor Red
+}
+```
+
+---
+
+## 11. Prisma 迁移状态检查 (新增 2026-03-26)
+
+```powershell
+# 检查迁移状态
+cd src/backend
+npx prisma migrate status
+```
+
+**迁移状态处理:**
+
+| 状态 | 操作 |
+|------|------|
+| "Database schema is up to date" | ✅ 无需操作 |
+| "Following migrations have not yet been applied" + 空数据库 | `npx prisma migrate deploy` |
+| "Following migrations have not yet been applied" + 有数据 | `npx prisma migrate resolve --applied <name>` |
+| P3005 "Database schema is not empty" | `npx prisma migrate resolve --applied <name>` |
+
+---
+
+## 12. 前端 .env 文件检查 (新增 2026-03-26)
+
+```powershell
+# 检查并创建前端 .env
+$frontendEnv = "src/frontend/.env"
+$frontendEnvExample = "src/frontend/.env.example"
+
+if (-not (Test-Path $frontendEnv)) {
+    Write-Host "❌ Frontend .env 不存在" -ForegroundColor Red
+    if (Test-Path $frontendEnvExample) {
+        Copy-Item $frontendEnvExample $frontendEnv
+        Write-Host "✅ 已从 .env.example 创建" -ForegroundColor Green
+    } else {
+        Write-Host "请手动创建 src/frontend/.env" -ForegroundColor Yellow
+    }
+}
+```
+
+**必需的前端 .env 内容:**
+```env
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_WS_URL=ws://localhost:8080
+VITE_APP_ENV=development
+```
+
+---
+
+## 13. 常见错误速查
 
 | 错误信息 | 可能原因 | 解决方案 |
 |---------|---------|---------|
@@ -148,10 +240,14 @@ Add-Content "$dataDir\postgresql.conf" "port = $port"
 | `dict_snowball not found` | PATH 未设置 | 使用完整路径 |
 | `Permission denied (bind)` | 端口被占用或防火墙 | 换端口，检查防火墙 |
 | `Chocolatey lock file` | 锁文件残留 | 删除锁文件目录 |
+| `P3005: Database schema is not empty` | 数据库有数据但无迁移记录 | `npx prisma migrate resolve --applied <name>` |
+| `P1001: Can't reach database server` | 端口/地址错误 | 检查实际端口，更新配置文件 |
+| `P1000: Authentication failed` | 密码错误或实例不匹配 | 检查密码，确认使用正确实例 |
+| `Multiple PostgreSQL instances` | 多实例运行 | 选择一个，更新配置，清理其他 |
 
 ---
 
-## 10. 一键诊断脚本
+## 14. 一键诊断脚本 (增强版)
 
 ```powershell
 # 保存为 diagnose.ps1 运行
@@ -169,6 +265,14 @@ Write-Host "网络: $(if($net){'✅ 正常'}else{'❌ 异常'})"
 $ports = netstat -ano | findstr ":5432 :6379 :8080 :8081"
 Write-Host "端口: $(if($ports){'⚠️ 有端口占用'}else{'✅ 端口空闲'})"
 
+# ⚠️ 多实例检测 (新增)
+$postgresInstances = (netstat -ano | findstr ":543").Count
+if ($postgresInstances -gt 1) {
+    Write-Host "⚠️ PostgreSQL 多实例: 检测到 $postgresInstances 个实例" -ForegroundColor Yellow
+} else {
+    Write-Host "PostgreSQL 实例: $postgresInstances 个"
+}
+
 # Node.js
 $node = node -v 2>$null
 Write-Host "Node.js: $(if($node){$node}else{'❌ 未安装'})"
@@ -181,9 +285,24 @@ Write-Host "npm 源: $registry"
 $free = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
 Write-Host "C盘空间: $free GB"
 
-Write-Host "=== 诊断完成 ===" -ForegroundColor Cyan
+# ⚠️ 配置文件检查 (新增)
+Write-Host "`n=== 配置文件检查 ===" -ForegroundColor Cyan
+if (Test-Path "src/backend/.env") {
+    $dbPort = Select-String -Path "src/backend/.env" -Pattern "localhost:(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+    Write-Host "Backend .env DB端口: $dbPort"
+} else {
+    Write-Host "❌ Backend .env 不存在" -ForegroundColor Red
+}
+
+if (Test-Path "src/frontend/.env") {
+    Write-Host "Frontend .env: ✅ 存在"
+} else {
+    Write-Host "❌ Frontend .env 不存在" -ForegroundColor Red
+}
+
+Write-Host "`n=== 诊断完成 ===" -ForegroundColor Cyan
 ```
 
 ---
 
-*快速检查清单 v1.0 - 2026-03-25*
+*快速检查清单 v2.0 - 2026-03-26 (增加多实例检测、配置一致性检查)*

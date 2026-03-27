@@ -546,13 +546,18 @@ export class AISchedulerService {
   // ============================================
 
   private priorityToNumber(priority: TaskPriority): number {
-    const mapping: Record<TaskPriority, number> = {
-      LOW: 0,
-      MEDIUM: 1,
-      HIGH: 2,
-      CRITICAL: 3,
-    };
-    return mapping[priority] || 1;
+    switch (priority) {
+      case TaskPriority.LOW:
+        return 0;
+      case TaskPriority.MEDIUM:
+        return 1;
+      case TaskPriority.HIGH:
+        return 2;
+      case TaskPriority.CRITICAL:
+        return 3;
+      default:
+        return 1;
+    }
   }
 
   private normalize(value: number, min: number, max: number): number {

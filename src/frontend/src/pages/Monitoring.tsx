@@ -59,7 +59,7 @@ const Monitoring: React.FC = () => {
         generateMetricsData(healthRes.value.data.data)
       } else {
         console.error('[Monitoring] Failed to load server health:', healthRes.reason)
-        message.error('服务器健康数据加载失败，请刷新重试')
+        message.error('Failed to load server health data, please refresh and try again')
         generateMetricsData([])
       }
 
@@ -75,7 +75,7 @@ const Monitoring: React.FC = () => {
         setClusterStats(clusterRes.value.data.data)
       } else {
         console.error('[Monitoring] Failed to load cluster stats:', clusterRes.reason)
-        message.error('集群统计数据加载失败，请刷新重试')
+        message.error('Failed to load cluster statistics, please refresh and try again')
       }
     } finally {
       setLoading(false)

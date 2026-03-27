@@ -45,12 +45,12 @@ interface ClusterReservation {
 }
 
 const statusConfig: Record<string, { color: string; text: string }> = {
-  PENDING: { color: 'gold', text: '待审批' },
-  APPROVED: { color: 'green', text: '已批准' },
-  REJECTED: { color: 'red', text: '已拒绝' },
-  ACTIVE: { color: 'blue', text: '使用中' },
-  COMPLETED: { color: 'default', text: '已完成' },
-  CANCELLED: { color: 'default', text: '已取消' },
+  PENDING: { color: 'gold', text: 'Pending Approval' },
+  APPROVED: { color: 'green', text: 'Approved' },
+  REJECTED: { color: 'red', text: 'Rejected' },
+  ACTIVE: { color: 'blue', text: 'In Use' },
+  COMPLETED: { color: 'default', text: 'Completed' },
+  CANCELLED: { color: 'default', text: 'Cancelled' },
 }
 
 const ClusterApproval: React.FC = () => {
@@ -77,7 +77,7 @@ const ClusterApproval: React.FC = () => {
       const response = await clusterReservationApi.getPending()
       setReservations(response.data.data || [])
     } catch (error: any) {
-      message.error('加载待审批列表失败')
+      message.error('Failed to load pending approval list')
     } finally {
       setLoading(false)
     }
@@ -87,10 +87,10 @@ const ClusterApproval: React.FC = () => {
     setProcessing(true)
     try {
       await clusterReservationApi.approve(reservation.id)
-      message.success('预约已批准')
+      message.success('Reservation approved')
       loadPendingReservations()
     } catch (error: any) {
-      message.error(error.response?.data?.error || '审批失败')
+      message.error(error.response?.data?.error || 'Approval failed')
     } finally {
       setProcessing(false)
     }
@@ -100,20 +100,20 @@ const ClusterApproval: React.FC = () => {
     if (!selectedReservation) return
     
     if (!rejectReason.trim()) {
-      message.warning('请填写拒绝原因')
+      message.warning('Please enter rejection reason')
       return
     }
 
     setProcessing(true)
     try {
       await clusterReservationApi.reject(selectedReservation.id, rejectReason)
-      message.success('已拒绝该预约')
+      message.success('Reservation rejected')
       setRejectModalVisible(false)
       setRejectReason('')
       setSelectedReservation(null)
       loadPendingReservations()
     } catch (error: any) {
-      message.error(error.response?.data?.error || '操作失败')
+      message.error(error.response?.data?.error || 'Operation failed')
     } finally {
       setProcessing(false)
     }
@@ -132,7 +132,7 @@ const ClusterApproval: React.FC = () => {
 
   const columns = [
     {
-      title: '集群',
+      title: 'Cluster',
       dataIndex: ['cluster', 'name'],
       key: 'cluster',
       render: (name: string, record: ClusterReservation) => (
@@ -149,7 +149,7 @@ const ClusterApproval: React.FC = () => {
       ),
     },
     {
-      title: '申请人',
+      title: 'Applicant',
       dataIndex: ['user', 'username'],
       key: 'user',
       render: (username: string, record: ClusterReservation) => (
@@ -166,7 +166,7 @@ const ClusterApproval: React.FC = () => {
       ),
     },
     {
-      title: '预约时间',
+      title: 'Reservation Time',
       key: 'time',
       render: (_: any, record: ClusterReservation) => (
         <Space direction="vertical" size="small">
@@ -177,13 +177,13 @@ const ClusterApproval: React.FC = () => {
             </Text>
           </div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            时长: {Math.round((new Date(record.endTime).getTime() - new Date(record.startTime).getTime()) / 3600000)} 小时
+            Duration: {Math.round((new Date(record.endTime).getTime() - new Date(record.startTime).getTime()) / 3600000)} hours
           </Text>
         </Space>
       ),
     },
     {
-      title: '用途',
+      title: 'Purpose',
       dataIndex: 'purpose',
       key: 'purpose',
       ellipsis: true,
@@ -196,7 +196,7 @@ const ClusterApproval: React.FC = () => {
       ),
     },
     {
-      title: '队列位置',
+      title: 'Queue Position',
       dataIndex: 'queuePosition',
       key: 'queuePosition',
       render: (pos: number) => pos ? (
@@ -204,24 +204,24 @@ const ClusterApproval: React.FC = () => {
       ) : '-',
     },
     {
-      title: '提交时间',
+      title: 'Submitted At',
       dataIndex: 'createdAt',
       key: 'createdAt',
       render: (date: string) => dayjs(date).format('MM-DD HH:mm'),
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'actions',
       render: (_: any, record: ClusterReservation) => (
         <Space>
-          <Tooltip title="查看详情">
+          <Tooltip title="View Details">
             <Button 
               size="small" 
               icon={<FileTextOutlined />}
               onClick={() => openDetailModal(record)}
             />
           </Tooltip>
-          <Tooltip title="批准">
+          <Tooltip title="Approve">
             <Button 
               type="primary" 
               size="small"
@@ -229,17 +229,17 @@ const ClusterApproval: React.FC = () => {
               onClick={() => handleApprove(record)}
               loading={processing}
             >
-              批准
+              Approve
             </Button>
           </Tooltip>
-          <Tooltip title="拒绝">
+          <Tooltip title="Reject">
             <Button 
               danger 
               size="small"
               icon={<CloseCircleOutlined />}
               onClick={() => openRejectModal(record)}
             >
-              拒绝
+              Reject
             </Button>
           </Tooltip>
         </Space>
@@ -250,12 +250,12 @@ const ClusterApproval: React.FC = () => {
   if (!isSuperAdmin) {
     return (
       <Card>
-        <Empty
-          description="无权限访问此页面"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        >
-          <Text type="secondary">
-            仅 SUPER_ADMIN 可以审批集群预约
+            <Empty
+              description="Access denied"
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            >
+              <Text type="secondary">
+                Only SUPER_ADMIN can approve cluster reservations
           </Text>
         </Empty>
       </Card>
@@ -266,10 +266,10 @@ const ClusterApproval: React.FC = () => {
     <div className="cluster-approval-page">
       <Card
         title={
-          <Space>
-            <ClockCircleOutlined />
-            <span>集群预约审批</span>
-          </Space>
+        <Space>
+          <ClockCircleOutlined />
+          <span>Cluster Reservation Approval</span>
+        </Space>
         }
         extra={
           <Button 
@@ -277,7 +277,7 @@ const ClusterApproval: React.FC = () => {
             onClick={loadPendingReservations}
             loading={loading}
           >
-            刷新
+            Refresh
           </Button>
         }
       >
@@ -290,17 +290,17 @@ const ClusterApproval: React.FC = () => {
               pagination={{ pageSize: 10 }}
             />
           ) : (
-            <Empty
-              description="暂无待审批的预约"
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
+        <Empty
+          description="No pending reservations to approve"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
           )}
         </Spin>
       </Card>
 
       {/* Detail Modal */}
       <Modal
-        title="预约详情"
+        title="Reservation Details"
         open={detailModalVisible}
         onCancel={() => {
           setDetailModalVisible(false)
@@ -311,7 +311,7 @@ const ClusterApproval: React.FC = () => {
       >
         {selectedReservation && (
           <Descriptions bordered column={2} size="small">
-            <Descriptions.Item label="集群" span={2}>
+            <Descriptions.Item label="Cluster" span={2}>
               <Space>
                 <ClusterOutlined />
                 <Text strong>{selectedReservation.cluster?.name}</Text>
@@ -319,31 +319,31 @@ const ClusterApproval: React.FC = () => {
                 <Tag color="blue">{selectedReservation.cluster?.type}</Tag>
               </Space>
             </Descriptions.Item>
-            <Descriptions.Item label="申请人">
+            <Descriptions.Item label="Applicant">
               <Space>
                 <Avatar icon={<UserOutlined />} size="small" />
                 {selectedReservation.user?.username}
               </Space>
             </Descriptions.Item>
-            <Descriptions.Item label="邮箱">
+            <Descriptions.Item label="Email">
               {selectedReservation.user?.email}
             </Descriptions.Item>
-            <Descriptions.Item label="开始时间">
+            <Descriptions.Item label="Start Time">
               {dayjs(selectedReservation.startTime).format('YYYY-MM-DD HH:mm')}
             </Descriptions.Item>
-            <Descriptions.Item label="结束时间">
+            <Descriptions.Item label="End Time">
               {dayjs(selectedReservation.endTime).format('YYYY-MM-DD HH:mm')}
             </Descriptions.Item>
-            <Descriptions.Item label="时长">
-              {Math.round((new Date(selectedReservation.endTime).getTime() - new Date(selectedReservation.startTime).getTime()) / 3600000)} 小时
+            <Descriptions.Item label="Duration">
+              {Math.round((new Date(selectedReservation.endTime).getTime() - new Date(selectedReservation.startTime).getTime()) / 3600000)} hours
             </Descriptions.Item>
-            <Descriptions.Item label="队列位置">
+            <Descriptions.Item label="Queue Position">
               {selectedReservation.queuePosition ? `#${selectedReservation.queuePosition}` : '-'}
             </Descriptions.Item>
-            <Descriptions.Item label="用途说明" span={2}>
+            <Descriptions.Item label="Purpose" span={2}>
               {selectedReservation.purpose || '-'}
             </Descriptions.Item>
-            <Descriptions.Item label="提交时间" span={2}>
+            <Descriptions.Item label="Submitted At" span={2}>
               {dayjs(selectedReservation.createdAt).format('YYYY-MM-DD HH:mm:ss')}
             </Descriptions.Item>
           </Descriptions>
@@ -352,7 +352,7 @@ const ClusterApproval: React.FC = () => {
 
       {/* Reject Modal */}
       <Modal
-        title="拒绝预约"
+        title="Reject Reservation"
         open={rejectModalVisible}
         onCancel={() => {
           setRejectModalVisible(false)
@@ -361,14 +361,14 @@ const ClusterApproval: React.FC = () => {
         }}
         onOk={handleReject}
         confirmLoading={processing}
-        okText="确认拒绝"
+        okText="Confirm Rejection"
         okButtonProps={{ danger: true }}
       >
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Text>确定要拒绝该预约申请吗？</Text>
-          <TextArea
-            rows={4}
-            placeholder="请输入拒绝原因（必填）"
+          <Text>Are you sure you want to reject this reservation request?</Text>
+            <TextArea
+              rows={4}
+              placeholder="Please enter rejection reason (required)"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             maxLength={500}

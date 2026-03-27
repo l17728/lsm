@@ -99,6 +99,9 @@ describe('Error Middleware', () => {
     });
 
     it('should handle generic Error', () => {
+      const originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      
       const error = new Error('Generic error');
 
       errorHandler(error, mockReq as Request, mockRes as Response, mockNext);
@@ -112,6 +115,8 @@ describe('Error Middleware', () => {
           timestamp: expect.any(String),
         },
       });
+      
+      process.env.NODE_ENV = originalEnv;
     });
 
     it('should show error message in development for generic Error', () => {

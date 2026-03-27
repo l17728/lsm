@@ -30,14 +30,14 @@ const DocsPage: React.FC = () => {
       setLoading(true);
       const response = await axios.get('/api/docs');
       setDocuments(response.data.documents);
-      // 自动加载第一个文档
+      // Automatically load the first document
       if (response.data.documents?.length > 0) {
         fetchDocumentContent(response.data.documents[0].id);
       }
       setError(null);
     } catch (err) {
       console.error('Failed to fetch documents:', err);
-      setError('无法加载文档列表');
+      setError('Failed to load documents');
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ const DocsPage: React.FC = () => {
       console.error(`Failed to fetch document ${docId}:`, err);
       setDocContents(prev => ({
         ...prev,
-        [docId]: '# 加载失败\n\n无法加载文档内容，请稍后重试。',
+        [docId]: '# Load Failed\n\nUnable to load document content, please try again later.',
       }));
     } finally {
       setLoadingDoc(null);
@@ -87,13 +87,13 @@ const DocsPage: React.FC = () => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-        <Spin size="large" tip="加载文档中..." />
+        <Spin size="large" tip="Loading documents..." />
       </div>
     );
   }
 
   if (error) {
-    return <Alert message="错误" description={error} type="error" showIcon />;
+    return <Alert message="Error" description={error} type="error" showIcon />;
   }
 
   const tabItems = documents.map(doc => ({
@@ -107,7 +107,7 @@ const DocsPage: React.FC = () => {
       <div style={{ padding: '16px 0' }}>
         {loadingDoc === doc.id ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-            <Spin size="large" tip="加载中..." />
+            <Spin size="large" tip="Loading..." />
           </div>
         ) : (
           <div className="markdown-body" style={{
@@ -188,7 +188,7 @@ const DocsPage: React.FC = () => {
                 ),
               }}
             >
-              {docContents[doc.id] || '点击加载文档内容...'}
+              {docContents[doc.id] || 'Click to load document content...'}
             </ReactMarkdown>
           </div>
         )}
@@ -200,7 +200,7 @@ const DocsPage: React.FC = () => {
     <Card bordered={false}>
       <Title level={3} style={{ marginBottom: 24 }}>
         <BookOutlined style={{ marginRight: 8 }} />
-        文档中心
+        Documentation Center
       </Title>
       <Tabs
         activeKey={activeKey}

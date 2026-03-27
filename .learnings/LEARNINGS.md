@@ -722,6 +722,71 @@ router.put('/:id',
 
 ---
 
+## [LRN-20260327-008] CRITICAL: Not Applying "Fix One, Fix All" Principle
+
+**Logged**: 2026-03-27T16:20:00+08:00
+**Priority**: critical
+**Status**: pending
+**Area**: workflow, quality
+
+### Summary
+**发现中文文本问题时，只修复了 Clusters.tsx，没有检查其他页面。这违反了"发现一个错误，解决一类问题"的最高原则。**
+
+### Details
+用户报告"预约审批在英文下仍然显示中文"。我修复了 `Clusters.tsx` 中的中文文本，但**没有举一反三检查其他页面**。
+
+**结果**: 其他 7 个页面仍有 200+ 行中文文本：
+- ClusterApproval.tsx - 45 行
+- Settings.tsx - 61 行
+- Users.tsx - 33 行
+- Servers.tsx - 32 行
+- Tasks.tsx - 27 行
+- Reservations.tsx - 13 行
+- Dashboard.tsx - 6 行
+
+**根本问题**: 没有执行举一反三的搜索步骤。
+
+### 举一反三检查清单
+
+当发现任何问题时，必须执行：
+
+```
+□ 1. 问题根因是什么？
+□ 2. 这个模式在代码库中是否重复出现？
+□ 3. 使用 grep/搜索工具查找所有类似代码
+□ 4. 列出所有需要修复的位置
+□ 5. 一次性修复所有实例
+```
+
+### 本次遗漏的检查命令
+
+```bash
+# 查找所有页面中的中文文本
+cd src/frontend && node -e "
+const fs = require('fs');
+const pages = fs.readdirSync('src/pages').filter(f => f.endsWith('.tsx'));
+pages.forEach(file => {
+  const content = fs.readFileSync('src/pages/' + file, 'utf8');
+  const chineseLines = content.split('\\n').filter(l => l.match(/[\u4e00-\u9fff]/));
+  if (chineseLines.length > 0) {
+    console.log(file + ': ' + chineseLines.length + ' lines with Chinese');
+  }
+});
+"
+```
+
+### Suggested Action
+1. 修复所有页面的中文文本
+2. 将举一反三检查添加到 AGENTS.md 工作流程
+
+### Metadata
+- Source: self_review
+- Related Files: src/frontend/src/pages/*.tsx
+- Tags: principle, i18n, chinese-text, missed-coverage
+- See Also: LRN-0000-0000-PRINCIPLE
+
+---
+
 ## [LRN-20260327-007] CRITICAL: Claiming Completion Without Verification
 
 **Logged**: 2026-03-27T13:00:00+08:00

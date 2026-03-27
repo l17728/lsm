@@ -8,7 +8,7 @@ import './ChatPage.css'
 
 const { TextArea } = Input
 
-// OpenClaw Gateway 默认配置
+// OpenClaw Gateway default configuration
 const OPENCLAW_DEFAULT_TOKEN = '000d72ae58ccef8e97acd9eb124ddae1b8a856fa57289ea1'
 const OPENCLAW_DEFAULT_HOST = '127.0.0.1:18789'
 
@@ -26,7 +26,7 @@ const ChatPage: React.FC = () => {
   useEffect(() => { chatService.connect(); return () => chatService.disconnect() }, [])
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
   useEffect(() => { 
-    // 初始化时设置默认 token
+    // Set default token on initialization
     if (openclawToken) {
       setGatewayToken(openclawToken)
     } else {
@@ -42,13 +42,13 @@ const ChatPage: React.FC = () => {
   }
 
   const handleClear = () => Modal.confirm({
-    title: '清空聊天记录', icon: <ExclamationCircleOutlined />, content: '确定要清空当前会话的所有消息吗？', okText: '确定', cancelText: '取消',
-    onOk: () => { chatService.clearHistory(); message.success('已清空') },
+    title: 'Clear Chat History', icon: <ExclamationCircleOutlined />, content: 'Are you sure you want to clear all messages in the current session?', okText: 'Confirm', cancelText: 'Cancel',
+    onOk: () => { chatService.clearHistory(); message.success('Cleared') },
   })
 
   const handleConnectOpenClaw = async () => {
     if (!gatewayToken.trim()) {
-      message.warning('请输入 Gateway Token 或留空使用本地模式')
+      message.warning('Please enter a Gateway Token or leave empty to use local mode')
     }
     
     setConnecting(true)
@@ -68,7 +68,7 @@ const ChatPage: React.FC = () => {
   const handleDisconnectOpenClaw = () => {
     chatService.disconnectOpenClaw()
     setGatewayToken('')
-    message.info('已断开 OpenClaw 连接')
+    message.info('OpenClaw connection disconnected')
   }
 
   const sessionItems: MenuProps['items'] = sessions.slice(0, 5).map((s) => ({
@@ -91,7 +91,7 @@ const ChatPage: React.FC = () => {
           {msg.status === 'sending' && <LoadingOutlined spin />}
         </div>
       </div>
-      {msg.role === 'user' && <div className="message-avatar user"><span>我</span></div>}
+      {msg.role === 'user' && <div className="message-avatar user"><span>Me</span></div>}
     </div>
   )
 
@@ -109,7 +109,7 @@ const ChatPage: React.FC = () => {
             )}
           </div>
           <div className="header-right">
-            <Tooltip title={openclawConnected ? 'OpenClaw 已连接' : '连接 OpenClaw'}>
+            <Tooltip title={openclawConnected ? 'OpenClaw Connected' : 'Connect OpenClaw'}>
               <Button 
                 type="text" 
                 icon={openclawConnected ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <ApiOutlined />}
@@ -118,13 +118,13 @@ const ChatPage: React.FC = () => {
             </Tooltip>
             <Tooltip title={connectionStatus}>{statusIcon}</Tooltip>
             <Dropdown menu={{ items: sessionItems }}><Button type="text" icon={<HistoryOutlined />} /></Dropdown>
-            <Tooltip title="新建会话"><Button type="text" icon={<PlusOutlined />} onClick={() => { chatService.createNewSession(); clearMessages() }} /></Tooltip>
-            <Tooltip title="清空记录"><Button type="text" icon={<ClearOutlined />} onClick={handleClear} /></Tooltip>
+            <Tooltip title="New Session"><Button type="text" icon={<PlusOutlined />} onClick={() => { chatService.createNewSession(); clearMessages() }} /></Tooltip>
+            <Tooltip title="Clear History"><Button type="text" icon={<ClearOutlined />} onClick={handleClear} /></Tooltip>
           </div>
         </div>
         
         {connectionStatus === 'disconnected' && (
-          <div className="disconnected-banner"><DisconnectOutlined /><span>连接已断开</span><Button size="small" onClick={() => chatService.reconnect()}>重新连接</Button></div>
+          <div className="disconnected-banner"><DisconnectOutlined /><span>Connection disconnected</span><Button size="small" onClick={() => chatService.reconnect()}>Reconnect</Button></div>
         )}
         
         <div className="chat-messages">
@@ -132,10 +132,10 @@ const ChatPage: React.FC = () => {
             <div className="chat-welcome">
               <div className="welcome-icon"><RobotOutlined /></div>
               <h2>LSM Agent</h2>
-              <p>智能实验室运维助手</p>
+              <p>Intelligent Lab Operations Assistant</p>
               {openclawConnected ? (
                 <Tag color="green" style={{ marginTop: 12 }}>
-                  <ApiOutlined /> 已连接 OpenClaw AI
+                  <ApiOutlined /> OpenClaw AI Connected
                 </Tag>
               ) : (
                 <Button 
@@ -155,17 +155,17 @@ const ChatPage: React.FC = () => {
                   }}
                   loading={connecting}
                 >
-                  连接 OpenClaw AI
+                  Connect OpenClaw AI
                 </Button>
               )}
               <p style={{ color: '#999', fontSize: 12, marginTop: 16 }}>
-                点击右上角 <SettingOutlined /> 可修改连接设置
+                Click <SettingOutlined /> in top right to modify connection settings
               </p>
             </div>
           ) : <>{messages.map(renderMessage)}<div ref={messagesEndRef} /></>}
         </div>
         
-        {isTyping && connectionStatus === 'connected' && <div className="typing-indicator"><Spin size="small" /><span>思考中...</span></div>}
+        {isTyping && connectionStatus === 'connected' && <div className="typing-indicator"><Spin size="small" /><span>Thinking...</span></div>}
         
         <div className="chat-input-area">
           <TextArea 
@@ -174,15 +174,15 @@ const ChatPage: React.FC = () => {
             onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
             disabled={connectionStatus !== 'connected'} 
             autoSize={{ minRows: 1, maxRows: 4 }} 
-            placeholder={openclawConnected ? "与 OpenClaw AI 对话..." : "输入消息..."} 
+            placeholder={openclawConnected ? "Chat with OpenClaw AI..." : "Enter message..."} 
           />
-          <Button type="primary" icon={<SendOutlined />} onClick={handleSend} disabled={!inputValue.trim() || connectionStatus !== 'connected'}>发送</Button>
+          <Button type="primary" icon={<SendOutlined />} onClick={handleSend} disabled={!inputValue.trim() || connectionStatus !== 'connected'}>Send</Button>
         </div>
       </Card>
 
-      {/* OpenClaw 设置弹窗 */}
+      {/* OpenClaw Settings Modal */}
       <Modal
-        title={<><SettingOutlined /> OpenClaw 连接设置</>}
+        title={<><SettingOutlined /> OpenClaw Connection Settings</>}
         open={settingsVisible}
         onCancel={() => setSettingsVisible(false)}
         footer={null}
@@ -190,13 +190,13 @@ const ChatPage: React.FC = () => {
       >
         <Form layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item 
-            label="Gateway Token（可选）"
-            help="留空使用本地智能模式，输入 Token 连接 OpenClaw AI"
+            label="Gateway Token (Optional)"
+            help="Leave empty for local mode, enter token to connect OpenClaw AI"
           >
             <TextArea
               value={gatewayToken}
               onChange={(e) => setGatewayToken(e.target.value)}
-              placeholder="输入 OpenClaw Gateway Token..."
+              placeholder="Enter OpenClaw Gateway Token..."
               rows={3}
               disabled={openclawConnected}
             />
@@ -206,30 +206,30 @@ const ChatPage: React.FC = () => {
             <Space>
               {openclawConnected ? (
                 <Button danger onClick={handleDisconnectOpenClaw}>
-                  断开连接
+                  Disconnect
                 </Button>
               ) : (
-                <Button 
-                  type="primary" 
-                  onClick={handleConnectOpenClaw}
-                  loading={connecting}
-                >
-                  {gatewayToken.trim() ? '连接 OpenClaw' : '使用本地模式'}
-                </Button>
-              )}
-              <Button onClick={() => setSettingsVisible(false)}>取消</Button>
-            </Space>
-          </Form.Item>
-          
-          <div style={{ padding: 12, background: '#f5f5f5', borderRadius: 6, marginTop: 16 }}>
-            <h4 style={{ margin: '0 0 8px 0' }}>💡 使用说明</h4>
-            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: '#666' }}>
-              <li><strong>本地模式</strong>：使用 LSM 内置智能响应</li>
-              <li><strong>OpenClaw 模式</strong>：连接真正的 AI 助手</li>
-              <li>Token 可从 OpenClaw Gateway 获取</li>
-            </ul>
-          </div>
-        </Form>
+                  <Button 
+                    type="primary" 
+                    onClick={handleConnectOpenClaw}
+                    loading={connecting}
+                  >
+                    {gatewayToken.trim() ? 'Connect OpenClaw' : 'Use Local Mode'}
+                  </Button>
+                )}
+                <Button onClick={() => setSettingsVisible(false)}>Cancel</Button>
+              </Space>
+            </Form.Item>
+            
+            <div style={{ padding: 12, background: '#f5f5f5', borderRadius: 6, marginTop: 16 }}>
+              <h4 style={{ margin: '0 0 8px 0' }}>💡 Usage Instructions</h4>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: '#666' }}>
+                <li><strong>Local Mode</strong>: Use LSM's built-in intelligent response</li>
+                <li><strong>OpenClaw Mode</strong>: Connect to real AI assistant</li>
+                <li>Token can be obtained from OpenClaw Gateway</li>
+              </ul>
+            </div>
+          </Form>
       </Modal>
     </div>
   )

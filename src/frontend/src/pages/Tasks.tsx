@@ -150,14 +150,14 @@ const Tasks: React.FC = () => {
             failureCount++;
             if (itemIndex >= 0) {
               updatedItems[itemIndex].status = 'error';
-              updatedItems[itemIndex].error = '删除失败';
+              updatedItems[itemIndex].error = 'Delete failed';
             }
             const task = tasks.find(t => t.id === id);
             errors.push({
               id,
               name: task?.name || id,
               type: 'DELETE',
-              error: result.reason?.message || '未知错误',
+              error: result.reason?.message || 'Unknown error',
               timestamp: new Date().toISOString(),
               canRetry: true,
             });
@@ -180,7 +180,7 @@ const Tasks: React.FC = () => {
         setSelectedRowKeys([]);
         loadTasks();
       } else {
-        message.warning(`删除完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        message.warning(`Delete completed: ${successCount} success, ${failureCount} failed`);
         setErrorDetailsVisible(true);
         loadTasks();
       }
@@ -237,14 +237,14 @@ const Tasks: React.FC = () => {
             failureCount++;
             if (itemIndex >= 0) {
               updatedItems[itemIndex].status = 'error';
-              updatedItems[itemIndex].error = '取消失败';
+              updatedItems[itemIndex].error = 'Cancel failed';
             }
             const task = tasks.find(t => t.id === id);
             errors.push({
               id,
               name: task?.name || id,
               type: 'CANCEL',
-              error: result.reason?.message || '未知错误',
+              error: result.reason?.message || 'Unknown error',
               timestamp: new Date().toISOString(),
               canRetry: false,
             });
@@ -267,7 +267,7 @@ const Tasks: React.FC = () => {
         setSelectedRowKeys([]);
         loadTasks();
       } else {
-        message.warning(`取消完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        message.warning(`Cancel completed: ${successCount} success, ${failureCount} failed`);
         setErrorDetailsVisible(true);
       }
     } catch (error: any) {
@@ -323,14 +323,14 @@ const Tasks: React.FC = () => {
             failureCount++;
             if (itemIndex >= 0) {
               updatedItems[itemIndex].status = 'error';
-              updatedItems[itemIndex].error = '状态更新失败';
+              updatedItems[itemIndex].error = 'Status update failed';
             }
             const task = tasks.find(t => t.id === id);
             errors.push({
               id,
               name: task?.name || id,
               type: 'STATUS_CHANGE',
-              error: result.reason?.message || '未知错误',
+              error: result.reason?.message || 'Unknown error',
               timestamp: new Date().toISOString(),
               canRetry: true,
             });
@@ -353,7 +353,7 @@ const Tasks: React.FC = () => {
         setSelectedRowKeys([]);
         loadTasks();
       } else {
-        message.warning(`状态更新完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        message.warning(`Status update completed: ${successCount} success, ${failureCount} failed`);
         setErrorDetailsVisible(true);
         loadTasks();
       }
@@ -385,7 +385,7 @@ const Tasks: React.FC = () => {
             return { 
               ...item, 
               status: 'error' as const,
-              error: '重试失败',
+              error: 'Retry failed',
               retryCount: (item.retryCount || 0) + 1,
             };
           }
@@ -401,12 +401,12 @@ const Tasks: React.FC = () => {
       });
 
       if (updatedErrors.length === 0) {
-        message.success('所有失败项已重试成功');
+        message.success('All failed items have been retried successfully');
         setErrorDetailsVisible(false);
         loadTasks();
       }
     } else if (pendingAction?.type === 'cancel') {
-      message.warning('取消操作无法重试');
+        message.warning('Cancel operation cannot be retried');
     } else if (pendingAction?.type === 'status_change') {
       const results = await Promise.allSettled(
         ids.map(id => taskApi.update(id, { status: pendingAction.status! }))
@@ -426,7 +426,7 @@ const Tasks: React.FC = () => {
             return { 
               ...item, 
               status: 'error' as const,
-              error: '重试失败',
+              error: 'Retry failed',
               retryCount: (item.retryCount || 0) + 1,
             };
           }
@@ -442,7 +442,7 @@ const Tasks: React.FC = () => {
       });
 
       if (updatedErrors.length === 0) {
-        message.success('所有失败项已重试成功');
+        message.success('All failed items have been retried successfully');
         setErrorDetailsVisible(false);
         loadTasks();
       }
@@ -459,9 +459,9 @@ const Tasks: React.FC = () => {
   const handleExportErrors = () => {
     const content = batchState.errors.map((error, index) => 
       `[${index + 1}] ${error.name}\n` +
-      `    类型：${error.type || '未知'}\n` +
-      `    错误：${error.error}\n` +
-      `    时间：${error.timestamp || 'N/A'}\n`
+      `    Type: ${error.type || 'Unknown'}\n` +
+      `    Error: ${error.error}\n` +
+      `    Time: ${error.timestamp || 'N/A'}\n`
     ).join('\n');
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -472,7 +472,7 @@ const Tasks: React.FC = () => {
     link.click();
     URL.revokeObjectURL(url);
     
-    message.success('错误日志已导出');
+    message.success('Error log exported');
   };
 
   // Start batch delete with confirmation
@@ -753,7 +753,7 @@ const Tasks: React.FC = () => {
       {/* Batch Progress Bar */}
       <BatchProgressBar
         visible={batchState.isProcessing || (batchState.processed > 0 && batchState.processed === batchState.total)}
-        title="批量操作进度"
+          title="Batch Operation Progress"
         total={batchState.total}
         processed={batchState.processed}
         successCount={batchState.successCount}
@@ -763,7 +763,7 @@ const Tasks: React.FC = () => {
         showDetails
         onCancel={() => {
           updateBatchProgress({ isProcessing: false });
-          message.warning('操作已取消');
+            message.warning('Operation cancelled');
         }}
         onClose={() => {
           if (!batchState.isProcessing) {
@@ -783,17 +783,17 @@ const Tasks: React.FC = () => {
         visible={confirmVisible}
         type={pendingAction?.type === 'delete' ? 'delete' : pendingAction?.type === 'cancel' ? 'dangerous' : 'status_change'}
         message={
-          pendingAction?.type === 'delete'
-            ? `确定要删除选中的 ${selectedRowKeys.length} 个任务吗？`
-            : pendingAction?.type === 'cancel'
-            ? `确定要取消选中的 ${selectedRowKeys.length} 个任务吗？`
-            : `确定要更新选中的 ${selectedRowKeys.length} 个任务的状态为 ${pendingAction?.status} 吗？`
+            pendingAction?.type === 'delete'
+              ? `Are you sure you want to delete the selected ${selectedRowKeys.length} tasks?`
+              : pendingAction?.type === 'cancel'
+              ? `Are you sure you want to cancel the selected ${selectedRowKeys.length} tasks?`
+              : `Are you sure you want to update the status of selected ${selectedRowKeys.length} tasks to ${pendingAction?.status}?`
         }
         itemCount={selectedRowKeys.length}
-        itemLabel="个任务"
+        itemLabel="tasks"
         actionLabel={
-          pendingAction?.type === 'delete' ? '删除' : 
-          pendingAction?.type === 'cancel' ? '取消' : '确认'
+          pendingAction?.type === 'delete' ? 'Delete' : 
+          pendingAction?.type === 'cancel' ? 'Cancel' : 'Confirm'
         }
         loading={batchState.isProcessing}
         onConfirm={() => {
@@ -814,7 +814,7 @@ const Tasks: React.FC = () => {
       {/* Error Details Modal */}
       <ErrorDetails
         visible={errorDetailsVisible}
-        title="批量操作失败详情"
+          title="Batch Operation Failure Details"
         errors={batchState.errors}
         loading={batchState.isProcessing}
         onRetry={handleRetryErrors}

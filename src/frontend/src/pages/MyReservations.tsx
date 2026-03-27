@@ -29,12 +29,12 @@ import type { Reservation } from '../services/reservation.service'
 const { Title, Text } = Typography
 
 const STATUS_TABS = [
-  { key: 'all', label: '全部', icon: <CalendarOutlined /> },
-  { key: 'pending', label: '待审批', icon: <ClockCircleOutlined />, color: 'warning' },
-  { key: 'approved', label: '已批准', icon: <CheckCircleOutlined />, color: 'processing' },
-  { key: 'active', label: '进行中', icon: <PlayCircleOutlined />, color: 'success' },
-  { key: 'completed', label: '已完成', icon: <CheckCircleOutlined /> },
-  { key: 'cancelled', label: '已取消', icon: <CloseCircleOutlined />, color: 'error' },
+  { key: 'all', label: 'All', icon: <CalendarOutlined /> },
+  { key: 'pending', label: 'Pending Approval', icon: <ClockCircleOutlined />, color: 'warning' },
+  { key: 'approved', label: 'Approved', icon: <CheckCircleOutlined />, color: 'processing' },
+  { key: 'active', label: 'Active', icon: <PlayCircleOutlined />, color: 'success' },
+  { key: 'completed', label: 'Completed', icon: <CheckCircleOutlined /> },
+  { key: 'cancelled', label: 'Cancelled', icon: <CloseCircleOutlined />, color: 'error' },
 ]
 
 const MyReservations: React.FC = () => {
@@ -71,20 +71,20 @@ const MyReservations: React.FC = () => {
   const handleCancel = async (id: string) => {
     try {
       await cancelReservation(id)
-      message.success('预约已取消')
+      message.success('Reservation cancelled')
       loadData()
     } catch (error) {
-      message.error('取消预约失败')
+      message.error('Failed to cancel reservation')
     }
   }
 
   const handleRelease = async (id: string) => {
     try {
       await releaseReservation(id)
-      message.success('预约已释放')
+      message.success('Reservation released')
       loadData()
     } catch (error) {
-      message.error('释放预约失败')
+      message.error('Failed to release reservation')
     }
   }
 
@@ -100,13 +100,13 @@ const MyReservations: React.FC = () => {
     loadData(page)
   }
 
-  // 统计各状态数量
+  // Count reservations by status
   const getStatusCount = (status: string) => {
     if (status === 'all') return reservations.length
     return reservations.filter((r) => r.status === status).length
   }
 
-  // 渲染标签页标题
+  // Render tab title
   const renderTabTitle = (tab: typeof STATUS_TABS[0]) => {
     const count = getStatusCount(tab.key)
     return (
@@ -124,14 +124,14 @@ const MyReservations: React.FC = () => {
     )
   }
 
-  // 渲染空状态
+  // Render empty state
   const renderEmpty = () => (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
       description={
         activeTab === 'all'
-          ? '暂无预约记录'
-          : `暂无${STATUS_TABS.find((t) => t.key === activeTab)?.label}的预约`
+          ? 'No reservation records'
+          : `No ${STATUS_TABS.find((t) => t.key === activeTab)?.label} reservations`
       }
     >
       <Button
@@ -139,20 +139,20 @@ const MyReservations: React.FC = () => {
         icon={<PlusOutlined />}
         onClick={() => navigate('/reservations/new')}
       >
-        新建预约
+        New Reservation
       </Button>
     </Empty>
   )
 
-  // 渲染详情模态框
+  // Render detail modal
   const renderDetailModal = () => (
     <Modal
-      title="预约详情"
+      title="Reservation Details"
       open={detailVisible}
       onCancel={() => setDetailVisible(false)}
       footer={[
         <Button key="close" onClick={() => setDetailVisible(false)}>
-          关闭
+          Close
         </Button>,
       ]}
       width={600}
@@ -170,17 +170,17 @@ const MyReservations: React.FC = () => {
   return (
     <div className="my-reservations-page">
       <div className="page-header">
-        <Title level={4}>我的预约</Title>
+        <Title level={4}>My Reservations</Title>
         <Space>
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/reservations/new')}
           >
-            新建预约
+            New Reservation
           </Button>
           <Button onClick={() => navigate('/reservations')}>
-            日历视图
+            Calendar View
           </Button>
         </Space>
       </div>
@@ -218,7 +218,7 @@ const MyReservations: React.FC = () => {
                       total={pagination.total}
                       onChange={handlePageChange}
                       showSizeChanger={false}
-                      showTotal={(total) => `共 ${total} 条记录`}
+                       showTotal={(total) => `Total: ${total} records`}
                     />
                   </div>
                 )}

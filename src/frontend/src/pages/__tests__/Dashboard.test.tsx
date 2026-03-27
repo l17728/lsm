@@ -132,8 +132,8 @@ describe('Dashboard', () => {
   })
 
   // ─── Rendering ──────────────────────────────────────────────────────────────
-  describe('渲染测试', () => {
-    it('挂载时应显示加载中 spinner', () => {
+  describe('Rendering Tests', () => {
+    it('should show loading spinner on initial mount', () => {
       // Delay resolution so spinner is visible
       vi.mocked(serverApi.getStats).mockReturnValue(new Promise(() => {}))
 
@@ -143,63 +143,63 @@ describe('Dashboard', () => {
       expect(container.querySelector('.ant-spin')).toBeTruthy()
     })
 
-    it('数据加载完成后应隐藏 spinner', async () => {
-      const { container } = render(<Dashboard />)
+      it('should hide spinner after data is loaded', async () => {
+        const { container } = render(<Dashboard />)
 
-      await waitFor(() => {
-        expect(container.querySelector('.ant-spin-spinning')).toBeNull()
+        await waitFor(() => {
+          expect(container.querySelector('.ant-spin-spinning')).toBeNull()
+        })
+      })
+
+      it('should render Dashboard component without crashing', async () => {
+        const { container } = render(<Dashboard />)
+        await waitFor(() => expect(container).toBeTruthy())
+      })
+
+      it('should display page title "Dashboard"', async () => {
+        render(<Dashboard />)
+
+        await waitFor(() => {
+          expect(screen.getByText('Dashboard')).toBeInTheDocument()
+        })
+      })
+
+      it('should display Servers stats card', async () => {
+        render(<Dashboard />)
+
+        await waitFor(() => {
+          expect(screen.getByText('Servers')).toBeInTheDocument()
+        })
+      })
+
+      it('should display GPUs stats card', async () => {
+        render(<Dashboard />)
+
+        await waitFor(() => {
+          expect(screen.getByText('GPUs')).toBeInTheDocument()
+        })
+      })
+
+      it('should display Tasks stats card', async () => {
+        render(<Dashboard />)
+
+        await waitFor(() => {
+          expect(screen.getByText('Tasks')).toBeInTheDocument()
+        })
+      })
+
+      it('should display Clusters stats card', async () => {
+        render(<Dashboard />)
+
+        await waitFor(() => {
+          expect(screen.getByText('Clusters')).toBeInTheDocument()
+        })
       })
     })
-
-    it('应该不崩溃地渲染 Dashboard 组件', async () => {
-      const { container } = render(<Dashboard />)
-      await waitFor(() => expect(container).toBeTruthy())
-    })
-
-    it('应该显示页面标题 "Dashboard"', async () => {
-      render(<Dashboard />)
-
-      await waitFor(() => {
-        expect(screen.getByText('Dashboard')).toBeInTheDocument()
-      })
-    })
-
-    it('应该显示 Servers 统计卡片', async () => {
-      render(<Dashboard />)
-
-      await waitFor(() => {
-        expect(screen.getByText('Servers')).toBeInTheDocument()
-      })
-    })
-
-    it('应该显示 GPUs 统计卡片', async () => {
-      render(<Dashboard />)
-
-      await waitFor(() => {
-        expect(screen.getByText('GPUs')).toBeInTheDocument()
-      })
-    })
-
-    it('应该显示 Tasks 统计卡片', async () => {
-      render(<Dashboard />)
-
-      await waitFor(() => {
-        expect(screen.getByText('Tasks')).toBeInTheDocument()
-      })
-    })
-
-    it('应该显示 Clusters 统计卡片', async () => {
-      render(<Dashboard />)
-
-      await waitFor(() => {
-        expect(screen.getByText('Clusters')).toBeInTheDocument()
-      })
-    })
-  })
 
   // ─── API calls ──────────────────────────────────────────────────────────────
-  describe('API 调用', () => {
-    it('挂载时应该调用所有 6 个 API', async () => {
+  describe('API Calls', () => {
+    it('should call all 6 APIs on mount', async () => {
       render(<Dashboard />)
 
       await waitFor(() => {
@@ -212,7 +212,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('应该只在挂载时调用 API，而不是每次重渲染', async () => {
+    it('should call APIs only on mount, not on each re-render', async () => {
       const { rerender } = render(<Dashboard />)
 
       await waitFor(() => {
@@ -227,8 +227,8 @@ describe('Dashboard', () => {
   })
 
   // ─── REGRESSION: Promise.allSettled behaviour ────────────────────────────────
-  describe('REGRESSION: Promise.allSettled — 单个 API 失败不影响其他模块', () => {
-    it('serverApi 失败时，GPU 数据应仍然正常显示', async () => {
+  describe('REGRESSION: Promise.allSettled — Single API Failure Does Not Affect Other Modules', () => {
+    it('GPU data should still display normally when serverApi fails', async () => {
       vi.mocked(serverApi.getStats).mockRejectedValue(new Error('server down'))
 
       render(<Dashboard />)
@@ -239,7 +239,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('gpuApi 失败时，Servers 数据应仍然正常显示', async () => {
+    it('Server data should still display normally when gpuApi fails', async () => {
       vi.mocked(gpuApi.getStats).mockRejectedValue(new Error('gpu down'))
 
       render(<Dashboard />)
@@ -249,7 +249,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('taskApi 失败时，Servers 和 GPUs 数据应仍然正常显示', async () => {
+    it('Servers and GPUs data should still display normally when taskApi fails', async () => {
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('task down'))
 
       render(<Dashboard />)
@@ -260,7 +260,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('monitoringApi.getClusterStats 失败时，其余三块数据应正常显示', async () => {
+    it('The other three modules should display normally when monitoringApi.getClusterStats fails', async () => {
       vi.mocked(monitoringApi.getClusterStats).mockRejectedValue(new Error('cluster down'))
 
       render(<Dashboard />)
@@ -272,7 +272,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('全部 API 失败时组件不应崩溃', async () => {
+    it('Component should not crash when all APIs fail', async () => {
       vi.mocked(serverApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(gpuApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('err'))
@@ -288,7 +288,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('全部 API 失败后 loading 应被设为 false（不永久 spinning）', async () => {
+    it('Loading should be set to false after all APIs fail (not permanently spinning)', async () => {
       vi.mocked(serverApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(gpuApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('err'))
@@ -306,56 +306,56 @@ describe('Dashboard', () => {
   })
 
   // ─── Error message display ───────────────────────────────────────────────────
-  describe('错误提示（message.error）', () => {
-    it('serverApi 失败时应调用 message.error 提示服务器统计加载失败', async () => {
+  describe('Error Message Display (message.error)', () => {
+    it('should call message.error when serverApi fails to load server stats', async () => {
       vi.mocked(serverApi.getStats).mockRejectedValue(new Error('server fail'))
 
       render(<Dashboard />)
 
       await waitFor(() => {
         expect(mockMessageError).toHaveBeenCalledWith(
-          expect.stringContaining('服务器')
+          expect.stringContaining('Server statistics')
         )
       })
     })
 
-    it('gpuApi 失败时应调用 message.error 提示 GPU 统计加载失败', async () => {
+    it('should call message.error when gpuApi fails to load GPU stats', async () => {
       vi.mocked(gpuApi.getStats).mockRejectedValue(new Error('gpu fail'))
 
       render(<Dashboard />)
 
       await waitFor(() => {
         expect(mockMessageError).toHaveBeenCalledWith(
-          expect.stringContaining('GPU')
+          expect.stringContaining('GPU statistics')
         )
       })
     })
 
-    it('taskApi 失败时应调用 message.error 提示任务统计加载失败', async () => {
+    it('should call message.error when taskApi fails to load task stats', async () => {
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('task fail'))
 
       render(<Dashboard />)
 
       await waitFor(() => {
         expect(mockMessageError).toHaveBeenCalledWith(
-          expect.stringContaining('任务')
+          expect.stringContaining('Task statistics')
         )
       })
     })
 
-    it('clusterStats 失败时应调用 message.error 提示集群统计加载失败', async () => {
+    it('should call message.error when clusterStats fails to load cluster stats', async () => {
       vi.mocked(monitoringApi.getClusterStats).mockRejectedValue(new Error('cluster fail'))
 
       render(<Dashboard />)
 
       await waitFor(() => {
         expect(mockMessageError).toHaveBeenCalledWith(
-          expect.stringContaining('集群')
+          expect.stringContaining('Cluster statistics')
         )
       })
     })
 
-    it('REGRESSION: alerts 失败时不应调用 message.error（alerts 是非关键数据）', async () => {
+    it('REGRESSION: alerts failure should not call message.error (alerts are non-critical data)', async () => {
       vi.mocked(monitoringApi.getAlerts).mockRejectedValue(new Error('alerts fail'))
 
       render(<Dashboard />)
@@ -373,12 +373,12 @@ describe('Dashboard', () => {
       // message.error should NOT have been called for alerts
       const errorCalls: string[] = mockMessageError.mock.calls.map((c) => c[0] as string)
       const alertErrorCalled = errorCalls.some((msg) =>
-        msg.toLowerCase().includes('alert') || msg.includes('告警')
+        msg.toLowerCase().includes('alert') || msg.includes('alarm')
       )
       expect(alertErrorCalled).toBe(false)
     })
 
-    it('全部 API 失败时应调用 4 条 message.error（alerts 和 clusterSummary 除外）', async () => {
+    it('should call 4 message.error when all APIs fail (except alerts and clusterSummary)', async () => {
       vi.mocked(serverApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(gpuApi.getStats).mockRejectedValue(new Error('err'))
       vi.mocked(taskApi.getStats).mockRejectedValue(new Error('err'))
@@ -395,7 +395,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('所有 API 成功时不应调用 message.error', async () => {
+    it('should not call message.error when all APIs succeed', async () => {
       render(<Dashboard />)
 
       await waitFor(() => {
@@ -406,9 +406,9 @@ describe('Dashboard', () => {
     })
   })
 
-  // ─── Alerts 显示 ────────────────────────────────────────────────────────────
-  describe('Alerts 区域', () => {
-    it('alerts 为空时不应渲染 System Alerts 区域', async () => {
+  // ─── Alerts display ────────────────────────────────────────────────────────────
+  describe('Alerts Section', () => {
+    it('should not render System Alerts section when alerts is empty', async () => {
       render(<Dashboard />)
 
       await waitFor(() => {
@@ -416,7 +416,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('alerts 失败时应默认为空数组（不渲染告警区域）', async () => {
+    it('should default to empty array when alerts fails (no alerts section rendered)', async () => {
       vi.mocked(monitoringApi.getAlerts).mockRejectedValue(new Error('alerts fail'))
 
       render(<Dashboard />)
@@ -426,9 +426,9 @@ describe('Dashboard', () => {
       })
     })
 
-    it('有告警时应渲染 System Alerts 区域', async () => {
+    it('should render System Alerts section when there are alerts', async () => {
       const alerts = [
-        { type: 'critical', serverName: 'srv-1', message: 'CPU高', value: 95.0 },
+        { type: 'critical', serverName: 'srv-1', message: 'CPU high', value: 95.0 },
       ]
       vi.mocked(monitoringApi.getAlerts).mockResolvedValue({
         data: { success: true, data: alerts },
@@ -442,27 +442,27 @@ describe('Dashboard', () => {
     })
   })
 
-  // ─── WebSocket 生命周期 ──────────────────────────────────────────────────────
-  describe('WebSocket 订阅', () => {
-    it('应该注册 servers:update 事件监听', () => {
+  // ─── WebSocket lifecycle ──────────────────────────────────────────────────────
+  describe('WebSocket Subscription', () => {
+    it('should register servers:update event listener', () => {
       render(<Dashboard />)
 
       expect(wsService.on).toHaveBeenCalledWith('servers:update', expect.any(Function))
     })
 
-    it('应该注册 tasks:update 事件监听', () => {
+    it('should register tasks:update event listener', () => {
       render(<Dashboard />)
 
       expect(wsService.on).toHaveBeenCalledWith('tasks:update', expect.any(Function))
     })
 
-    it('应该注册 alerts:new 事件监听', () => {
+    it('should register alerts:new event listener', () => {
       render(<Dashboard />)
 
       expect(wsService.on).toHaveBeenCalledWith('alerts:new', expect.any(Function))
     })
 
-    it('卸载时应取消所有 WebSocket 事件监听', () => {
+    it('should cancel all WebSocket event listeners on unmount', () => {
       const { unmount } = render(<Dashboard />)
 
       unmount()
@@ -472,7 +472,7 @@ describe('Dashboard', () => {
       expect(wsService.off).toHaveBeenCalledWith('alerts:new', expect.any(Function))
     })
 
-    it('unsubscribe 时应该传入与 subscribe 相同的函数引用', () => {
+    it('unsubscribe should pass the same handler function reference as subscribe', () => {
       const { unmount } = render(<Dashboard />)
 
       const onCalls = vi.mocked(wsService.on).mock.calls
@@ -492,9 +492,9 @@ describe('Dashboard', () => {
     })
   })
 
-  // ─── 图表渲染 ────────────────────────────────────────────────────────────────
-  describe('图表渲染', () => {
-    it('应该渲染折线图（Resource Usage 24h）', async () => {
+  // ─── Chart rendering ──────────────────────────────────────────────────────────
+  describe('Chart Rendering', () => {
+    it('should render line chart (Resource Usage 24h)', async () => {
       render(<Dashboard />)
 
       await waitFor(() => {
@@ -502,7 +502,7 @@ describe('Dashboard', () => {
       })
     })
 
-    it('应该渲染柱状图（Task Status Distribution）', async () => {
+    it('should render bar chart (Task Status Distribution)', async () => {
       render(<Dashboard />)
 
       await waitFor(() => {

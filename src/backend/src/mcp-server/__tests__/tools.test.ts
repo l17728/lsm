@@ -5,14 +5,51 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { prisma } from '../../__mocks__/prisma';
-import { serverService } from '../../__mocks__/server.service';
 
-// Mock dependencies
-jest.mock('../../utils/prisma', () => require('../../__mocks__/prisma'));
-jest.mock('../../services/server.service', () => require('../../__mocks__/server.service'));
+// Mock modules before importing the actual modules
+jest.mock('../../utils/prisma', () => {
+  const mockPrisma = {
+    user: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+    },
+    gpu: {
+      findMany: jest.fn(),
+      update: jest.fn(),
+    },
+    gpuAllocation: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    server: {
+      findUnique: jest.fn(),
+    },
+    task: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      groupBy: jest.fn(),
+    },
+  };
+  return {
+    __esModule: true,
+    default: mockPrisma,
+    prisma: mockPrisma,
+  };
+});
 
-// Import tool registrations
+jest.mock('../../services/server.service', () => ({
+  serverService: {
+    getAllServers: jest.fn(),
+    getServerById: jest.fn(),
+    getServerStats: jest.fn(),
+  },
+}));
+
+// Import after mocking
+import { prisma } from '../../utils/prisma';
+import { serverService } from '../../services/server.service';
 import { registerServerTools } from '../tools/servers';
 import { registerGpuTools } from '../tools/gpu';
 import { registerTaskTools } from '../tools/tasks';
@@ -26,9 +63,20 @@ describe('MCP Server Tools', () => {
     registeredTools = new Map();
     
     // Create mock server that captures tool registrations
+    // Support both 3-param (name, desc, handler) and 4-param (name, desc, schema, handler) calls
     mockServer = {
-      tool: jest.fn((name: string, desc: string, schema: any, handler: Function) => {
-        registeredTools.set(name, { desc, schema, handler });
+      tool: jest.fn((...args: any[]) => {
+        // 4-param: tool(name, description, schema, handler)
+        // 3-param: tool(name, description, handler)
+        const [name, description, third, fourth] = args;
+        
+        if (typeof fourth === 'function') {
+          // 4-param call
+          registeredTools.set(name, { desc: description, schema: third, handler: fourth });
+        } else if (typeof third === 'function') {
+          // 3-param call (no schema)
+          registeredTools.set(name, { desc: description, schema: undefined, handler: third });
+        }
       }),
     } as unknown as McpServer;
   });
@@ -86,10 +134,10 @@ describe('MCP Server Tools', () => {
     it('should allocate GPU successfully', async () => {
       (prisma.user.findFirst as jest.Mock).mockResolvedValue({ id: 'u1', username: 'mcp-system' });
       (prisma.gpu.findMany as jest.Mock).mockResolvedValue([
-        { id: 'g1', model: 'A100', serverId: 's1', status: 'AVAILABLE', server: { id: 's1', status: 'ONLINE' } },
+        { id: 'g1', model: 'A100', serverId: 's1', allocated: false, server: { id: 's1', status: 'ONLINE' } },
       ]);
       (prisma.gpuAllocation.create as jest.Mock).mockResolvedValue({ id: 'a1' });
-      (prisma.gpu.update as jest.Mock).mockResolvedValue({ id: 'g1', status: 'ALLOCATED' });
+      (prisma.gpu.update as jest.Mock).mockResolvedValue({ id: 'g1', allocated: true });
 
       registerGpuTools(mockServer);
       const tool = registeredTools.get('lsm_allocate_gpu')!;
@@ -105,10 +153,10 @@ describe('MCP Server Tools', () => {
 
     it('should release GPU allocation successfully', async () => {
       (prisma.gpuAllocation.findUnique as jest.Mock).mockResolvedValue({
-        id: 'a1', status: 'ACTIVE', gpuId: 'g1', gpu: { id: 'g1' },
+        id: 'a1', gpuId: 'g1', gpu: { id: 'g1', allocated: true }, releasedAt: null,
       });
-      (prisma.gpuAllocation.update as jest.Mock).mockResolvedValue({ id: 'a1', status: 'COMPLETED' });
-      (prisma.gpu.update as jest.Mock).mockResolvedValue({ id: 'g1', status: 'AVAILABLE' });
+      (prisma.gpuAllocation.update as jest.Mock).mockResolvedValue({ id: 'a1', releasedAt: new Date() });
+      (prisma.gpu.update as jest.Mock).mockResolvedValue({ id: 'g1', allocated: false });
 
       registerGpuTools(mockServer);
       const tool = registeredTools.get('lsm_release_gpu')!;
@@ -218,7 +266,7 @@ describe('MCP Server Tools', () => {
       (prisma.user.findFirst as jest.Mock).mockResolvedValue({ id: 'u1' });
       // Only 1 GPU available but requesting 5
       (prisma.gpu.findMany as jest.Mock).mockResolvedValue([
-        { id: 'g1', model: 'A100', serverId: 's1', status: 'AVAILABLE', server: { status: 'ONLINE' } },
+        { id: 'g1', model: 'A100', serverId: 's1', allocated: false, server: { status: 'ONLINE' } },
       ]);
 
       registerGpuTools(mockServer);
@@ -233,6 +281,7 @@ describe('MCP Server Tools', () => {
     });
 
     it('should return error when task already completed', async () => {
+      // Use the actual enum value format that Prisma returns
       (prisma.task.findUnique as jest.Mock).mockResolvedValue({
         id: 't1', status: 'COMPLETED',
       });

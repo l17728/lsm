@@ -57,12 +57,12 @@ const ReservationForm: React.FC = () => {
 
   const { user } = useAuthStore()
 
-  // 初始化数据
+  // Initialize data
   useEffect(() => {
     fetchAvailableServers()
     fetchUserQuota()
     
-    // 处理从日历跳转带来的预填数据
+    // Handle pre-filled data from calendar navigation
     const state = location.state as any
     if (state) {
       form.setFieldsValue({
@@ -75,12 +75,12 @@ const ReservationForm: React.FC = () => {
     }
   }, [])
 
-  // 计算剩余配额
+  // Calculate remaining quota
   const remainingQuota = userQuota
     ? userQuota.maxHoursPerWeek - userQuota.usedHoursThisWeek
     : 0
 
-  // 计算预计时长
+  // Calculate estimated duration
   const calculateDuration = () => {
     const values = form.getFieldsValue()
     if (values.startTime && values.endTime) {
@@ -91,7 +91,7 @@ const ReservationForm: React.FC = () => {
     }
   }
 
-  // 处理服务器选择
+  // Handle server selection
   const handleServerChange = (serverId: string) => {
     const server = availableServers.find((s) => s.id === serverId)
     setSelectedServer(server || null)
@@ -99,7 +99,7 @@ const ReservationForm: React.FC = () => {
     form.setFieldValue('gpuIds', [])
   }
 
-  // 处理 GPU 选择
+  // Handle GPU selection
   const handleGpuToggle = (gpuId: string) => {
     const mode = form.getFieldValue('mode')
     let newSelection: string[]
@@ -118,10 +118,10 @@ const ReservationForm: React.FC = () => {
     form.setFieldValue('gpuIds', newSelection)
   }
 
-  // 处理模式变更
+  // Handle mode change
   const handleModeChange = (mode: string) => {
     if (mode === 'whole-server' && selectedServer) {
-      // 整服务器模式，选择所有 GPU
+      // Whole server mode, select all GPUs
       const allGpuIds = selectedServer.gpus.map((g) => g.id)
       setSelectedGpus(allGpuIds)
       form.setFieldValue('gpuIds', allGpuIds)
@@ -131,7 +131,7 @@ const ReservationForm: React.FC = () => {
     }
   }
 
-  // 提交表单
+  // Submit form
   const handleSubmit = async (values: any) => {
     setSubmitting(true)
     setConflicts([])
@@ -147,24 +147,24 @@ const ReservationForm: React.FC = () => {
       }
 
       await createReservation(data)
-      message.success('预约创建成功')
+      message.success('Reservation created successfully')
       navigate('/reservations/mine')
     } catch (error: any) {
       if (error.response?.data?.conflicts) {
         setConflicts(error.response.data.conflicts)
       }
-      message.error(error.response?.data?.message || '创建预约失败')
+      message.error(error.response?.data?.message || 'Failed to create reservation')
     } finally {
       setSubmitting(false)
     }
   }
 
-  // 取消
+  // Cancel
   const handleCancel = () => {
     navigate(-1)
   }
 
-  // 渲染 GPU 选择器
+  // Render GPU selector
   const renderGpuSelector = () => {
     if (!selectedServer) return null
 
@@ -172,7 +172,7 @@ const ReservationForm: React.FC = () => {
     const isWholeServer = mode === 'whole-server'
 
     return (
-      <Form.Item label="选择 GPU">
+      <Form.Item label="Select GPU">
         <div className="gpu-grid">
           {selectedServer.gpus.map((gpu) => {
             const isSelected = selectedGpus.includes(gpu.id)
@@ -196,13 +196,13 @@ const ReservationForm: React.FC = () => {
           })}
         </div>
         <Text type="secondary">
-          已选择 {selectedGpus.length} 个 GPU
+          {selectedGpus.length} GPU(s) selected
         </Text>
       </Form.Item>
     )
   }
 
-  // 渲染服务器选择卡片
+  // Render server selection cards
   const renderServerCards = () => {
     return (
       <div className="server-cards">
@@ -229,7 +229,7 @@ const ReservationForm: React.FC = () => {
               </div>
               <div className="server-availability">
                 <Tag color={server.availableGpuCount > 0 ? 'success' : 'error'}>
-                  可用: {server.availableGpuCount} GPU
+                  Available: {server.availableGpuCount} GPU
                 </Tag>
               </div>
             </Card>
@@ -250,16 +250,16 @@ const ReservationForm: React.FC = () => {
   return (
     <div className="reservation-form-page">
       <Card>
-        <Title level={4}>新建预约</Title>
-
-        {/* 配额提示 */}
+<Title level={4}>New Reservation</Title>
+ 
+        {/* Quota Info */}
         {userQuota && (
           <Alert
             type={remainingQuota > 20 ? 'info' : remainingQuota > 0 ? 'warning' : 'error'}
             message={
               <span>
-                <WarningOutlined /> 您本周已使用 {userQuota.usedHoursThisWeek} 小时，
-                剩余配额 {remainingQuota} 小时
+                <WarningOutlined /> Used {userQuota.usedHoursThisWeek} hours this week,
+                remaining quota: {remainingQuota} hours
               </span>
             }
             showIcon
@@ -267,11 +267,11 @@ const ReservationForm: React.FC = () => {
           />
         )}
 
-        {/* 冲突提示 */}
+        {/* Conflict Warning */}
         {conflicts.length > 0 && (
           <Alert
             type="error"
-            message="检测到时间冲突"
+            message="Time conflict detected"
             description={
               <ul style={{ margin: 0, paddingLeft: 20 }}>
                 {conflicts.map((c, i) => (
@@ -301,47 +301,47 @@ const ReservationForm: React.FC = () => {
             }
           }}
         >
-          {/* 申请模式 */}
+          {/* Application Mode */}
           <Form.Item
             name="mode"
-            label="申请模式"
-            rules={[{ required: true, message: '请选择申请模式' }]}
+            label="Application Mode"
+            rules={[{ required: true, message: 'Please select application mode' }]}
           >
             <Radio.Group buttonStyle="solid">
-              <Radio.Button value="single-gpu">单 GPU</Radio.Button>
-              <Radio.Button value="multi-gpu">多 GPU</Radio.Button>
-              <Radio.Button value="whole-server">整服务器</Radio.Button>
+              <Radio.Button value="single-gpu">Single GPU</Radio.Button>
+              <Radio.Button value="multi-gpu">Multi GPU</Radio.Button>
+              <Radio.Button value="whole-server">Whole Server</Radio.Button>
             </Radio.Group>
           </Form.Item>
 
-          {/* 选择服务器 */}
+          {/* Select Server */}
           <Form.Item
             name="serverId"
-            label="选择服务器"
-            rules={[{ required: true, message: '请选择服务器' }]}
+            label="Select Server"
+            rules={[{ required: true, message: 'Please select a server' }]}
           >
             {renderServerCards()}
           </Form.Item>
 
-          {/* 选择 GPU */}
+          {/* Select GPU */}
           {selectedServer && (
             <Form.Item
               name="gpuIds"
               rules={[
-                { required: true, message: '请选择至少一个 GPU' },
+                { required: true, message: 'Please select at least one GPU' },
               ]}
             >
               {renderGpuSelector()}
             </Form.Item>
           )}
 
-          {/* 时间设置 */}
+          {/* Time Settings */}
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item
                 name="startTime"
-                label="开始时间"
-                rules={[{ required: true, message: '请选择开始时间' }]}
+                label="Start Time"
+                rules={[{ required: true, message: 'Please select start time' }]}
               >
                 <DatePicker
                   showTime
@@ -354,9 +354,9 @@ const ReservationForm: React.FC = () => {
             <Col xs={24} sm={12}>
               <Form.Item
                 name="endTime"
-                label="结束时间"
+                label="End Time"
                 rules={[
-                  { required: true, message: '请选择结束时间' },
+                  { required: true, message: 'Please select end time' },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
                       if (!value || !getFieldValue('startTime')) {
@@ -365,7 +365,7 @@ const ReservationForm: React.FC = () => {
                       if (dayjs(value).isAfter(dayjs(getFieldValue('startTime')))) {
                         return Promise.resolve()
                       }
-                      return Promise.reject(new Error('结束时间必须晚于开始时间'))
+                      return Promise.reject(new Error('End time must be after start time'))
                     },
                   }),
                 ]}
@@ -380,48 +380,48 @@ const ReservationForm: React.FC = () => {
             </Col>
           </Row>
 
-          {/* 预计时长 */}
+          {/* Estimated Duration */}
           {duration > 0 && (
             <Form.Item>
               <Text>
-                <ClockCircleOutlined /> 预计时长: {duration} 小时
+                <ClockCircleOutlined /> Estimated duration: {duration} hours
               </Text>
               {userQuota && duration > remainingQuota && (
                 <Text type="danger" style={{ marginLeft: 16 }}>
-                  超出剩余配额!
+                  Exceeds remaining quota!
                 </Text>
               )}
             </Form.Item>
           )}
 
-          {/* 备注说明 */}
+          {/* Purpose */}
           <Form.Item
             name="purpose"
-            label={<><FileTextOutlined /> 用途说明</>}
+            label={<><FileTextOutlined /> Purpose</>}
             rules={[
-              { required: true, message: '请输入预约用途' },
-              { min: 10, message: '用途说明至少 10 个字符' },
+              { required: true, message: 'Please enter reservation purpose' },
+              { min: 10, message: 'Purpose must be at least 10 characters' },
             ]}
           >
             <Input.TextArea
               rows={4}
-              placeholder="请详细描述预约用途，便于审批和资源调度..."
+              placeholder="Please describe the purpose of this reservation in detail for approval and resource scheduling..."
               maxLength={500}
               showCount
             />
           </Form.Item>
 
-          {/* 操作按钮 */}
+          {/* Actions */}
           <Form.Item>
             <Space>
-              <Button onClick={handleCancel}>取消</Button>
+              <Button onClick={handleCancel}>Cancel</Button>
               <Button
                 type="primary"
                 htmlType="submit"
                 loading={submitting}
                 disabled={!!userQuota && duration > remainingQuota}
               >
-                提交预约
+                Submit Reservation
               </Button>
             </Space>
           </Form.Item>
@@ -444,10 +444,10 @@ function getStatusColor(status: string): string {
 
 function getStatusText(status: string): string {
   const texts: Record<string, string> = {
-    available: '可用',
-    occupied: '占用',
-    reserved: '已预约',
-    maintenance: '维护中',
+    available: 'Available',
+    occupied: 'Occupied',
+    reserved: 'Reserved',
+    maintenance: 'Maintenance',
   }
   return texts[status] || status
 }

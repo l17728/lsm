@@ -22,7 +22,7 @@ vi.mock('../../services/websocket', () => ({
 
 // Mock ExportButton to simplify rendering
 vi.mock('../../components/ExportButton', () => ({
-  ExportButton: () => <button>导出</button>,
+  ExportButton: () => <button>Export</button>,
 }))
 
 import { gpuApi } from '../../services/api'
@@ -66,13 +66,13 @@ describe('GPUs', () => {
     })
   })
 
-  describe('渲染测试', () => {
-    it('应该不崩溃地渲染 GPU 页面', async () => {
+  describe('Rendering Tests', () => {
+    it('should render GPU page without crashing', async () => {
       const { container } = render(<GPUs />)
       expect(container).toBeTruthy()
     })
 
-    it('挂载时应该加载统计数据和分配列表', async () => {
+    it('should load stats and allocation list on mount', async () => {
       render(<GPUs />)
 
       await waitFor(() => {
@@ -81,7 +81,7 @@ describe('GPUs', () => {
       })
     })
 
-    it('应该显示 GPU 型号信息', async () => {
+    it('should display GPU model information', async () => {
       render(<GPUs />)
 
       await waitFor(() => {
@@ -89,7 +89,7 @@ describe('GPUs', () => {
       })
     })
 
-    it('应该显示所有分配记录', async () => {
+    it('should display all allocation records', async () => {
       render(<GPUs />)
 
       await waitFor(() => {
@@ -99,8 +99,8 @@ describe('GPUs', () => {
     })
   })
 
-  describe('交互测试', () => {
-    it('应该渲染申请 GPU 按钮', async () => {
+  describe('Interaction Tests', () => {
+    it('should render apply GPU button', async () => {
       render(<GPUs />)
 
       // Look for a button with allocation-related text
@@ -110,7 +110,7 @@ describe('GPUs', () => {
       })
     })
 
-    it('释放按钮点击时应该调用 release API', async () => {
+    it('Release button click should call release API', async () => {
       ;(gpuApi.release as ReturnType<typeof vi.fn>).mockResolvedValue({
         data: { success: true },
       })
@@ -135,8 +135,8 @@ describe('GPUs', () => {
     })
   })
 
-  describe('错误状态', () => {
-    it('API 失败时应该不崩溃', async () => {
+  describe('Error States', () => {
+    it('should not crash when API fails', async () => {
       ;(gpuApi.getStats as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Network error')
       )

@@ -47,7 +47,7 @@ const Reservations: React.FC = () => {
   }
 
   const handleSlotClick = (slot: TimeSlot) => {
-    // 跳转到新建预约页面，带上预填时间
+    // Redirect to new reservation page with pre-filled time
     navigate('/reservations/new', {
       state: {
         serverId: slot.serverId,
@@ -58,58 +58,58 @@ const Reservations: React.FC = () => {
   }
 
   const handleReservationClick = (reservation: Reservation) => {
-    // 可以打开详情抽屉或跳转到详情页
-    message.info(`查看预约详情: ${reservation.purpose}`)
+    // Can open details drawer or navigate to details page
+      message.info(`View reservation details: ${reservation.purpose}`)
   }
 
   const handleCancel = async (id: string) => {
     try {
       await cancelReservation(id)
-      message.success('预约已取消')
+      message.success('Reservation cancelled')
       loadData()
     } catch (error) {
-      message.error('取消预约失败')
+      message.error('Failed to cancel reservation')
     }
   }
 
   const handleRelease = async (id: string) => {
     try {
       await releaseReservation(id)
-      message.success('预约已释放')
+      message.success('Reservation released')
       loadData()
     } catch (error) {
-      message.error('释放预约失败')
+      message.error('Failed to release reservation')
     }
   }
 
   return (
     <div className="reservations-page">
       <div className="page-header">
-        <Title level={4}>服务器预约日历</Title>
+        <h1>Server Reservation Calendar</h1>
         <Space>
           <Button
             type={viewType === 'calendar' ? 'primary' : 'default'}
             icon={<CalendarOutlined />}
             onClick={() => setViewType('calendar')}
           >
-            日历视图
+            Calendar View
           </Button>
           <Button
             type={viewType === 'list' ? 'primary' : 'default'}
             icon={<UnorderedListOutlined />}
             onClick={() => setViewType('list')}
           >
-            列表视图
+            List View
           </Button>
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/reservations/new')}
           >
-            新建预约
+            Create Reservation
           </Button>
           <Button onClick={() => navigate('/reservations/mine')}>
-            我的预约
+            My Reservations
           </Button>
         </Space>
       </div>
@@ -132,8 +132,8 @@ const Reservations: React.FC = () => {
         <Card className="reservations-list">
           <div className="list-header">
             <Space>
-              <span>状态筛选:</span>
-              {/* 可以添加筛选器 */}
+              <span>              Status Filter:</span>
+                // Can add filters here
             </Space>
           </div>
           <div className="list-content">
@@ -149,8 +149,8 @@ const Reservations: React.FC = () => {
                 />
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                暂无预约数据
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                    No reservation data available
               </div>
             )}
           </div>

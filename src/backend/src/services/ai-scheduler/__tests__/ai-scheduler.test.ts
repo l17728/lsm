@@ -6,39 +6,47 @@
 import { AISchedulerService } from '../ai-scheduler.service';
 import { GpuPredictorService } from '../gpu-predictor.service';
 import { LoadBalancerService } from '../load-balancer.service';
+import { task_priority as TaskPriority } from '@prisma/client';
 
 // Mock Prisma
-jest.mock('../../../utils/prisma', () => ({
-  task: {
-    findUnique: jest.fn(),
-    findMany: jest.fn(),
-    count: jest.fn(),
-    update: jest.fn(),
-  },
-  server: {
-    findUnique: jest.fn(),
-    findMany: jest.fn(),
-  },
-  gpu: {
-    findMany: jest.fn(),
-    findUnique: jest.fn(),
-    update: jest.fn(),
-  },
-  gpuAllocation: {
-    create: jest.fn(),
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-    update: jest.fn(),
-  },
-  serverMetric: {
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-  },
-  user: {
-    findUnique: jest.fn(),
-  },
-  $disconnect: jest.fn(),
-}));
+jest.mock('../../../utils/prisma', () => {
+  const mockPrisma = {
+    task: {
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      update: jest.fn(),
+      create: jest.fn(),
+    },
+    server: {
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    gpu: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    gpuAllocation: {
+      create: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    serverMetric: {
+      findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    user: {
+      findUnique: jest.fn(),
+    },
+    $disconnect: jest.fn(),
+  };
+  return {
+    __esModule: true,
+    default: mockPrisma,
+  };
+});
 
 describe('AISchedulerService', () => {
   let service: AISchedulerService;
@@ -50,9 +58,7 @@ describe('AISchedulerService', () => {
 
   describe('initialize', () => {
     it('should initialize successfully', async () => {
-      const prisma = require('../../../utils/prisma');
-      prisma.task.findMany.mockResolvedValue([]);
-
+      // Mock is already set up at module level with mockResolvedValue([])
       await service.initialize();
 
       expect(service.getModelStatus().initialized).toBe(true);
@@ -61,7 +67,12 @@ describe('AISchedulerService', () => {
 
   describe('priorityToNumber', () => {
     it('should convert LOW priority to 0', () => {
-      const result = (service as any).priorityToNumber('LOW');
+      // Test with string directly first
+      const resultStr = (service as any).priorityToNumber('LOW');
+      expect(resultStr).toBe(0);
+      
+      // Then test with enum
+      const result = (service as any).priorityToNumber(TaskPriority.LOW);
       expect(result).toBe(0);
     });
 
@@ -163,9 +174,7 @@ describe('GpuPredictorService', () => {
 
   describe('initialize', () => {
     it('should initialize successfully', async () => {
-      const prisma = require('../../../utils/prisma');
-      prisma.gpu.findMany.mockResolvedValue([]);
-
+      // Mock is already set up at module level with mockResolvedValue([])
       await service.initialize();
 
       expect((service as any).initialized).toBe(true);

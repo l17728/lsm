@@ -69,28 +69,28 @@ const Dashboard: React.FC = () => {
         setServerStats(serverRes.value.data.data)
       } else {
         console.error('[Dashboard] Failed to load server stats:', serverRes.reason)
-        message.error('服务器统计数据加载失败，请刷新重试')
+        message.error('Server statistics failed to load, please refresh and try again')
       }
 
       if (gpuRes.status === 'fulfilled') {
         setGpuStats(gpuRes.value.data.data)
       } else {
         console.error('[Dashboard] Failed to load GPU stats:', gpuRes.reason)
-        message.error('GPU 统计数据加载失败，请刷新重试')
+        message.error('GPU statistics failed to load, please refresh and try again')
       }
 
       if (taskRes.status === 'fulfilled') {
         setTaskStats(taskRes.value.data.data)
       } else {
         console.error('[Dashboard] Failed to load task stats:', taskRes.reason)
-        message.error('任务统计数据加载失败，请刷新重试')
+        message.error('Task statistics failed to load, please refresh and try again')
       }
 
       if (clusterRes.status === 'fulfilled') {
         setClusterStats(clusterRes.value.data.data)
       } else {
         console.error('[Dashboard] Failed to load cluster stats:', clusterRes.reason)
-        message.error('集群统计数据加载失败，请刷新重试')
+        message.error('Cluster statistics failed to load, please refresh and try again')
       }
 
       if (clusterSummaryRes.status === 'fulfilled') {
@@ -221,8 +221,8 @@ const Dashboard: React.FC = () => {
               valueStyle={{ color: '#13c2c2' }}
             />
             <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-              <Tag color="green">空闲: {clusterSummary?.byStatus?.available || 0}</Tag>
-              <Tag color="blue">使用中: {clusterSummary?.byStatus?.allocated || 0}</Tag>
+              <Tag color="green">Idle: {clusterSummary?.byStatus?.available || 0}</Tag>
+              <Tag color="blue">In Use: {clusterSummary?.byStatus?.allocated || 0}</Tag>
             </div>
           </Card>
         </Col>

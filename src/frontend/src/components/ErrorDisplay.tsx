@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, message, notification } from 'antd';
-import { ApiError, ApiErrorType } from '../services/apiClient';
+import { ApiError, ApiErrorType } from '../services/api';
 
 /**
  * Error Display Component Props

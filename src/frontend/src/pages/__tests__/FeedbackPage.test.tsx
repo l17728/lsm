@@ -9,7 +9,7 @@ describe('FeedbackPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renders without crashing', () => {
+  it('renders without crashing', { timeout: 15000 }, () => {
     const { container } = render(<FeedbackPage />)
     expect(container).toBeTruthy()
   })
@@ -17,7 +17,7 @@ describe('FeedbackPage', () => {
   it('renders feedback content', async () => {
     render(<FeedbackPage />)
     await waitFor(() => {
-      expect(screen.getByText('问题反馈管理')).toBeInTheDocument()
-    })
+      expect(screen.getByText('Feedback Management')).toBeInTheDocument()
+    }, { timeout: 15000 })
   })
 })

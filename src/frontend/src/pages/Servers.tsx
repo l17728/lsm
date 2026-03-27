@@ -94,7 +94,7 @@ const Servers: React.FC = () => {
       const response = await clusterApi.getById(clusterId)
       setSelectedCluster(response.data.data)
     } catch (error: any) {
-      message.error('加载集群详情失败')
+      message.error('Failed to load cluster details')
     } finally {
       setClusterLoading(false)
     }
@@ -221,14 +221,14 @@ const Servers: React.FC = () => {
             failureCount++;
             if (itemIndex >= 0) {
               updatedItems[itemIndex].status = 'error';
-              updatedItems[itemIndex].error = '删除失败';
+              updatedItems[itemIndex].error = 'Delete failed';
             }
             const server = servers.find(s => s.id === id);
             errors.push({
               id,
               name: server?.name || id,
               type: 'DELETE',
-              error: result.reason?.message || '未知错误',
+              error: result.reason?.message || 'Unknown error',
               timestamp: new Date().toISOString(),
               canRetry: true,
             });
@@ -251,7 +251,7 @@ const Servers: React.FC = () => {
         setSelectedRowKeys([]);
         loadServers();
       } else {
-        message.warning(`删除完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        message.warning(`Delete completed: ${successCount} success, ${failureCount} failed`);
         setErrorDetailsVisible(true);
         loadServers();
       }
@@ -309,14 +309,14 @@ const Servers: React.FC = () => {
             failureCount++;
             if (itemIndex >= 0) {
               updatedItems[itemIndex].status = 'error';
-              updatedItems[itemIndex].error = '状态更新失败';
+              updatedItems[itemIndex].error = 'Status update failed';
             }
             const server = servers.find(s => s.id === id);
             errors.push({
               id,
               name: server?.name || id,
               type: 'STATUS_CHANGE',
-              error: result.reason?.message || '未知错误',
+              error: result.reason?.message || 'Unknown error',
               timestamp: new Date().toISOString(),
               canRetry: true,
             });
@@ -339,7 +339,7 @@ const Servers: React.FC = () => {
         setSelectedRowKeys([]);
         loadServers();
       } else {
-        message.warning(`状态更新完成：成功 ${successCount} 项，失败 ${failureCount} 项`);
+        message.warning(`Status update completed: ${successCount} success, ${failureCount} failed`);
         setErrorDetailsVisible(true);
         loadServers();
       }
@@ -371,7 +371,7 @@ const Servers: React.FC = () => {
             return { 
               ...item, 
               status: 'error' as const,
-              error: '重试失败',
+              error: 'Retry failed',
               retryCount: (item.retryCount || 0) + 1,
             };
           }
@@ -387,7 +387,7 @@ const Servers: React.FC = () => {
       });
 
       if (updatedErrors.length === 0) {
-        message.success('所有失败项已重试成功');
+        message.success('All failed items have been retried successfully');
         setErrorDetailsVisible(false);
         loadServers();
       }
@@ -410,7 +410,7 @@ const Servers: React.FC = () => {
             return { 
               ...item, 
               status: 'error' as const,
-              error: '重试失败',
+              error: 'Retry failed',
               retryCount: (item.retryCount || 0) + 1,
             };
           }
@@ -426,7 +426,7 @@ const Servers: React.FC = () => {
       });
 
       if (updatedErrors.length === 0) {
-        message.success('所有失败项已重试成功');
+        message.success('All failed items have been retried successfully');
         setErrorDetailsVisible(false);
         loadServers();
       }
@@ -443,9 +443,9 @@ const Servers: React.FC = () => {
   const handleExportErrors = () => {
     const content = batchState.errors.map((error, index) => 
       `[${index + 1}] ${error.name}\n` +
-      `    类型：${error.type || '未知'}\n` +
-      `    错误：${error.error}\n` +
-      `    时间：${error.timestamp || 'N/A'}\n`
+      `    Type: ${error.type || 'Unknown'}\n` +
+      `    Error: ${error.error}\n` +
+      `    Time: ${error.timestamp || 'N/A'}\n`
     ).join('\n');
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -456,7 +456,7 @@ const Servers: React.FC = () => {
     link.click();
     URL.revokeObjectURL(url);
     
-    message.success('错误日志已导出');
+    message.success('Error log exported');
   };
 
   // Start batch delete with confirmation
@@ -629,7 +629,7 @@ const Servers: React.FC = () => {
           title={
             <Space>
               <DesktopOutlined />
-              <span>服务器管理</span>
+              <span>Server Management</span>
             </Space>
           }
           style={{ height: '100%', overflow: 'auto' }}
@@ -778,7 +778,7 @@ const Servers: React.FC = () => {
       {/* Batch Progress Bar */}
       <BatchProgressBar
         visible={batchState.isProcessing || (batchState.processed > 0 && batchState.processed === batchState.total)}
-        title="批量操作进度"
+          title="Batch Operation Progress"
         total={batchState.total}
         processed={batchState.processed}
         successCount={batchState.successCount}
@@ -789,7 +789,7 @@ const Servers: React.FC = () => {
         onCancel={() => {
           // Cancel logic - for now just set processing to false
           updateBatchProgress({ isProcessing: false });
-          message.warning('操作已取消');
+            message.warning('Operation cancelled');
         }}
         onClose={() => {
           if (!batchState.isProcessing) {
@@ -809,13 +809,13 @@ const Servers: React.FC = () => {
         visible={confirmVisible}
         type={pendingAction?.type === 'delete' ? 'delete' : 'status_change'}
         message={
-          pendingAction?.type === 'delete'
-            ? `确定要删除选中的 ${selectedRowKeys.length} 台服务器吗？`
-            : `确定要更新选中的 ${selectedRowKeys.length} 台服务器的状态为 ${pendingAction?.status} 吗？`
+            pendingAction?.type === 'delete'
+              ? `Are you sure you want to delete the selected ${selectedRowKeys.length} servers?`
+              : `Are you sure you want to update the status of selected ${selectedRowKeys.length} servers to ${pendingAction?.status}?`
         }
         itemCount={selectedRowKeys.length}
-        itemLabel="台服务器"
-        actionLabel={pendingAction?.type === 'delete' ? '删除' : '确认'}
+        itemLabel="servers"
+        actionLabel={pendingAction?.type === 'delete' ? 'Delete' : 'Confirm'}
         loading={batchState.isProcessing}
         onConfirm={() => {
           if (pendingAction?.type === 'delete') {
@@ -833,7 +833,7 @@ const Servers: React.FC = () => {
       {/* Error Details Modal */}
       <ErrorDetails
         visible={errorDetailsVisible}
-        title="批量操作失败详情"
+          title="Batch Operation Failure Details"
         errors={batchState.errors}
         loading={batchState.isProcessing}
         onRetry={handleRetryErrors}
@@ -848,12 +848,12 @@ const Servers: React.FC = () => {
       {drillDownVisible && (
         <div style={{ flex: '0 0 38%', minWidth: 0 }}>
           <Card
-            title={
-              <Space>
-                <ClusterOutlined />
-                <span>集群详情</span>
-              </Space>
-            }
+              title={
+                <Space>
+                  <ClusterOutlined />
+                  <span>Cluster Details</span>
+                </Space>
+              }
             extra={
               <Space>
                 <Button 
@@ -861,7 +861,7 @@ const Servers: React.FC = () => {
                   onClick={handleBackToCluster}
                   icon={<ClusterOutlined />}
                 >
-                  返回集群
+                  Back to Cluster
                 </Button>
                 <Button 
                   size="small" 
@@ -889,14 +889,14 @@ const Servers: React.FC = () => {
                 {/* Assignee Info */}
                 {selectedCluster.assignee && (
                   <div>
-                    <Text type="secondary">使用者: </Text>
+                    <Text type="secondary">User: </Text>
                     <UserOutlined style={{ marginRight: 4 }} />
                     <Text>{selectedCluster.assignee.username}</Text>
                     {selectedCluster.assignmentEnd && (
                       <div>
                         <ClockCircleOutlined style={{ marginRight: 4 }} />
                         <Text type="secondary">
-                          至 {new Date(selectedCluster.assignmentEnd).toLocaleString()}
+                          Until {new Date(selectedCluster.assignmentEnd).toLocaleString()}
                         </Text>
                       </div>
                     )}
@@ -906,19 +906,19 @@ const Servers: React.FC = () => {
                 {/* Resources */}
                 <Row gutter={8}>
                   <Col span={12}>
-                    <Card size="small">
-                      <Statistic title="服务器" value={selectedCluster.totalServers} suffix="台" />
-                    </Card>
+                <Card size="small">
+                  <Statistic title="Servers" value={selectedCluster.totalServers} suffix="count" />
+                </Card>
                   </Col>
                   <Col span={12}>
-                    <Card size="small">
-                      <Statistic title="GPU" value={selectedCluster.totalGpus} suffix="块" />
-                    </Card>
+                <Card size="small">
+                  <Statistic title="GPUs" value={selectedCluster.totalGpus} suffix="count" />
+                </Card>
                   </Col>
                 </Row>
 
                 {/* Server Cards */}
-                <Title level={5}>服务器列表</Title>
+                  <Title level={5}>Server List</Title>
                 {selectedCluster.servers && selectedCluster.servers.length > 0 ? (
                   <Row gutter={[8, 8]}>
                     {selectedCluster.servers.map((s) => (
@@ -953,11 +953,11 @@ const Servers: React.FC = () => {
                     ))}
                   </Row>
                 ) : (
-                  <Empty description="暂无服务器" />
+                  <Empty description="No servers available" />
                 )}
               </Space>
             ) : (
-              <Empty description="选择一个集群查看详情" />
+                  <Empty description="Select a cluster to view details" />
             )}
           </Card>
         </div>

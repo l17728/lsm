@@ -34,13 +34,13 @@ const FeedbackPage: React.FC = () => {
     try {
       // Mock data - replace with actual API call
       const mockData: Feedback[] = [
-        { id: '1', title: '服务器连接超时', description: '在高峰期连接服务器经常超时', type: 'bug', status: 'open', priority: 'high', reporter: 'user1', createdAt: '2024-01-15T10:00:00Z', updatedAt: '2024-01-15T10:00:00Z' },
-        { id: '2', title: '新增GPU监控面板', description: '希望增加GPU使用率的实时监控', type: 'feature', status: 'in_progress', priority: 'medium', reporter: 'user2', assignee: 'dev1', createdAt: '2024-01-14T09:00:00Z', updatedAt: '2024-01-15T11:00:00Z' },
-        { id: '3', title: '优化任务调度算法', description: '任务调度效率可以进一步提升', type: 'improvement', status: 'resolved', priority: 'low', reporter: 'user3', createdAt: '2024-01-13T08:00:00Z', updatedAt: '2024-01-14T16:00:00Z' },
+        { id: '1', title: 'Server Connection Timeout', description: 'Server connection often times out during peak hours', type: 'bug', status: 'open', priority: 'high', reporter: 'user1', createdAt: '2024-01-15T10:00:00Z', updatedAt: '2024-01-15T10:00:00Z' },
+        { id: '2', title: 'Add GPU Monitoring Dashboard', description: 'Hope to add real-time GPU usage monitoring', type: 'feature', status: 'in_progress', priority: 'medium', reporter: 'user2', assignee: 'dev1', createdAt: '2024-01-14T09:00:00Z', updatedAt: '2024-01-15T11:00:00Z' },
+        { id: '3', title: 'Optimize Task Scheduling Algorithm', description: 'Task scheduling efficiency can be further improved', type: 'improvement', status: 'resolved', priority: 'low', reporter: 'user3', createdAt: '2024-01-13T08:00:00Z', updatedAt: '2024-01-14T16:00:00Z' },
       ]
       setFeedbacks(mockData)
     } catch (error) {
-      message.error('加载问题列表失败')
+      message.error('Failed to load feedback list')
     } finally {
       setLoading(false)
     }
@@ -55,21 +55,21 @@ const FeedbackPage: React.FC = () => {
     try {
       const values = await form.validateFields()
       // API call would go here
-      message.success('问题已创建')
+      message.success('Feedback created successfully')
       setModalVisible(false)
       loadFeedbacks()
     } catch (error) {
-      message.error('创建失败')
+      message.error('Creation failed')
     }
   }
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
       // API call would go here
-      message.success('状态已更新')
+      message.success('Status updated successfully')
       loadFeedbacks()
     } catch (error) {
-      message.error('更新失败')
+      message.error('Update failed')
     }
   }
 
@@ -104,10 +104,10 @@ const FeedbackPage: React.FC = () => {
 
   const getStatusText = (status: string) => {
     const textMap: Record<string, string> = {
-      open: '待处理',
-      in_progress: '处理中',
-      resolved: '已解决',
-      closed: '已关闭',
+      open: 'Pending',
+      in_progress: 'In Progress',
+      resolved: 'Resolved',
+      closed: 'Closed',
     }
     return textMap[status] || status
   }
@@ -123,47 +123,47 @@ const FeedbackPage: React.FC = () => {
 
   const columns: ColumnsType<Feedback> = [
     {
-      title: '标题',
+      title: 'Title',
       dataIndex: 'title',
       key: 'title',
       width: 200,
     },
     {
-      title: '类型',
+      title: 'Type',
       dataIndex: 'type',
       key: 'type',
       width: 100,
       render: (type: string) => <Tag color={getTypeColor(type)}>{type.toUpperCase()}</Tag>,
     },
     {
-      title: '状态',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status: string) => <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>,
     },
     {
-      title: '优先级',
+      title: 'Priority',
       dataIndex: 'priority',
       key: 'priority',
       width: 80,
       render: (priority: string) => <Tag color={getPriorityColor(priority)}>{priority.toUpperCase()}</Tag>,
     },
     {
-      title: '报告人',
+      title: 'Reporter',
       dataIndex: 'reporter',
       key: 'reporter',
       width: 100,
     },
     {
-      title: '创建时间',
+      title: 'Created Time',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 150,
       render: (time: string) => new Date(time).toLocaleString(),
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'actions',
       width: 150,
       render: (_, record) => (
@@ -174,10 +174,10 @@ const FeedbackPage: React.FC = () => {
             style={{ width: 100 }}
             onChange={(value) => handleStatusChange(record.id, value)}
           >
-            <Select.Option value="open">待处理</Select.Option>
-            <Select.Option value="in_progress">处理中</Select.Option>
-            <Select.Option value="resolved">已解决</Select.Option>
-            <Select.Option value="closed">已关闭</Select.Option>
+            <Select.Option value="open">Pending</Select.Option>
+            <Select.Option value="in_progress">In Progress</Select.Option>
+            <Select.Option value="resolved">Resolved</Select.Option>
+            <Select.Option value="closed">Closed</Select.Option>
           </Select>
         </Space>
       ),
@@ -186,27 +186,27 @@ const FeedbackPage: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 16 }}>问题反馈管理</h1>
+      <h1 style={{ marginBottom: 16 }}>Feedback Management</h1>
 
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card>
-            <Statistic title="待处理" value={feedbacks.filter(f => f.status === 'open').length} prefix={<ClockCircleOutlined />} />
+            <Statistic title="Pending" value={feedbacks.filter(f => f.status === 'open').length} prefix={<ClockCircleOutlined />} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="处理中" value={feedbacks.filter(f => f.status === 'in_progress').length} prefix={<WarningOutlined />} valueStyle={{ color: '#1890ff' }} />
+            <Statistic title="In Progress" value={feedbacks.filter(f => f.status === 'in_progress').length} prefix={<WarningOutlined />} valueStyle={{ color: '#1890ff' }} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="已解决" value={feedbacks.filter(f => f.status === 'resolved').length} prefix={<CheckCircleOutlined />} valueStyle={{ color: '#52c41a' }} />
+            <Statistic title="Resolved" value={feedbacks.filter(f => f.status === 'resolved').length} prefix={<CheckCircleOutlined />} valueStyle={{ color: '#52c41a' }} />
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <Statistic title="总计" value={feedbacks.length} prefix={<BugOutlined />} />
+            <Statistic title="Total" value={feedbacks.length} prefix={<BugOutlined />} />
           </Card>
         </Col>
       </Row>
@@ -215,7 +215,7 @@ const FeedbackPage: React.FC = () => {
         <Row gutter={16}>
           <Col span={6}>
             <Input.Search
-              placeholder="搜索问题"
+              placeholder="Search feedback"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
@@ -223,25 +223,25 @@ const FeedbackPage: React.FC = () => {
           </Col>
           <Col span={4}>
             <Select style={{ width: '100%' }} value={filterStatus} onChange={setFilterStatus}>
-              <Select.Option value="all">全部状态</Select.Option>
-              <Select.Option value="open">待处理</Select.Option>
-              <Select.Option value="in_progress">处理中</Select.Option>
-              <Select.Option value="resolved">已解决</Select.Option>
-              <Select.Option value="closed">已关闭</Select.Option>
+              <Select.Option value="all">All Status</Select.Option>
+              <Select.Option value="open">Pending</Select.Option>
+              <Select.Option value="in_progress">In Progress</Select.Option>
+              <Select.Option value="resolved">Resolved</Select.Option>
+              <Select.Option value="closed">Closed</Select.Option>
             </Select>
           </Col>
           <Col span={4}>
             <Select style={{ width: '100%' }} value={filterPriority} onChange={setFilterPriority}>
-              <Select.Option value="all">全部优先级</Select.Option>
-              <Select.Option value="low">低</Select.Option>
-              <Select.Option value="medium">中</Select.Option>
-              <Select.Option value="high">高</Select.Option>
-              <Select.Option value="critical">紧急</Select.Option>
+              <Select.Option value="all">All Priority</Select.Option>
+              <Select.Option value="low">Low</Select.Option>
+              <Select.Option value="medium">Medium</Select.Option>
+              <Select.Option value="high">High</Select.Option>
+              <Select.Option value="critical">Critical</Select.Option>
             </Select>
           </Col>
           <Col span={10} style={{ textAlign: 'right' }}>
             <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-              提交问题
+              Submit Feedback
             </Button>
           </Col>
         </Row>
@@ -256,32 +256,32 @@ const FeedbackPage: React.FC = () => {
       />
 
       <Modal
-        title="提交问题"
+        title="Submit Feedback"
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
         destroyOnClose
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+          <Form.Item name="title" label="Title" rules={[{ required: true, message: 'Please enter title' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="描述" rules={[{ required: true, message: '请输入描述' }]}>
+          <Form.Item name="description" label="Description" rules={[{ required: true, message: 'Please enter description' }]}>
             <Input.TextArea rows={4} />
           </Form.Item>
-          <Form.Item name="type" label="类型" rules={[{ required: true, message: '请选择类型' }]}>
+          <Form.Item name="type" label="Type" rules={[{ required: true, message: 'Please select type' }]}>
             <Select>
               <Select.Option value="bug">Bug</Select.Option>
-              <Select.Option value="feature">新功能</Select.Option>
-              <Select.Option value="improvement">改进建议</Select.Option>
+              <Select.Option value="feature">New Feature</Select.Option>
+              <Select.Option value="improvement">Improvement Suggestion</Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item name="priority" label="优先级" rules={[{ required: true, message: '请选择优先级' }]}>
+          <Form.Item name="priority" label="Priority" rules={[{ required: true, message: 'Please select priority' }]}>
             <Select>
-              <Select.Option value="low">低</Select.Option>
-              <Select.Option value="medium">中</Select.Option>
-              <Select.Option value="high">高</Select.Option>
-              <Select.Option value="critical">紧急</Select.Option>
+              <Select.Option value="low">Low</Select.Option>
+              <Select.Option value="medium">Medium</Select.Option>
+              <Select.Option value="high">High</Select.Option>
+              <Select.Option value="critical">Critical</Select.Option>
             </Select>
           </Form.Item>
         </Form>

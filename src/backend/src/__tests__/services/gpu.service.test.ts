@@ -1,32 +1,46 @@
 import { GpuService } from '../../services/gpu.service';
-import { PrismaClient } from '@prisma/client';
 
-jest.mock('@prisma/client', () => {
-  return {
-    PrismaClient: jest.fn().mockImplementation(() => ({
-      gpu: {
-        findMany: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
-      },
-      gpuAllocation: {
-        create: jest.fn(),
-        findMany: jest.fn(),
-        update: jest.fn(),
-      },
-      server: {
-        findUnique: jest.fn(),
-      },
-    })),
-  };
-});
+// Mock prisma from utils/prisma
+jest.mock('../../utils/prisma', () => ({
+  __esModule: true,
+  default: {
+    gpu: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    gpuAllocation: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    server: {
+      findUnique: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
+    },
+    task: {
+      findUnique: jest.fn(),
+    },
+  },
+}));
+
+// Mock email-queue.service to prevent actual email operations
+jest.mock('../../services/email-queue.service', () => ({
+  emailQueueService: {
+    enqueue: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+import prisma from '../../utils/prisma';
 
 describe('GpuService', () => {
   let gpuService: GpuService;
-  let mockPrisma: any;
 
   beforeEach(() => {
-    mockPrisma = new PrismaClient();
     gpuService = new GpuService();
   });
 
@@ -44,11 +58,11 @@ describe('GpuService', () => {
         server: { name: 'Test Server' },
       };
 
-      mockPrisma.gpu.findFirst.mockResolvedValue(mockGpu);
-      mockPrisma.gpuAllocation.create.mockResolvedValue({ id: 'alloc-1' });
-      mockPrisma.gpu.update.mockResolvedValue({});
-      mockPrisma.user.findUnique.mockResolvedValue({ email: 'test@example.com', username: 'testuser' });
-      mockPrisma.task.findUnique.mockResolvedValue({ name: 'Test Task' });
+      (prisma.gpu.findFirst as jest.Mock).mockResolvedValue(mockGpu);
+      (prisma.gpuAllocation.create as jest.Mock).mockResolvedValue({ id: 'alloc-1' });
+      (prisma.gpu.update as jest.Mock).mockResolvedValue({});
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ email: 'test@example.com', username: 'testuser' });
+      (prisma.task.findUnique as jest.Mock).mockResolvedValue({ name: 'Test Task' });
 
       const result = await gpuService.allocateGpu({
         userId: 'user-1',
@@ -60,7 +74,7 @@ describe('GpuService', () => {
     });
 
     it('should throw error if no GPU available', async () => {
-      mockPrisma.gpu.findFirst.mockResolvedValue(null);
+      (prisma.gpu.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(
         gpuService.allocateGpu({
@@ -84,10 +98,10 @@ describe('GpuService', () => {
         },
       };
 
-      mockPrisma.gpuAllocation.findUnique.mockResolvedValue(mockAllocation);
-      mockPrisma.gpuAllocation.update.mockResolvedValue({});
-      mockPrisma.gpu.update.mockResolvedValue({});
-      mockPrisma.user.findUnique.mockResolvedValue({ email: 'test@example.com', username: 'testuser' });
+      (prisma.gpuAllocation.findUnique as jest.Mock).mockResolvedValue(mockAllocation);
+      (prisma.gpuAllocation.update as jest.Mock).mockResolvedValue({});
+      (prisma.gpu.update as jest.Mock).mockResolvedValue({});
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ email: 'test@example.com', username: 'testuser' });
 
       const result = await gpuService.releaseGpu('alloc-1', 'user-1');
 

@@ -10,10 +10,10 @@
  */
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const ADMIN_USER = {
   username: process.env.TEST_ADMIN_USERNAME || 'admin',
-  password: process.env.TEST_ADMIN_PASSWORD || 'Admin@123456',
+  password: process.env.TEST_ADMIN_PASSWORD || 'Admin123',
 };
 
 test.describe('Token Refresh Flow', () => {

@@ -32,6 +32,12 @@ Guidance for AI coding agents working in the LSM (Laboratory Server Management S
 - **举一反三**: 搜索发现同样问题存在于 `task.routes.ts`, `gpu.routes.ts`, `monitoring.routes.ts`
 - **结果**: 一次性修复所有受影响的 11 个路由
 
+### 案例：中文文本国际化
+
+- **发现**: `Clusters.tsx` 预约审批显示中文
+- **举一反三**: 搜索发现 7 个页面有中文文本 (ClusterApproval, Settings, Users, Servers, Tasks, Reservations, Dashboard)
+- **结果**: 一次性修复所有 200+ 行中文文本
+
 ---
 
 ## ⚠️ CRITICAL: 完成任何修改后必须验证

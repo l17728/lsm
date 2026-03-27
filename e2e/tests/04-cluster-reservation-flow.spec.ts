@@ -21,7 +21,7 @@ const MANAGER_USER = {
 
 const SUPER_ADMIN_USER = {
   username: process.env.TEST_ADMIN_USERNAME || 'admin',
-  password: process.env.TEST_ADMIN_PASSWORD || 'Admin@123',
+  password: process.env.TEST_ADMIN_PASSWORD || 'Admin123',
 };
 
 // Helper to login
@@ -41,6 +41,9 @@ async function getAuthToken(username: string, password: string): Promise<{ token
     body: JSON.stringify({ username, password }),
   });
   const body = await response.json();
+  if (!body.success || !body.data?.token) {
+    throw new Error(`Login failed for ${username}: ${JSON.stringify(body)}`);
+  }
   return { token: body.data.token, refreshToken: body.data.refreshToken };
 }
 

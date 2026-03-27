@@ -54,14 +54,14 @@ const GPUs: React.FC = () => {
         setStats(statsRes.value.data.data)
       } else {
         console.error('[GPUs] Failed to load GPU stats:', statsRes.reason)
-        message.error('GPU 统计数据加载失败，请刷新重试')
+        message.error('Failed to load GPU statistics, please refresh and try again')
       }
 
       if (allocationsRes.status === 'fulfilled') {
         setAllocations(allocationsRes.value.data.data)
       } else {
         console.error('[GPUs] Failed to load GPU allocations:', allocationsRes.reason)
-        message.error('GPU 分配列表加载失败，请刷新重试')
+        message.error('Failed to load GPU allocations, please refresh and try again')
       }
     } finally {
       setLoading(false)

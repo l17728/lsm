@@ -26,5 +26,7 @@ module.exports = {
   moduleNameMapper: {
     '^../../utils/prisma$': '<rootDir>/src/__mocks__/prisma.ts',
     '^../utils/prisma$': '<rootDir>/src/__mocks__/prisma.ts',
+    '^../../../utils/prisma$': '<rootDir>/src/__mocks__/prisma.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };
