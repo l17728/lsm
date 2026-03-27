@@ -198,8 +198,8 @@ const Clusters: React.FC = () => {
 
   // 只有 SUPER_ADMIN 才有完全的集群管理权限
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  // ADMIN 和 SUPER_ADMIN 可以查看集群列表
-  const canViewClusters = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
+  // MANAGER, ADMIN, SUPER_ADMIN 可以查看集群列表（用于预约）
+  const canViewClusters = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   // 服务器管理 Modal
   const [manageServersVisible, setManageServersVisible] = useState(false)
