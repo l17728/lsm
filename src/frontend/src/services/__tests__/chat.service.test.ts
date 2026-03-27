@@ -102,7 +102,7 @@ describe('Chat Service Session Logic', () => {
 describe('Chat Store State Management', () => {
   it('should track session ID correctly', () => {
     const state = {
-      currentSessionId: null,
+      currentSessionId: null as string | null,
       messages: [],
     };
 

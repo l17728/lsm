@@ -34,6 +34,37 @@ Guidance for AI coding agents working in the LSM (Laboratory Server Management S
 
 ---
 
+## ⚠️ CRITICAL: 完成任何修改后必须验证
+
+> **这是防止"声称完成但实际未完成"错误的强制要求。**
+
+### 验证检查清单
+
+代码修改后**必须**执行：
+
+```
+□ 检查 TypeScript 编译错误 (npm run build 或 tsc --noEmit)
+□ 检查 LSP diagnostics (无红色错误)
+□ 如果修改了前端，验证前端服务已重启/热更新
+□ 如果修改了后端，验证后端服务已重启
+□ 实际测试 UI 交互（或运行 e2e 测试）
+□ 在声称完成前，必须有实际证据
+```
+
+### 证据类型（至少一项）
+
+- ✅ 截图显示 UI 正确显示
+- ✅ 测试通过输出
+- ✅ API 响应 JSON
+- ✅ LSP diagnostics 无错误
+
+**禁止行为:**
+- ❌ 修改代码后立即声称"完成"
+- ❌ 只提交 git commit 就声称完成
+- ❌ 没有实际运行/测试就声称完成
+
+---
+
 ## Project Overview
 
 LSM is a full-stack platform for managing lab server resources, GPU allocation, task scheduling, and real-time monitoring.

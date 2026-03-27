@@ -19,7 +19,7 @@
 import { Router, Response } from 'express';
 import { body, param, query } from 'express-validator';
 import { clusterService } from '../services/cluster.service';
-import { authenticate, requireSuperAdmin, requireSuperAdminOrAdmin, AuthRequest } from '../middleware/auth.middleware';
+import { authenticate, requireSuperAdmin, requireSuperAdminOrAdmin, requireManager, AuthRequest } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -60,9 +60,9 @@ const allocateValidation = [
 /**
  * @route   GET /api/clusters
  * @desc    Get all clusters
- * @access  Private (SuperAdmin or Admin)
+ * @access  Private (MANAGER and above can view)
  */
-router.get('/', authenticate, requireSuperAdminOrAdmin, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireManager, async (req: AuthRequest, res: Response) => {
   try {
     const filters: any = {};
     if (req.query.status) filters.status = req.query.status;
@@ -79,9 +79,9 @@ router.get('/', authenticate, requireSuperAdminOrAdmin, async (req: AuthRequest,
 /**
  * @route   GET /api/clusters/stats
  * @desc    Get cluster statistics
- * @access  Private (SuperAdmin or Admin)
+ * @access  Private (MANAGER and above can view)
  */
-router.get('/stats', authenticate, requireSuperAdminOrAdmin, async (req: AuthRequest, res: Response) => {
+router.get('/stats', authenticate, requireManager, async (req: AuthRequest, res: Response) => {
   try {
     const stats = await clusterService.getClusterStats();
     res.json({ success: true, data: stats });
@@ -109,9 +109,9 @@ router.get('/available-servers', authenticate, requireSuperAdmin, async (req: Au
 /**
  * @route   GET /api/clusters/:id
  * @desc    Get cluster by ID
- * @access  Private (SuperAdmin or Admin)
+ * @access  Private (MANAGER and above can view)
  */
-router.get('/:id', authenticate, requireSuperAdminOrAdmin, async (req: AuthRequest, res: Response) => {
+router.get('/:id', authenticate, requireManager, async (req: AuthRequest, res: Response) => {
   try {
     const cluster = await clusterService.getClusterById(req.params.id);
     if (!cluster) {

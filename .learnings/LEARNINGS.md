@@ -719,3 +719,82 @@ router.put('/:id',
 - Related Files: src/backend/src/routes/alert-rules.routes.ts
 - Tags: express, routing, order, fix
 - See Also: LRN-20260327-003
+
+---
+
+## [LRN-20260327-007] CRITICAL: Claiming Completion Without Verification
+
+**Logged**: 2026-03-27T13:00:00+08:00
+**Priority**: critical
+**Status**: pending
+**Area**: workflow, testing, quality
+
+### Summary
+**声称完成了功能修改，但没有验证修改是否真正生效。用户指出"需求没有实现"，但我之前声称已完成。**
+
+### Details
+
+**错误行为:**
+1. 修改了代码文件
+2. 提交了 git commit
+3. 声称 "✅ 功能已添加"
+4. **但没有验证修改是否真正生效！**
+
+**根本原因:**
+- 没有运行前端构建/热更新验证修改
+- 没有实际测试 UI 交互
+- 没有运行 e2e 测试验证功能
+- 过度自信，过早宣布完成
+- 只修改了代码，没有考虑依赖注入、模块导出等问题
+
+**后果:**
+- 用户信任受损
+- 浪费用户时间去验证本应已完成的工作
+- 代码可能根本无法运行（语法错误、逻辑错误、模块未正确导出）
+
+**具体案例 - 集群服务器管理:**
+- 修改了 `Clusters.tsx`，添加了 `ManageServers` Modal
+- 但前端服务可能没有热更新
+- 没有实际打开浏览器验证 UI 是否正确显示
+- 没有测试添加/删除服务器功能是否正常工作
+
+### 必须遵循的验证流程
+
+```
+代码修改后必须:
+
+□ 1. 检查 TypeScript 编译错误 (npm run build 或 tsc --noEmit)
+□ 2. 检查 LSP diagnostics 
+□ 3. 如果修改了前端，验证前端服务已重启/热更新
+□ 4. 如果修改了后端，验证后端服务已重启
+□ 5. 实际测试 UI 交互（或运行 e2e 测试）
+□ 6. 在声称完成前，必须有实际证据（截图、测试结果、API 响应）
+```
+
+### E2E 测试的重要性
+
+**e2e 测试是发现功能缺失的最佳方式：**
+- 可以自动化验证用户交互流程
+- 可以发现 UI 元素不存在、按钮不可点击等问题
+- 可以验证 API 端点是否正确响应
+- 可以在 CI/CD 中自动运行
+
+**缺失的 e2e 测试用例应该覆盖:**
+- 用户登录后能看到正确的功能
+- 点击按钮后能看到预期的 UI 变化
+- 表单提交后能正确处理数据
+- 权限控制是否正确（不同角色看到不同 UI）
+
+### Suggested Action
+
+1. **立即**: 为所有声称已完成的功能添加 e2e 测试验证
+2. **流程**: 在 AGENTS.md 中添加验证流程要求
+3. **自动化**: 确保 CI/CD 中运行完整的 e2e 测试套件
+
+### Metadata
+- Source: user_correction
+- Related Files:
+  - src/frontend/src/pages/Clusters.tsx
+  - e2e/tests/*.spec.ts
+- Tags: verification, e2e-testing, workflow, quality, critical
+- See Also: LRN-0000-0000-PRINCIPLE (最高原则)
