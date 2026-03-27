@@ -164,9 +164,17 @@ const Clusters: React.FC = () => {
   
   const [form] = Form.useForm()
   const [reserveForm] = Form.useForm()
+  const [serverForm] = Form.useForm()
 
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER'
+  // 只有 SUPER_ADMIN 才有完全的集群管理权限
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  // ADMIN 和 SUPER_ADMIN 可以查看集群列表
+  const canViewClusters = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
+
+  // 服务器管理 Modal
+  const [manageServersVisible, setManageServersVisible] = useState(false)
+  const [availableServers, setAvailableServers] = useState<any[]>([])
+  const [loadingServers, setLoadingServers] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -350,6 +358,72 @@ const Clusters: React.FC = () => {
     }
   }
 
+  // Open manage servers modal (SUPER_ADMIN only)
+  const handleManageServers = async (cluster: Cluster) => {
+    setSelectedCluster(cluster)
+    setLoadingServers(true)
+    setManageServersVisible(true)
+    serverForm.resetFields()
+    
+    try {
+      const response = await clusterApi.getAvailableServers()
+      setAvailableServers(response.data.data || [])
+    } catch (error: any) {
+      message.error('加载可用服务器失败')
+    } finally {
+      setLoadingServers(false)
+    }
+  }
+
+  // Add server to cluster
+  const handleAddServer = async (values: any) => {
+    if (!selectedCluster) return
+    
+    try {
+      await clusterApi.addServer(selectedCluster.id, {
+        serverId: values.serverId,
+        priority: values.priority || 1,
+        role: values.role,
+      })
+      message.success('服务器已添加')
+      
+      // Refresh cluster data
+      const response = await clusterApi.getById(selectedCluster.id)
+      setSelectedCluster(response.data.data)
+      
+      // Refresh available servers
+      const serversRes = await clusterApi.getAvailableServers()
+      setAvailableServers(serversRes.data.data || [])
+      
+      serverForm.resetFields()
+      loadData()
+    } catch (error: any) {
+      message.error(error.response?.data?.error || '添加失败')
+    }
+  }
+
+  // Remove server from cluster
+  const handleRemoveServer = async (serverId: string) => {
+    if (!selectedCluster) return
+    
+    try {
+      await clusterApi.removeServer(selectedCluster.id, serverId)
+      message.success('服务器已移除')
+      
+      // Refresh cluster data
+      const response = await clusterApi.getById(selectedCluster.id)
+      setSelectedCluster(response.data.data)
+      
+      // Refresh available servers
+      const serversRes = await clusterApi.getAvailableServers()
+      setAvailableServers(serversRes.data.data || [])
+      
+      loadData()
+    } catch (error: any) {
+      message.error(error.response?.data?.error || '移除失败')
+    }
+  }
+
   // Render cluster card
   const renderClusterCard = (cluster: Cluster) => {
     const myReservation = getMyReservationForCluster(cluster.id)
@@ -357,6 +431,7 @@ const Clusters: React.FC = () => {
     const isAvailable = cluster.status === 'AVAILABLE'
     const isReservedByMe = myReservation && myReservation.status === 'APPROVED'
 
+    // Actions for all users
     const actions = [
       <Tooltip title="查看详情" key="detail">
         <EyeOutlined onClick={() => handleViewDetail(cluster)} />
@@ -366,31 +441,40 @@ const Clusters: React.FC = () => {
       </Tooltip>,
     ]
 
-    // Add reservation action based on status
-    if (isAvailable) {
+    // SUPER_ADMIN: 管理服务器、编辑、删除
+    if (isSuperAdmin) {
       actions.push(
-        <Tooltip title="申请预约" key="reserve">
-          <FormOutlined onClick={() => handleReserve(cluster)} />
-        </Tooltip>
-      )
-    } else if (isReservedByMe) {
-      actions.push(
-        <Tooltip title="释放资源" key="release">
-          <CloseCircleOutlined onClick={() => handleRelease(myReservation!.id)} />
-        </Tooltip>
-      )
-    } else if (myReservation?.status === 'PENDING') {
-      actions.push(
-        <Tooltip title="取消预约" key="cancel">
-          <CloseCircleOutlined onClick={() => handleCancel(myReservation!.id)} />
+        <Tooltip title="管理服务器" key="manage">
+          <EditOutlined onClick={() => handleManageServers(cluster)} />
         </Tooltip>
       )
     } else {
-      actions.push(
-        <Tooltip title="不可预约" key="unavailable">
-          <ClockCircleOutlined style={{ color: '#999' }} />
-        </Tooltip>
-      )
+      // 普通用户：预约相关操作
+      if (isAvailable) {
+        actions.push(
+          <Tooltip title="申请预约" key="reserve">
+            <FormOutlined onClick={() => handleReserve(cluster)} />
+          </Tooltip>
+        )
+      } else if (isReservedByMe) {
+        actions.push(
+          <Tooltip title="释放资源" key="release">
+            <CloseCircleOutlined onClick={() => handleRelease(myReservation!.id)} />
+          </Tooltip>
+        )
+      } else if (myReservation?.status === 'PENDING') {
+        actions.push(
+          <Tooltip title="取消预约" key="cancel">
+            <CloseCircleOutlined onClick={() => handleCancel(myReservation!.id)} />
+          </Tooltip>
+        )
+      } else {
+        actions.push(
+          <Tooltip title="不可预约" key="unavailable">
+            <ClockCircleOutlined style={{ color: '#999' }} />
+          </Tooltip>
+        )
+      }
     }
 
     return (
@@ -856,6 +940,119 @@ const Clusters: React.FC = () => {
             </Select>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Manage Servers Modal (SUPER_ADMIN only) */}
+      <Modal
+        title={
+          <Space>
+            <span>管理服务器</span>
+            <Text type="secondary">({selectedCluster?.name})</Text>
+          </Space>
+        }
+        open={manageServersVisible}
+        onCancel={() => setManageServersVisible(false)}
+        footer={null}
+        width={900}
+      >
+        <Spin spinning={loadingServers}>
+          {/* Current Servers */}
+          <div style={{ marginBottom: 24 }}>
+            <Title level={5}>当前服务器 ({selectedCluster?.servers?.length || 0})</Title>
+            {selectedCluster?.servers && selectedCluster.servers.length > 0 ? (
+              <Row gutter={[12, 12]}>
+                {selectedCluster.servers.map((s) => (
+                  <Col key={s.server.id} span={8}>
+                    <Card
+                      size="small"
+                      actions={[
+                        <Tooltip title="移除" key="remove">
+                          <DeleteOutlined 
+                            style={{ color: '#ff4d4f' }}
+                            onClick={() => handleRemoveServer(s.server.id)}
+                          />
+                        </Tooltip>,
+                      ]}
+                    >
+                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                        <Text strong>{s.server.name}</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {s.server.hostname || s.server.ipAddress}
+                        </Text>
+                        <Space>
+                          <Tag>GPU: {s.server.gpuCount}</Tag>
+                          {s.role && <Tag color="blue">{s.role}</Tag>}
+                          <Tag color="green">优先级: {s.priority}</Tag>
+                        </Space>
+                      </Space>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            ) : (
+              <Empty description="暂无服务器" />
+            )}
+          </div>
+
+          {/* Add Server Form */}
+          <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+            <Title level={5}>添加服务器</Title>
+            <Form
+              form={serverForm}
+              layout="inline"
+              onFinish={handleAddServer}
+              style={{ gap: 12 }}
+            >
+              <Form.Item
+                name="serverId"
+                rules={[{ required: true, message: '请选择服务器' }]}
+                style={{ marginBottom: 0, flex: 2 }}
+              >
+                <Select
+                  placeholder="选择服务器"
+                  showSearch
+                  optionFilterProp="children"
+                  filterOption={(input, option) =>
+                    (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {availableServers.map((s) => (
+                    <Select.Option key={s.id} value={s.id}>
+                      {s.name} ({s.hostname || s.ipAddress}) - GPU: {s.gpuCount}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item
+                name="priority"
+                initialValue={1}
+                style={{ marginBottom: 0, width: 100 }}
+              >
+                <Input type="number" min={1} max={100} placeholder="优先级" />
+              </Form.Item>
+              <Form.Item
+                name="role"
+                style={{ marginBottom: 0, width: 120 }}
+              >
+                <Select placeholder="角色" allowClear>
+                  <Select.Option value="MASTER">主节点</Select.Option>
+                  <Select.Option value="WORKER">工作节点</Select.Option>
+                  <Select.Option value="STORAGE">存储节点</Select.Option>
+                </Select>
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" htmlType="submit">
+                  添加
+                </Button>
+              </Form.Item>
+            </Form>
+            {availableServers.length === 0 && (
+              <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+                没有可用的服务器。请先在服务器管理中创建服务器。
+              </Text>
+            )}
+          </div>
+        </Spin>
       </Modal>
 
       <style>{`
