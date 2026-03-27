@@ -251,7 +251,8 @@ router.put(
  */
 router.get('/users', authenticate, async (req: AuthRequest, res) => {
   try {
-    if (req.user!.role !== UserRole.ADMIN) {
+    // SUPER_ADMIN and ADMIN can access
+    if (req.user!.role !== UserRole.ADMIN && req.user!.role !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({
         success: false,
         error: 'Admin access required',
@@ -338,7 +339,8 @@ router.put(
   handleValidationErrors,
   async (req: AuthRequest, res) => {
     try {
-      if (req.user!.role !== UserRole.ADMIN) {
+      // SUPER_ADMIN and ADMIN can access
+      if (req.user!.role !== UserRole.ADMIN && req.user!.role !== UserRole.SUPER_ADMIN) {
         return res.status(403).json({
           success: false,
           error: 'Admin access required',
@@ -372,7 +374,8 @@ router.put(
  */
 router.delete('/users/:id', authenticate, async (req: AuthRequest, res) => {
   try {
-    if (req.user!.role !== UserRole.ADMIN) {
+    // SUPER_ADMIN and ADMIN can access
+    if (req.user!.role !== UserRole.ADMIN && req.user!.role !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({
         success: false,
         error: 'Admin access required',
