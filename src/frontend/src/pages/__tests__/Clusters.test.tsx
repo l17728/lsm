@@ -118,17 +118,17 @@ describe('Clusters Page', () => {
   describe('Rendering', () => {
     it('should render cluster page title', async () => {
       render(<Clusters />, { wrapper });
-      expect(screen.getByText('集群管理')).toBeDefined();
+      expect(screen.getByText('Cluster Management')).toBeDefined();
     });
 
     it('should render create button', async () => {
       render(<Clusters />, { wrapper });
-      expect(screen.getByText('创建集群')).toBeDefined();
+      expect(screen.getByText('Create Cluster')).toBeDefined();
     });
 
     it('should render refresh button', async () => {
       render(<Clusters />, { wrapper });
-      expect(screen.getByText('刷新')).toBeDefined();
+      expect(screen.getByText('Refresh')).toBeDefined();
     });
   });
 
@@ -156,7 +156,7 @@ describe('Clusters Page', () => {
       
       render(<Clusters />, { wrapper });
       
-      const createButtons = screen.getAllByText('创建集群');
+      const createButtons = screen.getAllByText('Create Cluster');
       expect(createButtons.length).toBeGreaterThan(0);
       
       // Click the first create button (in toolbar)
@@ -164,7 +164,7 @@ describe('Clusters Page', () => {
       
       // Modal should open - check for modal title
       await waitFor(() => {
-        expect(screen.getByText('集群编码')).toBeDefined();
+        expect(screen.getByText('Cluster Code')).toBeDefined();
       });
     });
 

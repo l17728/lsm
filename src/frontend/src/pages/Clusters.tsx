@@ -147,20 +147,20 @@ interface ClusterStats {
 }
 
 const statusConfig: Record<string, { color: string; icon: any; text: string }> = {
-  AVAILABLE: { color: 'green', icon: <CheckCircleOutlined />, text: '空闲' },
-  ALLOCATED: { color: 'blue', icon: <PlayCircleOutlined />, text: '使用中' },
-  RESERVED: { color: 'orange', icon: <ClockCircleOutlined />, text: '已预约' },
-  MAINTENANCE: { color: 'red', icon: <CloseCircleOutlined />, text: '维护中' },
-  OFFLINE: { color: 'default', icon: <CloseCircleOutlined />, text: '离线' },
+  AVAILABLE: { color: 'green', icon: <CheckCircleOutlined />, text: 'Available' },
+  ALLOCATED: { color: 'blue', icon: <PlayCircleOutlined />, text: 'In Use' },
+  RESERVED: { color: 'orange', icon: <ClockCircleOutlined />, text: 'Reserved' },
+  MAINTENANCE: { color: 'red', icon: <CloseCircleOutlined />, text: 'Maintenance' },
+  OFFLINE: { color: 'default', icon: <CloseCircleOutlined />, text: 'Offline' },
 }
 
 const reservationStatusConfig: Record<string, { color: string; text: string }> = {
-  PENDING: { color: 'gold', text: '待审批' },
-  APPROVED: { color: 'green', text: '已批准' },
-  REJECTED: { color: 'red', text: '已拒绝' },
-  ACTIVE: { color: 'blue', text: '使用中' },
-  COMPLETED: { color: 'default', text: '已完成' },
-  CANCELLED: { color: 'default', text: '已取消' },
+  PENDING: { color: 'gold', text: 'Pending Approval' },
+  APPROVED: { color: 'green', text: 'Approved' },
+  REJECTED: { color: 'red', text: 'Rejected' },
+  ACTIVE: { color: 'blue', text: 'Active' },
+  COMPLETED: { color: 'default', text: 'Completed' },
+  CANCELLED: { color: 'default', text: 'Cancelled' },
 }
 
 const typeColors: Record<string, string> = {
@@ -228,7 +228,7 @@ const Clusters: React.FC = () => {
       setMyReservations(reservationsRes.data.data || [])
       setUsers(usersRes.data.data || [])
     } catch (error: any) {
-      message.error('加载数据失败')
+      message.error('Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -290,11 +290,11 @@ const Clusters: React.FC = () => {
         purpose: values.purpose,
       })
       
-      message.success('预约申请已提交，等待审批')
+      message.success('Reservation request submitted, pending approval')
       setReserveVisible(false)
       loadData()
     } catch (error: any) {
-      message.error(error.response?.data?.error || '预约失败')
+      message.error(error.response?.data?.error || 'Reservation failed')
     }
   }
 
@@ -302,10 +302,10 @@ const Clusters: React.FC = () => {
   const handleRelease = async (reservationId: string) => {
     try {
       await clusterReservationApi.release(reservationId)
-      message.success('资源已释放')
+      message.success('Resource released')
       loadData()
     } catch (error: any) {
-      message.error('释放失败')
+      message.error('Release failed')
     }
   }
 
@@ -313,10 +313,10 @@ const Clusters: React.FC = () => {
   const handleCancel = async (reservationId: string) => {
     try {
       await clusterReservationApi.cancel(reservationId)
-      message.success('预约已取消')
+      message.success('Reservation cancelled')
       loadData()
     } catch (error: any) {
-      message.error('取消失败')
+      message.error('Cancellation failed')
     }
   }
 
@@ -327,7 +327,7 @@ const Clusters: React.FC = () => {
       setSelectedCluster(response.data.data)
       setDetailVisible(true)
     } catch (error: any) {
-      message.error('加载详情失败')
+      message.error('Failed to load details')
     }
   }
 
@@ -338,7 +338,7 @@ const Clusters: React.FC = () => {
       setSelectedCluster(response.data.data)
       setServersVisible(true)
     } catch (error: any) {
-      message.error('加载服务器列表失败')
+      message.error('Failed to load server list')
     }
   }
 
@@ -379,10 +379,10 @@ const Clusters: React.FC = () => {
   const handleDelete = async (id: string) => {
     try {
       await clusterApi.delete(id)
-      message.success('集群已删除')
+      message.success('Cluster deleted')
       loadData()
     } catch (error: any) {
-      message.error(error.response?.data?.error || '删除失败')
+      message.error(error.response?.data?.error || 'Delete failed')
     }
   }
 
@@ -391,15 +391,15 @@ const Clusters: React.FC = () => {
     try {
       if (editingCluster) {
         await clusterApi.update(editingCluster.id, values)
-        message.success('集群已更新')
+        message.success('Cluster updated')
       } else {
         await clusterApi.create(values)
-        message.success('集群已创建')
+        message.success('Cluster created')
       }
       setCreateModalVisible(false)
       loadData()
     } catch (error: any) {
-      message.error(error.response?.data?.error || '操作失败')
+      message.error(error.response?.data?.error || 'Operation failed')
     }
   }
 
@@ -414,7 +414,7 @@ const Clusters: React.FC = () => {
       const response = await clusterApi.getAvailableServers()
       setAvailableServers(response.data.data || [])
     } catch (error: any) {
-      message.error('加载可用服务器失败')
+      message.error('Failed to load available servers')
     } finally {
       setLoadingServers(false)
     }
@@ -430,7 +430,7 @@ const Clusters: React.FC = () => {
         priority: values.priority || 1,
         role: values.role,
       })
-      message.success('服务器已添加')
+      message.success('Server added')
       
       // Refresh cluster data
       const response = await clusterApi.getById(selectedCluster.id)
@@ -443,7 +443,7 @@ const Clusters: React.FC = () => {
       serverForm.resetFields()
       loadData()
     } catch (error: any) {
-      message.error(error.response?.data?.error || '添加失败')
+      message.error(error.response?.data?.error || 'Failed to add server')
     }
   }
 
@@ -453,7 +453,7 @@ const Clusters: React.FC = () => {
     
     try {
       await clusterApi.removeServer(selectedCluster.id, serverId)
-      message.success('服务器已移除')
+      message.success('Server removed')
       
       // Refresh cluster data
       const response = await clusterApi.getById(selectedCluster.id)
@@ -465,7 +465,7 @@ const Clusters: React.FC = () => {
       
       loadData()
     } catch (error: any) {
-      message.error(error.response?.data?.error || '移除失败')
+      message.error(error.response?.data?.error || 'Failed to remove server')
     }
   }
 
@@ -478,44 +478,44 @@ const Clusters: React.FC = () => {
 
     // Actions for all users
     const actions = [
-      <Tooltip title="查看详情" key="detail">
+      <Tooltip title="View Details" key="detail">
         <EyeOutlined onClick={() => handleViewDetail(cluster)} />
       </Tooltip>,
-      <Tooltip title="查看服务器" key="servers">
+      <Tooltip title="View Servers" key="servers">
         <DesktopOutlined onClick={() => handleViewServers(cluster)} />
       </Tooltip>,
     ]
 
-    // SUPER_ADMIN: 管理服务器、编辑、删除
+    // SUPER_ADMIN: manage servers, edit, delete
     if (isSuperAdmin) {
       actions.push(
-        <Tooltip title="管理服务器" key="manage">
+        <Tooltip title="Manage Servers" key="manage">
           <EditOutlined onClick={() => handleManageServers(cluster)} />
         </Tooltip>
       )
     } else {
-      // 普通用户：预约相关操作
+      // Regular users: reservation actions
       if (isAvailable) {
         actions.push(
-          <Tooltip title="申请预约" key="reserve">
+          <Tooltip title="Request Reservation" key="reserve">
             <FormOutlined onClick={() => handleReserve(cluster)} />
           </Tooltip>
         )
       } else if (isReservedByMe) {
         actions.push(
-          <Tooltip title="释放资源" key="release">
+          <Tooltip title="Release Resource" key="release">
             <CloseCircleOutlined onClick={() => handleRelease(myReservation!.id)} />
           </Tooltip>
         )
       } else if (myReservation?.status === 'PENDING') {
         actions.push(
-          <Tooltip title="取消预约" key="cancel">
+          <Tooltip title="Cancel Reservation" key="cancel">
             <CloseCircleOutlined onClick={() => handleCancel(myReservation!.id)} />
           </Tooltip>
         )
       } else {
         actions.push(
-          <Tooltip title="不可预约" key="unavailable">
+          <Tooltip title="Not Available" key="unavailable">
             <ClockCircleOutlined style={{ color: '#999' }} />
           </Tooltip>
         )
@@ -566,7 +566,7 @@ const Clusters: React.FC = () => {
               <div>
                 <ClockCircleOutlined style={{ marginRight: 4 }} />
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  至 {dayjs(cluster.assignmentEnd).format('MM-DD HH:mm')}
+                  Until {dayjs(cluster.assignmentEnd).format('MM-DD HH:mm')}
                 </Text>
               </div>
             )}
@@ -576,7 +576,7 @@ const Clusters: React.FC = () => {
               <div>
                 <HourglassOutlined style={{ marginRight: 4, color: '#faad14' }} />
                 <Text type="warning" style={{ fontSize: 12 }}>
-                  队列位置: #{myReservation.queuePosition}
+                  Queue Position: #{myReservation.queuePosition}
                 </Text>
               </div>
             )}
@@ -585,7 +585,7 @@ const Clusters: React.FC = () => {
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f0f0f0' }}>
               <Space split={<Text type="secondary">|</Text>}>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  <DesktopOutlined /> {cluster.totalServers} 台
+                  <DesktopOutlined /> {cluster.totalServers} Servers
                 </Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   GPU: {cluster.totalGpus}
@@ -602,7 +602,7 @@ const Clusters: React.FC = () => {
     <div className="clusters-page">
       <Title level={3} style={{ marginBottom: 24 }}>
         <ClusterOutlined style={{ marginRight: 8 }} />
-        集群管理
+        Cluster Management
       </Title>
 
       {/* Stats Cards */}
@@ -610,13 +610,13 @@ const Clusters: React.FC = () => {
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={4}>
             <Card size="small">
-              <Statistic title="集群总数" value={stats.total} />
+              <Statistic title="Total Clusters" value={stats.total} />
             </Card>
           </Col>
           <Col span={4}>
             <Card size="small">
               <Statistic 
-                title="空闲" 
+                title="Available" 
                 value={stats.byStatus.available} 
                 valueStyle={{ color: '#52c41a' }}
               />
@@ -625,7 +625,7 @@ const Clusters: React.FC = () => {
           <Col span={4}>
             <Card size="small">
               <Statistic 
-                title="使用中" 
+                title="In Use" 
                 value={stats.byStatus.allocated}
                 valueStyle={{ color: '#1890ff' }}
               />
@@ -633,17 +633,17 @@ const Clusters: React.FC = () => {
           </Col>
           <Col span={4}>
             <Card size="small">
-              <Statistic title="服务器总数" value={stats.resources.totalServers} />
+              <Statistic title="Total Servers" value={stats.resources.totalServers} />
             </Card>
           </Col>
           <Col span={4}>
             <Card size="small">
-              <Statistic title="GPU 总数" value={stats.resources.totalGpus} />
+              <Statistic title="Total GPUs" value={stats.resources.totalGpus} />
             </Card>
           </Col>
           <Col span={4}>
             <Card size="small">
-              <Statistic title="CPU 核心" value={stats.resources.totalCpuCores} />
+              <Statistic title="CPU Cores" value={stats.resources.totalCpuCores} />
             </Card>
           </Col>
         </Row>
@@ -654,17 +654,17 @@ const Clusters: React.FC = () => {
         <Space>
           {isSuperAdmin && (
             <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-              创建集群
+              Create Cluster
             </Button>
           )}
           <Button icon={<SyncOutlined />} onClick={loadData}>
-            刷新
+            Refresh
           </Button>
           <Button 
             icon={<CalendarOutlined />} 
             onClick={() => navigate('/reservations')}
           >
-            查看日历
+            View Calendar
           </Button>
         </Space>
       </div>
@@ -676,17 +676,17 @@ const Clusters: React.FC = () => {
             {clusters.map(renderClusterCard)}
           </Row>
         ) : (
-          <Empty description="暂无集群数据" />
+          <Empty description="No clusters available" />
         )}
       </Spin>
 
       {/* Reservation Modal */}
       <Modal
-        title={`预约集群: ${selectedCluster?.name}`}
+        title={`Reserve Cluster: ${selectedCluster?.name}`}
         open={reserveVisible}
         onCancel={() => setReserveVisible(false)}
         onOk={() => reserveForm.submit()}
-        okText="提交申请"
+        okText="Submit Request"
         width={700}
       >
         <Form
@@ -701,7 +701,7 @@ const Clusters: React.FC = () => {
             title={
               <Space>
                 <BulbOutlined style={{ color: '#52c41a' }} />
-                <span>AI 智能推荐</span>
+                <span>AI Smart Recommendations</span>
               </Space>
             }
             extra={
@@ -715,10 +715,10 @@ const Clusters: React.FC = () => {
                   }}
                   style={{ width: 120 }}
                   options={[
-                    { value: 60, label: '1 小时' },
-                    { value: 120, label: '2 小时' },
-                    { value: 240, label: '4 小时' },
-                    { value: 480, label: '8 小时' },
+                    { value: 60, label: '1 Hour' },
+                    { value: 120, label: '2 Hours' },
+                    { value: 240, label: '4 Hours' },
+                    { value: 480, label: '8 Hours' },
                   ]}
                 />
                 <Button 
@@ -727,14 +727,14 @@ const Clusters: React.FC = () => {
                   loading={loadingRecommendations}
                   onClick={() => fetchAiRecommendations(selectedDuration)}
                 >
-                  获取推荐
+                  Get Recommendations
                 </Button>
               </Space>
             }
           >
             {loadingRecommendations ? (
               <div style={{ textAlign: 'center', padding: 20 }}>
-                <Spin tip="AI 正在分析最佳时间..." />
+                <Spin tip="AI is analyzing optimal time slots..." />
               </div>
             ) : aiRecommendations.length > 0 ? (
               <Space direction="vertical" style={{ width: '100%' }} size="small">
@@ -754,7 +754,7 @@ const Clusters: React.FC = () => {
                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                       <Space>
                         <Tag color={index === 0 ? 'blue' : 'default'}>
-                          {index === 0 ? '最佳' : `推荐 ${index + 1}`}
+                          {index === 0 ? 'Best' : `Option ${index + 1}`}
                         </Tag>
                         <Text strong>
                           {dayjs(rec.startTime).format('MM-DD HH:mm')} - {dayjs(rec.endTime).format('HH:mm')}
@@ -762,9 +762,9 @@ const Clusters: React.FC = () => {
                       </Space>
                       <Space>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          置信度: {(rec.confidence * 100).toFixed(0)}%
+                          Confidence: {(rec.confidence * 100).toFixed(0)}%
                         </Text>
-                        <Tag color="green">{rec.score}分</Tag>
+                        <Tag color="green">{rec.score} pts</Tag>
                       </Space>
                     </Space>
                     <div style={{ marginTop: 4 }}>
@@ -779,15 +779,15 @@ const Clusters: React.FC = () => {
               </Space>
             ) : (
               <div style={{ color: '#8c8c8c', fontSize: 12, textAlign: 'center', padding: 10 }}>
-                点击"获取推荐"按钮，AI 将为您分析最佳预约时段
+                Click "Get Recommendations" for AI-powered optimal time slot analysis
               </div>
             )}
           </Card>
 
           <Form.Item
             name="timeRange"
-            label="使用时间"
-            rules={[{ required: true, message: '请选择使用时间' }]}
+            label="Time Range"
+            rules={[{ required: true, message: 'Please select time range' }]}
           >
             <RangePicker
               showTime
@@ -797,25 +797,25 @@ const Clusters: React.FC = () => {
           </Form.Item>
           <Form.Item
             name="purpose"
-            label="用途说明"
+            label="Purpose"
           >
             <Input.TextArea 
               rows={3} 
-              placeholder="请简要描述使用目的..."
+              placeholder="Brief description of your purpose..."
               maxLength={500}
               showCount
             />
           </Form.Item>
           <div style={{ color: '#faad14', fontSize: 12 }}>
             <ClockCircleOutlined style={{ marginRight: 4 }} />
-            预约需要 SUPER_ADMIN 审批，如时间冲突将进入等待队列
+            Reservations require SUPER_ADMIN approval. Time conflicts will be queued.
           </div>
         </Form>
       </Modal>
 
       {/* Cluster Detail Modal */}
       <Modal
-        title={selectedCluster?.name || '集群详情'}
+        title={selectedCluster?.name || 'Cluster Details'}
         open={detailVisible}
         onCancel={() => setDetailVisible(false)}
         footer={null}
@@ -824,57 +824,57 @@ const Clusters: React.FC = () => {
         {selectedCluster && (
           <div>
             <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="编码">{selectedCluster.code}</Descriptions.Item>
-              <Descriptions.Item label="类型">
+              <Descriptions.Item label="Code">{selectedCluster.code}</Descriptions.Item>
+              <Descriptions.Item label="Type">
                 <Tag color={typeColors[selectedCluster.type]}>{selectedCluster.type}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="状态">
+              <Descriptions.Item label="Status">
                 <Tag color={statusConfig[selectedCluster.status]?.color}>
                   {statusConfig[selectedCluster.status]?.text}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="创建者">
+              <Descriptions.Item label="Creator">
                 {selectedCluster.creator?.username || '-'}
               </Descriptions.Item>
               {selectedCluster.assignee && (
                 <>
-                  <Descriptions.Item label="使用者">
+                  <Descriptions.Item label="User">
                     <UserOutlined style={{ marginRight: 4 }} />
                     {selectedCluster.assignee.username}
                   </Descriptions.Item>
-                  <Descriptions.Item label="结束时间">
+                  <Descriptions.Item label="End Time">
                     {selectedCluster.assignmentEnd && 
                       dayjs(selectedCluster.assignmentEnd).format('YYYY-MM-DD HH:mm')}
                   </Descriptions.Item>
                 </>
               )}
-              <Descriptions.Item label="描述" span={2}>
+              <Descriptions.Item label="Description" span={2}>
                 {selectedCluster.description || '-'}
               </Descriptions.Item>
             </Descriptions>
 
             <Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>
-              资源配置
+              Resource Configuration
             </Title>
             <Row gutter={8}>
               <Col span={6}>
                 <Card size="small">
-                  <Statistic title="服务器" value={selectedCluster.totalServers} suffix="台" />
+                  <Statistic title="Servers" value={selectedCluster.totalServers} />
                 </Card>
               </Col>
               <Col span={6}>
                 <Card size="small">
-                  <Statistic title="GPU" value={selectedCluster.totalGpus} suffix="块" />
+                  <Statistic title="GPUs" value={selectedCluster.totalGpus} />
                 </Card>
               </Col>
               <Col span={6}>
                 <Card size="small">
-                  <Statistic title="CPU" value={selectedCluster.totalCpuCores} suffix="核" />
+                  <Statistic title="CPU Cores" value={selectedCluster.totalCpuCores} />
                 </Card>
               </Col>
               <Col span={6}>
                 <Card size="small">
-                  <Statistic title="内存" value={selectedCluster.totalMemory} suffix="GB" />
+                  <Statistic title="Memory (GB)" value={selectedCluster.totalMemory} />
                 </Card>
               </Col>
             </Row>
@@ -886,14 +886,14 @@ const Clusters: React.FC = () => {
       <Modal
         title={
           <Space>
-            <span>服务器列表</span>
+            <span>Server List</span>
             <Text type="secondary">({selectedCluster?.name})</Text>
           </Space>
         }
         open={serversVisible}
         onCancel={() => setServersVisible(false)}
         footer={
-          <Button onClick={() => setServersVisible(false)}>关闭</Button>
+          <Button onClick={() => setServersVisible(false)}>Close</Button>
         }
         width={800}
       >
@@ -921,21 +921,21 @@ const Clusters: React.FC = () => {
             ))}
           </Row>
         ) : (
-          <Empty description="该集群暂无服务器" />
+          <Empty description="No servers in this cluster" />
         )}
         <div style={{ marginTop: 16, textAlign: 'center' }}>
           <Button 
             icon={<UpOutlined />} 
             onClick={() => setServersVisible(false)}
           >
-            返回集群列表
+            Back to Cluster List
           </Button>
         </div>
       </Modal>
 
       {/* Create/Edit Cluster Modal */}
       <Modal
-        title={editingCluster ? '编辑集群' : '创建集群'}
+        title={editingCluster ? 'Edit Cluster' : 'Create Cluster'}
         open={createModalVisible}
         onCancel={() => setCreateModalVisible(false)}
         onOk={() => form.submit()}
@@ -946,30 +946,30 @@ const Clusters: React.FC = () => {
           layout="vertical"
           onFinish={handleSubmit}
         >
-          {/* 基本信息 */}
-          <Title level={5}>基本信息</Title>
+          {/* Basic Info */}
+          <Title level={5}>Basic Information</Title>
           <Row gutter={16}>
             <Col span={12}>
               {!editingCluster && (
                 <Form.Item
                   name="code"
-                  label="集群编码"
+                  label="Cluster Code"
                   rules={[
-                    { required: true, message: '请输入集群编码' },
-                    { pattern: /^[A-Z0-9_-]+$/, message: '编码只能包含大写字母、数字、下划线或连字符' },
+                    { required: true, message: 'Please enter cluster code' },
+                    { pattern: /^[A-Z0-9_-]+$/, message: 'Code must contain only uppercase letters, numbers, underscores or hyphens' },
                   ]}
                 >
-                  <Input placeholder="例如: CLUSTER_01" />
+                  <Input placeholder="e.g. CLUSTER_01" />
                 </Form.Item>
               )}
             </Col>
             <Col span={12}>
               <Form.Item
                 name="name"
-                label="集群名称"
-                rules={[{ required: true, message: '请输入集群名称' }]}
+                label="Cluster Name"
+                rules={[{ required: true, message: 'Please enter cluster name' }]}
               >
-                <Input placeholder="例如: 训练集群A" />
+                <Input placeholder="e.g. Training Cluster A" />
               </Form.Item>
             </Col>
           </Row>
@@ -978,77 +978,77 @@ const Clusters: React.FC = () => {
             <Col span={12}>
               <Form.Item
                 name="type"
-                label="集群类型"
-                rules={[{ required: true, message: '请选择集群类型' }]}
+                label="Cluster Type"
+                rules={[{ required: true, message: 'Please select cluster type' }]}
               >
-                <Select placeholder="选择类型">
-                  <Select.Option value="COMPUTE">计算</Select.Option>
-                  <Select.Option value="TRAINING">训练</Select.Option>
-                  <Select.Option value="INFERENCE">推理</Select.Option>
-                  <Select.Option value="GENERAL">通用</Select.Option>
-                  <Select.Option value="CUSTOM">自定义</Select.Option>
+                <Select placeholder="Select type">
+                  <Select.Option value="COMPUTE">Compute</Select.Option>
+                  <Select.Option value="TRAINING">Training</Select.Option>
+                  <Select.Option value="INFERENCE">Inference</Select.Option>
+                  <Select.Option value="GENERAL">General</Select.Option>
+                  <Select.Option value="CUSTOM">Custom</Select.Option>
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="description" label="描述">
-                <Input placeholder="集群描述..." />
+              <Form.Item name="description" label="Description">
+                <Input placeholder="Cluster description..." />
               </Form.Item>
             </Col>
           </Row>
 
-          {/* 环境信息 */}
-          <Title level={5} style={{ marginTop: 16 }}>环境信息</Title>
+          {/* Environment Info */}
+          <Title level={5} style={{ marginTop: 16 }}>Environment Information</Title>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="envName" label="环境名称">
-                <Input placeholder="例如: 生产环境" />
+              <Form.Item name="envName" label="Environment Name">
+                <Input placeholder="e.g. Production" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="envAlias" label="环境别名">
-                <Input placeholder="例如: PROD" />
+              <Form.Item name="envAlias" label="Environment Alias">
+                <Input placeholder="e.g. PROD" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="subEnvAlias" label="子环境别名">
-                <Input placeholder="例如: PROD-A" />
+              <Form.Item name="subEnvAlias" label="Sub Environment Alias">
+                <Input placeholder="e.g. PROD-A" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="prometheusAddress" label="普罗地址">
-                <Input placeholder="例如: 192.168.1.100" />
+              <Form.Item name="prometheusAddress" label="Prometheus Address">
+                <Input placeholder="e.g. 192.168.1.100" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="loginIp" label="登录IP">
-                <Input placeholder="例如: 10.0.0.1" />
+              <Form.Item name="loginIp" label="Login IP">
+                <Input placeholder="e.g. 10.0.0.1" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="usageScenario" label="使用场景">
-                <Input placeholder="例如: 模型训练" />
+              <Form.Item name="usageScenario" label="Usage Scenario">
+                <Input placeholder="e.g. Model Training" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
             <Col span={24}>
-              <Form.Item name="deviceInfo" label="设备信息">
-                <Input.TextArea rows={2} placeholder="设备详细信息描述..." />
+              <Form.Item name="deviceInfo" label="Device Information">
+                <Input.TextArea rows={2} placeholder="Device details..." />
               </Form.Item>
             </Col>
           </Row>
 
-          {/* 责任人信息 */}
-          <Title level={5} style={{ marginTop: 16 }}>责任人信息</Title>
+          {/* Responsibility Info */}
+          <Title level={5} style={{ marginTop: 16 }}>Responsibility</Title>
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="testOwnerId" label="测试责任人">
-                <Select placeholder="选择测试责任人" allowClear showSearch optionFilterProp="children">
+              <Form.Item name="testOwnerId" label="Test Owner">
+                <Select placeholder="Select test owner" allowClear showSearch optionFilterProp="children">
                   {users.map(u => (
                     <Select.Option key={u.id} value={u.id}>
                       {u.displayName || u.username} ({u.email})
@@ -1058,8 +1058,8 @@ const Clusters: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="teamOwnerId" label="归属团队负责人">
-                <Select placeholder="选择团队负责人" allowClear showSearch optionFilterProp="children">
+              <Form.Item name="teamOwnerId" label="Team Owner">
+                <Select placeholder="Select team owner" allowClear showSearch optionFilterProp="children">
                   {users.map(u => (
                     <Select.Option key={u.id} value={u.id}>
                       {u.displayName || u.username} ({u.email})
@@ -1069,8 +1069,8 @@ const Clusters: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="userId" label="使用人">
-                <Select placeholder="选择使用人" allowClear showSearch optionFilterProp="children">
+              <Form.Item name="userId" label="User">
+                <Select placeholder="Select user" allowClear showSearch optionFilterProp="children">
                   {users.map(u => (
                     <Select.Option key={u.id} value={u.id}>
                       {u.displayName || u.username} ({u.email})
@@ -1087,7 +1087,7 @@ const Clusters: React.FC = () => {
       <Modal
         title={
           <Space>
-            <span>管理服务器</span>
+            <span>Manage Servers</span>
             <Text type="secondary">({selectedCluster?.name})</Text>
           </Space>
         }
@@ -1099,7 +1099,7 @@ const Clusters: React.FC = () => {
         <Spin spinning={loadingServers}>
           {/* Current Servers */}
           <div style={{ marginBottom: 24 }}>
-            <Title level={5}>当前服务器 ({selectedCluster?.servers?.length || 0})</Title>
+            <Title level={5}>Current Servers ({selectedCluster?.servers?.length || 0})</Title>
             {selectedCluster?.servers && selectedCluster.servers.length > 0 ? (
               <Row gutter={[12, 12]}>
                 {selectedCluster.servers.map((s) => (
@@ -1107,7 +1107,7 @@ const Clusters: React.FC = () => {
                     <Card
                       size="small"
                       actions={[
-                        <Tooltip title="移除" key="remove">
+                        <Tooltip title="Remove" key="remove">
                           <DeleteOutlined 
                             style={{ color: '#ff4d4f' }}
                             onClick={() => handleRemoveServer(s.server.id)}
@@ -1123,7 +1123,7 @@ const Clusters: React.FC = () => {
                         <Space>
                           <Tag>GPU: {s.server.gpuCount}</Tag>
                           {s.role && <Tag color="blue">{s.role}</Tag>}
-                          <Tag color="green">优先级: {s.priority}</Tag>
+                          <Tag color="green">Priority: {s.priority}</Tag>
                         </Space>
                       </Space>
                     </Card>
@@ -1131,13 +1131,13 @@ const Clusters: React.FC = () => {
                 ))}
               </Row>
             ) : (
-              <Empty description="暂无服务器" />
+              <Empty description="No servers" />
             )}
           </div>
 
           {/* Add Server Form */}
           <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
-            <Title level={5}>添加服务器</Title>
+            <Title level={5}>Add Server</Title>
             <Form
               form={serverForm}
               layout="inline"
@@ -1146,11 +1146,11 @@ const Clusters: React.FC = () => {
             >
               <Form.Item
                 name="serverId"
-                rules={[{ required: true, message: '请选择服务器' }]}
+                rules={[{ required: true, message: 'Please select a server' }]}
                 style={{ marginBottom: 0, flex: 2 }}
               >
                 <Select
-                  placeholder="选择服务器"
+                  placeholder="Select server"
                   showSearch
                   optionFilterProp="children"
                   filterOption={(input, option) =>
@@ -1169,27 +1169,27 @@ const Clusters: React.FC = () => {
                 initialValue={1}
                 style={{ marginBottom: 0, width: 100 }}
               >
-                <Input type="number" min={1} max={100} placeholder="优先级" />
+                <Input type="number" min={1} max={100} placeholder="Priority" />
               </Form.Item>
               <Form.Item
                 name="role"
                 style={{ marginBottom: 0, width: 120 }}
               >
-                <Select placeholder="角色" allowClear>
-                  <Select.Option value="MASTER">主节点</Select.Option>
-                  <Select.Option value="WORKER">工作节点</Select.Option>
-                  <Select.Option value="STORAGE">存储节点</Select.Option>
+                <Select placeholder="Role" allowClear>
+                  <Select.Option value="MASTER">Master</Select.Option>
+                  <Select.Option value="WORKER">Worker</Select.Option>
+                  <Select.Option value="STORAGE">Storage</Select.Option>
                 </Select>
               </Form.Item>
               <Form.Item style={{ marginBottom: 0 }}>
                 <Button type="primary" htmlType="submit">
-                  添加
+                  Add
                 </Button>
               </Form.Item>
             </Form>
             {availableServers.length === 0 && (
               <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                没有可用的服务器。请先在服务器管理中创建服务器。
+                No available servers. Please create servers in Server Management first.
               </Text>
             )}
           </div>
