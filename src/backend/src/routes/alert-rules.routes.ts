@@ -25,6 +25,27 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/alert-rules/metrics
+ * Get alert metrics
+ * @note Must be defined BEFORE /:id to avoid route collision
+ */
+router.get('/metrics', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const metrics = await alertRulesService.getMetrics();
+    res.json({
+      success: true,
+      data: metrics,
+    });
+  } catch (error: any) {
+    console.error('[AlertRules API] Get metrics error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get metrics',
+    });
+  }
+});
+
+/**
  * GET /api/alert-rules/:id
  * Get a specific alert rule
  */
@@ -177,26 +198,6 @@ router.post('/:id/toggle', authMiddleware, async (req: Request, res: Response) =
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to toggle rule',
-    });
-  }
-});
-
-/**
- * GET /api/alert-rules/metrics
- * Get alert metrics
- */
-router.get('/metrics', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const metrics = await alertRulesService.getMetrics();
-    res.json({
-      success: true,
-      data: metrics,
-    });
-  } catch (error: any) {
-    console.error('[AlertRules API] Get metrics error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to get metrics',
     });
   }
 });

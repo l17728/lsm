@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import taskService from '../services/task.service';
 import { authenticate, requireAdmin, requireManager, AuthRequest } from '../middleware/auth.middleware';
 import { task_status as TaskStatus } from '@prisma/client';
@@ -152,6 +152,15 @@ router.post(
   ],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const userId = req.user!.userId;
       const { name, description, priority } = req.body;
 
@@ -190,6 +199,15 @@ router.put(
   ],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const userId = req.user!.userId;
       const { id } = req.params;
       const { name, description, priority } = req.body;
@@ -226,6 +244,15 @@ router.delete(
   ],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const userId = req.user!.userId;
       const { ids } = req.body;
       const results = {
@@ -271,6 +298,15 @@ router.post(
   ],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const userId = req.user!.userId;
       const { ids } = req.body;
       const results = {
@@ -361,6 +397,15 @@ router.post(
   [body('result').optional().isString()],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       // In production, this would be restricted to scheduler service
       const { id } = req.params;
       const { result } = req.body;
@@ -390,6 +435,15 @@ router.post(
   [body('error').optional().isString()],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const { id } = req.params;
       const { error } = req.body;
 
@@ -423,6 +477,15 @@ router.patch(
   ],
   async (req, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const { ids, status } = req.body;
       const results = {
         success: 0,

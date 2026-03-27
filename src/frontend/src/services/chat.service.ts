@@ -55,7 +55,11 @@ class ChatService {
     this.socket.on('connect', () => {
       this.reconnectAttempts = 0
       useChatStore.getState().setConnectionStatus('connected')
-      this.socket?.emit('create:session')
+      // 只在没有当前会话时才创建新会话
+      const currentSessionId = useChatStore.getState().currentSessionId
+      if (!currentSessionId) {
+        this.socket?.emit('create:session')
+      }
     })
     this.socket.on('disconnect', () => useChatStore.getState().setConnectionStatus('disconnected'))
     this.socket.on('connect_error', () => { if (++this.reconnectAttempts >= 5) useChatStore.getState().setConnectionStatus('disconnected') })
@@ -63,14 +67,21 @@ class ChatService {
       useChatStore.getState().addMessage({ id: data.payload.id || this.genId(), role: data.payload.role, content: data.payload.content, timestamp: data.payload.timestamp ? new Date(data.payload.timestamp) : new Date(), status: 'sent', metadata: data.payload.metadata })
     })
     this.socket.on('chat:session', (data: { sessionId: string }) => {
-      useChatStore.getState().setCurrentSession(data.sessionId)
-      useChatStore.getState().addMessage({
-        id: this.genId(),
-        role: 'assistant',
-        content: '你好！我是 LSM 智能助手。\n\n💡 点击右上角 <ApiOutlined /> 图标可连接 OpenClaw AI。',
-        timestamp: new Date(),
-        status: 'sent'
-      })
+      const state = useChatStore.getState()
+      // 只在会话ID变化时才添加欢迎消息
+      if (state.currentSessionId !== data.sessionId) {
+        state.setCurrentSession(data.sessionId)
+        // 只在没有消息时才显示欢迎消息（首次创建会话）
+        if (state.messages.length === 0) {
+          useChatStore.getState().addMessage({
+            id: this.genId(),
+            role: 'assistant',
+            content: '你好！我是 LSM 智能助手。\n\n💡 点击右上角 <ApiOutlined /> 图标可连接 OpenClaw AI。',
+            timestamp: new Date(),
+            status: 'sent'
+          })
+        }
+      }
     })
     this.socket.on('chat:typing', (data: { typing: boolean }) => useChatStore.getState().setTyping(data.typing))
     this.socket.on('chat:error', (err: { message: string }) => useChatStore.getState().addMessage({ id: this.genId(), role: 'system', content: `错误: ${err.message}`, timestamp: new Date(), status: 'error' }))

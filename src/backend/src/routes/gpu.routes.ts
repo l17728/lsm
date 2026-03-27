@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import gpuService from '../services/gpu.service';
 import { authenticate, requireAdmin, requireManager, AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../utils/prisma';
@@ -43,6 +43,15 @@ router.post(
   ],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const userId = req.user!.userId;
       const { gpuModel, minMemory } = req.body;
 
@@ -232,6 +241,15 @@ router.delete(
   ],
   async (req, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const { ids } = req.body;
       const results = {
         success: 0,
@@ -297,6 +315,15 @@ router.patch(
   ],
   async (req, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const { id } = req.params;
       const { allocated } = req.body;
       

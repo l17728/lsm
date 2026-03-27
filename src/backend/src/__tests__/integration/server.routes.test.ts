@@ -25,11 +25,14 @@ jest.mock('../../services/server.service', () => ({
 // Mock auth middleware
 jest.mock('../../middleware/auth.middleware', () => ({
   authenticate: (req: any, res: any, next: any) => {
-    req.user = {
-      userId: 'user-1',
-      username: 'testuser',
-      role: 'USER',
-    };
+    // Don't overwrite if already set by custom middleware
+    if (!req.user) {
+      req.user = {
+        userId: 'user-1',
+        username: 'testuser',
+        role: 'USER',
+      };
+    }
     next();
   },
   requireAdmin: (req: any, res: any, next: any) => {
@@ -268,13 +271,13 @@ describe('Server Routes', () => {
 
     it('should update server status', async () => {
       const mockServer = {
-        id: 'server-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
         status: 'MAINTENANCE',
       };
       (serverService.updateServerStatus as jest.Mock).mockResolvedValue(mockServer);
 
       const response = await request(appWithManager)
-        .patch('/api/servers/server-1/status')
+        .patch('/api/servers/550e8400-e29b-41d4-a716-446655440001/status')
         .send({
           status: 'MAINTENANCE',
         });
@@ -370,7 +373,7 @@ describe('Server Routes', () => {
       const response = await request(appWithAdmin)
         .delete('/api/servers/batch')
         .send({
-          ids: ['server-1', 'server-2'],
+          ids: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'],
         });
 
       expect(response.status).toBe(200);
@@ -385,7 +388,7 @@ describe('Server Routes', () => {
       const response = await request(appWithAdmin)
         .delete('/api/servers/batch')
         .send({
-          ids: ['server-1', 'server-2'],
+          ids: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'],
         });
 
       expect(response.status).toBe(200);
@@ -419,7 +422,7 @@ describe('Server Routes', () => {
       const response = await request(appWithManager)
         .patch('/api/servers/batch/status')
         .send({
-          ids: ['server-1', 'server-2'],
+          ids: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'],
           status: 'MAINTENANCE',
         });
 
@@ -431,7 +434,7 @@ describe('Server Routes', () => {
       const response = await request(appWithManager)
         .patch('/api/servers/batch/status')
         .send({
-          ids: ['server-1'],
+          ids: ['550e8400-e29b-41d4-a716-446655440001'],
           status: 'INVALID',
         });
 

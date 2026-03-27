@@ -183,7 +183,7 @@ describe('LSM API Integration Tests', () => {
       const response = await request(app)
         .post('/api/servers')
         .set('Authorization', `Bearer ${AUTH_TOKEN}`)
-        .send({ name: 'Test Server', hostname: 'srv01.local', ipAddress: '10.0.0.1' });
+        .send({ name: 'Test Server', hostname: 'srv01.local', ipAddress: '10.0.0.1', cpuCores: 8, totalMemory: 64 });
 
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);

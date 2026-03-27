@@ -2,12 +2,108 @@
 
 Guidance for AI coding agents working in the LSM (Laboratory Server Management System) codebase.
 
+---
+
+## 🚨 最高原则：发现一个错误，解决一类问题
+
+> **这是最高优先级的指导原则，所有代理必须遵循。**
+
+当发现任何 bug、错误或问题时：
+
+1. **不要只修复眼前的单个实例**
+2. **必须搜索整个代码库，找出所有类似的模式**
+3. **一次性解决整类问题**
+
+### 执行检查清单
+
+```
+□ 问题根因是什么？
+□ 这个模式在代码库中是否重复出现？
+□ 使用 grep/ast-grep 搜索所有类似代码
+□ 列出所有需要修复的位置
+□ 一次性修复所有实例
+□ 运行完整测试验证
+□ 更新 .learnings/LEARNINGS.md
+```
+
+### 案例：express-validator validationResult
+
+- **发现**: `server.routes.ts` 缺少 `validationResult()` 检查
+- **举一反三**: 搜索发现同样问题存在于 `task.routes.ts`, `gpu.routes.ts`, `monitoring.routes.ts`
+- **结果**: 一次性修复所有受影响的 11 个路由
+
+---
+
 ## Project Overview
 
 LSM is a full-stack platform for managing lab server resources, GPU allocation, task scheduling, and real-time monitoring.
 - **Backend**: Node.js 20 + Express + TypeScript + Prisma (PostgreSQL) + Redis + Socket.IO
 - **Frontend**: React 18 + Vite + TypeScript + Ant Design 5 + Zustand + React Query
 - **Working branch**: `develop` — PRs target `main`
+
+---
+
+## ⚠️ CRITICAL: Windows Local Deployment Configuration
+
+> **READ THIS FIRST** if setting up or troubleshooting local development environment on Windows.
+
+### Current Configuration (Port 5432)
+
+The project uses these ports. **Verify they match before debugging connection issues:**
+
+| Service | Port | Check Command |
+|---------|------|---------------|
+| PostgreSQL | 5432 | `netstat -ano \| findstr :5432` |
+| Redis | 6379 | `netstat -ano \| findstr :6379` |
+| Backend API | 8080 | `netstat -ano \| findstr :8080` |
+| Frontend | 8081 | `netstat -ano \| findstr :8081` |
+
+### Configuration Files to Check
+
+1. **Backend .env** (`src/backend/.env`):
+   ```env
+   DATABASE_URL=postgresql://postgres:postgre@localhost:5432/lsm
+   ```
+
+2. **Prisma Schema** (`src/backend/prisma/schema.prisma`):
+   ```prisma
+   datasource db {
+     provider = "postgresql"
+     url      = "postgresql://postgres:postgre@localhost:5432/lsm"
+   }
+   ```
+
+3. **Frontend .env** (`src/frontend/.env`):
+   ```env
+   VITE_API_BASE_URL=http://localhost:8080/api
+   VITE_WS_URL=ws://localhost:8080
+   ```
+
+### Common Issues & Solutions
+
+| Issue | Detection | Solution |
+|-------|-----------|----------|
+| **Multiple PostgreSQL instances** | `netstat -ano \| findstr :543` shows 2+ ports | Choose ONE instance, update all config files |
+| **Database migration P3005** | "Database schema is not empty" | `npx prisma migrate resolve --applied <migration_name>` |
+| **Frontend .env missing** | File doesn't exist | Create from template above |
+| **Port mismatch** | Config says 5433, service on 5432 | Update config files to match actual port |
+
+### Pre-Configuration Checklist
+
+```powershell
+# Run these BEFORE starting configuration
+netstat -ano | findstr ":5432 :6379 :8080 :8081"  # Check actual ports
+tasklist | findstr -i postgres                     # Check PG instances
+tasklist | findstr -i redis                        # Check Redis
+```
+
+### Multiple Database Instances Warning
+
+**CRITICAL**: Windows may have multiple PostgreSQL instances running. ALWAYS:
+1. Check with `netstat -ano | findstr :543`
+2. Confirm with user which instance to use
+3. Update ALL config files consistently (`.env`, `schema.prisma`)
+4. Clean up unused instances: `taskkill /PID <pid> /F`
 
 ---
 

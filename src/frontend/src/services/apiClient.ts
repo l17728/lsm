@@ -1,30 +1,29 @@
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 /**
- * API error types
+ * @deprecated This file is deprecated. Use './api' instead.
+ * 
+ * This API client uses localStorage for token storage which is inconsistent
+ * with the main api.ts that uses Zustand store. This causes authentication
+ * issues when tokens are not synchronized.
+ * 
+ * For new code, import from './api' instead:
+ *   import apiClient from './api'
+ *   import { ApiError, ApiErrorType } from './api'
+ * 
+ * @see ./api.ts for the recommended API client
  */
-export enum ApiErrorType {
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
-  AUTHORIZATION_ERROR = 'AUTHORIZATION_ERROR',
-  NOT_FOUND_ERROR = 'NOT_FOUND_ERROR',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
-}
 
-/**
- * API error interface
- */
-export interface ApiError {
-  type: ApiErrorType;
-  message: string;
-  code?: string;
-  details?: any;
-  status?: number;
-}
+// Import shared error types
+import { ApiErrorType, ApiError, createApiError } from './apiErrors';
+
+// Re-export for backward compatibility (deprecated)
+export { ApiErrorType } from './apiErrors'
+export type { ApiError } from './apiErrors'
 
 /**
  * Create axios instance with base configuration
+ * @deprecated Use api.ts instead
  */
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api',

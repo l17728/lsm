@@ -1,6 +1,11 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
+// Re-export API error types for unified access
+export { ApiErrorType } from './apiErrors'
+export type { ApiError } from './apiErrors'
+export { createApiError } from './apiErrors'
+
 const API_BASE_URL = '/api'
 
 const apiClient = axios.create({
