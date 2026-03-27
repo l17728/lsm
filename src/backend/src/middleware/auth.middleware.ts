@@ -49,13 +49,15 @@ export const authorize = (...allowedRoles: UserRole[]) => {
 
 /**
  * Convenience middleware for admin-only routes
+ * SUPER_ADMIN has all ADMIN permissions
  */
-export const requireAdmin = authorize(UserRole.ADMIN);
+export const requireAdmin = authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN);
 
 /**
  * Convenience middleware for manager and admin routes
+ * SUPER_ADMIN has all MANAGER and ADMIN permissions
  */
-export const requireManager = authorize(UserRole.MANAGER, UserRole.ADMIN);
+export const requireManager = authorize(UserRole.MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN);
 
 /**
  * Convenience middleware for super admin only routes
