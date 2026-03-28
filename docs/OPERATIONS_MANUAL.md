@@ -291,7 +291,7 @@ echo "✅ 所有检查通过！"
 **Step 1: 克隆项目**
 
 ```bash
-git clone https://github.com/your-org/lsm.git
+git clone https://github.com/l17728/lsm.git
 cd lsm
 ```
 
@@ -1793,7 +1793,7 @@ services:
 **文档**:
 - 用户手册：/docs/USER_MANUAL.md
 - API 文档：http://localhost:4000/api/docs
-- 项目仓库：https://github.com/your-org/lsm
+- 项目仓库：https://github.com/l17728/lsm
 
 ---
 

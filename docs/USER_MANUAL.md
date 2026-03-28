@@ -11,9 +11,10 @@
 
 ### 第一部分 入门篇
 
-- [第 1 章 系统概述](#第 1 章 - 系统概述)
-- [第 2 章 快速入门](#第 2 章 - 快速入门)
-- [第 3 章 主界面介绍](#第 3 章 - 主界面介绍)
+- [第 1 章 系统概述](#第-1-章-系统概述)
+- [第 1.5 章 安装部署](#第-1.5-章-安装部署) 🆕
+- [第 2 章 快速入门](#第-2-章-快速入门)
+- [第 3 章 主界面介绍](#第-3-章-主界面介绍)
 
 ### 第二部分 核心功能篇
 
@@ -139,7 +140,7 @@
 | **部署** | Docker | latest |
 | | Docker Compose | latest |
 
-#### 1.5 用户角色
+#### 1.6 用户角色
 
 | 角色 | 权限 | 适用人群 |
 |------|------|----------|
@@ -163,6 +164,258 @@
 | 用户管理 | ✅ | ❌ | ❌ |
 | 系统配置 | ✅ | ❌ | ❌ |
 | 查看审计日志 | ✅ | ❌ | ❌ |
+
+---
+
+### 第 1.5 章 安装部署 🆕
+
+本章介绍如何从 GitHub 下载 LSM 项目并在 Linux 服务器上进行安装部署。
+
+#### 1.5.1 系统要求
+
+**硬件要求**:
+
+| 配置 | 开发环境 | 生产环境 |
+|------|---------|---------|
+| CPU | 4 核心 | 8 核心+ |
+| 内存 | 8 GB | 16 GB+ |
+| 存储 | 50 GB SSD | 200 GB SSD |
+| 网络 | 100 Mbps | 1 Gbps |
+
+**软件要求**:
+
+| 软件 | 版本 | 说明 |
+|------|------|------|
+| Docker | 24.0+ | 容器运行时 |
+| Docker Compose | 2.20+ | 服务编排 |
+| Git | 2.x+ | 版本控制 |
+
+**支持的操作系统**:
+
+| 系统 | 版本 | 状态 |
+|------|------|------|
+| Ubuntu | 22.04 LTS | ✅ 推荐 |
+| Ubuntu | 20.04 LTS | ✅ 支持 |
+| CentOS | 8.x | ✅ 支持 |
+| Debian | 11.x | ✅ 支持 |
+
+#### 1.5.2 一键部署（推荐）
+
+**适合新用户快速部署**。
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/l17728/lsm.git
+cd lsm
+
+# 2. 一键启动开发环境
+./quickstart.sh dev
+
+# 3. 验证服务
+curl http://localhost:3000  # 前端
+curl http://localhost:8080/api/health  # 后端 API
+```
+
+**一键部署说明**:
+
+| 命令 | 说明 |
+|------|------|
+| `./quickstart.sh dev` | 开发环境（自动配置开发密码） |
+| `./quickstart.sh prod` | 生产环境（需要配置 .env） |
+| `./quickstart.sh test` | 运行测试套件 |
+
+部署完成后可访问：
+
+| 服务 | 地址 |
+|------|------|
+| 前端界面 | http://localhost:3000 |
+| 后端 API | http://localhost:8080 |
+| Grafana 监控 | http://localhost:3001 |
+| Prometheus | http://localhost:9090 |
+
+#### 1.5.3 手动部署
+
+**适合需要自定义配置的场景**。
+
+**Step 1: 克隆项目**
+
+```bash
+git clone https://github.com/l17728/lsm.git
+cd lsm
+```
+
+**Step 2: 配置环境变量**
+
+```bash
+# 复制配置模板
+cp .env.example .env
+
+# 编辑配置文件
+vim .env
+```
+
+**关键配置项**:
+
+```env
+# 数据库密码（必须修改）
+DB_PASSWORD=your_secure_password
+
+# Redis 密码（必须修改）
+REDIS_PASSWORD=your_redis_password
+
+# JWT 密钥（必须修改，生成命令见下）
+JWT_SECRET=your_jwt_secret_key
+
+# 前端 API 地址
+VITE_API_BASE_URL=http://your-server-ip:8080/api
+```
+
+**生成安全密钥**:
+
+```bash
+# JWT 密钥
+openssl rand -base64 64
+
+# 数据库密码
+openssl rand -base64 32
+```
+
+**Step 3: 启动服务**
+
+```bash
+# 启动所有服务
+docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+```
+
+**Step 4: 数据库初始化**
+
+```bash
+# 运行数据库迁移
+docker-compose exec backend npx prisma migrate deploy
+
+# 生成 Prisma 客户端
+docker-compose exec backend npx prisma generate
+```
+
+**Step 5: 验证部署**
+
+```bash
+# 检查后端健康状态
+curl http://localhost:8080/api/health
+# 预期输出：{"success":true,"data":{"status":"ok"}}
+
+# 检查前端
+curl http://localhost:3000
+```
+
+#### 1.5.4 生产环境部署
+
+**使用生产配置文件**:
+
+```bash
+# 使用生产 Docker Compose 配置
+docker-compose -f docker-compose.prod.yml up -d
+
+# 或复制配置
+cp docker-compose.prod.yml docker-compose.override.yml
+docker-compose up -d
+```
+
+**生产环境检查清单**:
+
+- [ ] 修改所有默认密码（DB、Redis、JWT、Grafana）
+- [ ] 配置 HTTPS/SSL 证书
+- [ ] 设置防火墙规则（仅开放 80、443 端口）
+- [ ] 配置邮件服务 SMTP
+- [ ] 设置备份计划
+- [ ] 启用监控告警
+
+**防火墙配置** (Ubuntu):
+
+```bash
+# 允许 SSH
+sudo ufw allow 22/tcp
+
+# 允许 HTTP/HTTPS
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# 启用防火墙
+sudo ufw enable
+```
+
+#### 1.5.5 常见问题
+
+**Q: Docker 未安装怎么办？**
+
+```bash
+# Ubuntu/Debian
+curl -fsSL https://get.docker.com | sh
+sudo systemctl enable docker
+sudo systemctl start docker
+
+# 安装 Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
+**Q: 端口被占用怎么办？**
+
+```bash
+# 查看端口占用
+sudo netstat -tlnp | grep :8080
+
+# 停止占用进程
+sudo kill -9 <PID>
+
+# 或修改 .env 中的端口配置
+BACKEND_PORT=8081
+FRONTEND_PORT=3001
+```
+
+**Q: 数据库连接失败？**
+
+```bash
+# 检查 PostgreSQL 是否运行
+docker-compose ps postgres
+
+# 查看数据库日志
+docker-compose logs postgres
+
+# 重启数据库
+docker-compose restart postgres
+```
+
+**Q: 如何更新到最新版本？**
+
+```bash
+# 拉取最新代码
+git pull origin main
+
+# 重新构建并启动
+docker-compose down
+docker-compose build
+docker-compose up -d
+
+# 运行数据库迁移
+docker-compose exec backend npx prisma migrate deploy
+```
+
+#### 1.5.6 下一步
+
+部署完成后：
+
+1. 访问 http://localhost:3000 打开系统界面
+2. 使用默认账号登录：`admin / Pass@865342`
+3. 阅读 [第 2 章 快速入门](#第-2-章-快速入门) 开始使用系统
+
+> 💡 **提示**: 更详细的部署说明请参考 [运维手册](OPERATIONS_MANUAL.md) 第 1-2 章。
 
 ---
 

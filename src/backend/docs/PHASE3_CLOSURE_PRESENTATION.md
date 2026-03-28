@@ -372,7 +372,7 @@ A: 四大方向:
 
 ### 联系方式
 
-- 项目仓库：github.com/xxx/lsm-project
+- 项目仓库：https://github.com/l17728/lsm
 - 问题反馈：issues 页面
 - 项目邮箱：lsm-project@example.com
 

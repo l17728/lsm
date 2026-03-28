@@ -640,7 +640,7 @@ volumes:
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-org/lsm-project.git
+git clone https://github.com/l17728/lsm.git
 cd lsm-project
 
 # 2. 配置环境变量

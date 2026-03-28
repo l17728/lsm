@@ -117,14 +117,40 @@ Laboratory Server Management System (LSM) is a comprehensive platform for managi
 
 ## Installation
 
-### Prerequisites
+> 📘 **完整安装指南**: [INSTALL.md](INSTALL.md)
 
-- Node.js 20+
-- PostgreSQL 14+
-- Redis 7+
-- npm or yarn
+### Quick Start (Docker) 🚀
 
-### Backend Setup
+**推荐方式** - 使用 Docker 一键部署：
+
+```bash
+# Clone the repository
+git clone https://github.com/l17728/lsm.git
+cd lsm
+
+# Quick start (development mode)
+./quickstart.sh dev
+```
+
+**访问服务**:
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8080 |
+| API Docs | http://localhost:8080/api/docs |
+| Grafana | http://localhost:3001 |
+
+**默认账号**: `admin / Pass@865342`
+
+### Prerequisites (Manual Installation)
+
+- Docker 24.0+ (推荐) 或 Node.js 20+
+- PostgreSQL 14+ (Docker 部署无需手动安装)
+- Redis 7+ (Docker 部署无需手动安装)
+- Git 2.x+
+
+### Backend Setup (Manual)
 
 ```bash
 cd src/backend
@@ -146,7 +172,7 @@ npx prisma migrate dev
 npm run dev
 ```
 
-### Frontend Setup
+### Frontend Setup (Manual)
 
 ```bash
 cd src/frontend
