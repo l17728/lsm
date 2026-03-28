@@ -73,9 +73,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
-      - name: Image digest
-        run: echo ${{ steps.build.outputs.digest }}
 
   # ============================================
   # 构建并推送 Frontend 镜像
@@ -117,8 +114,8 @@ jobs:
       - name: Build and push Frontend
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
+          context: ./src/frontend
+          file: ./src/frontend/Dockerfile
           push: ${{ github.event_name == 'release' || inputs.push_images }}
           tags: |
             ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.TAG }}
