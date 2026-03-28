@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Table, Tag, Alert, Statistic, Spin } from 'antd'
+import { Card, Row, Col, Table, Tag, Alert, Statistic, Spin, message } from 'antd'
 import {
   WarningOutlined,
   CheckCircleOutlined,
@@ -30,36 +30,53 @@ const Monitoring: React.FC = () => {
   useEffect(() => {
     loadData()
 
-    wsService.on('servers:update', (data) => {
+    const onServersUpdate = (data: any) => {
       setHealth(data.health || [])
       setClusterStats((prev: any) => ({ ...prev, ...data }))
-    })
+    }
+    const onAlertsNew = (data: any) => { setAlerts(data) }
 
-    wsService.on('alerts:new', (data) => {
-      setAlerts(data)
-    })
+    wsService.on('servers:update', onServersUpdate)
+    wsService.on('alerts:new', onAlertsNew)
 
     return () => {
-      wsService.off('servers:update', () => {})
-      wsService.off('alerts:new', () => {})
+      wsService.off('servers:update', onServersUpdate)
+      wsService.off('alerts:new', onAlertsNew)
     }
   }, [])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [healthRes, alertsRes, clusterRes] = await Promise.all([
+      const [healthRes, alertsRes, clusterRes] = await Promise.allSettled([
         monitoringApi.getHealth(),
         monitoringApi.getAlerts(),
         monitoringApi.getClusterStats(),
       ])
 
-      setHealth(healthRes.data.data)
-      setAlerts(alertsRes.data.data)
-      setClusterStats(clusterRes.data.data)
-      generateMetricsData(healthRes.data.data)
-    } catch (error: any) {
-      console.error('Failed to load monitoring data:', error)
+      if (healthRes.status === 'fulfilled') {
+        setHealth(healthRes.value.data.data)
+        generateMetricsData(healthRes.value.data.data)
+      } else {
+        console.error('[Monitoring] Failed to load server health:', healthRes.reason)
+        message.error('Failed to load server health data, please refresh and try again')
+        generateMetricsData([])
+      }
+
+      if (alertsRes.status === 'fulfilled') {
+        setAlerts(alertsRes.value.data.data)
+      } else {
+        console.error('[Monitoring] Failed to load alerts:', alertsRes.reason)
+        // alerts 降级为空列表，不中断其他数据展示
+        setAlerts([])
+      }
+
+      if (clusterRes.status === 'fulfilled') {
+        setClusterStats(clusterRes.value.data.data)
+      } else {
+        console.error('[Monitoring] Failed to load cluster stats:', clusterRes.reason)
+        message.error('Failed to load cluster statistics, please refresh and try again')
+      }
     } finally {
       setLoading(false)
     }

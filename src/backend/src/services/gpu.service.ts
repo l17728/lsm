@@ -1,5 +1,6 @@
 import prisma from '../utils/prisma';
-import { GpuStatus, AllocationStatus } from '@prisma/client';
+import { emailQueueService } from './email-queue.service';
+import { EmailType } from './email.service';
 
 export interface AllocateGpuRequest {
   userId: string;
@@ -15,11 +16,19 @@ export interface GpuAllocationResult {
   serverName: string;
   gpuModel: string;
   gpuMemory: number;
-  deviceId: number;
-  startTime: Date;
 }
 
 export class GpuService {
+  /**
+   * Get user email by ID
+   */
+  private async getUserEmail(userId: string): Promise<string | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    return user?.email || null;
+  }
   /**
    * Allocate a GPU to a user
    */
@@ -28,7 +37,7 @@ export class GpuService {
 
     // Find available GPU matching criteria
     const whereClause: any = {
-      status: GpuStatus.AVAILABLE,
+      allocated: false,
       server: {
         status: 'ONLINE',
       },
@@ -60,7 +69,6 @@ export class GpuService {
         userId,
         gpuId: availableGpu.id,
         taskId: taskId || undefined,
-        status: AllocationStatus.ACTIVE,
       },
     });
 
@@ -68,10 +76,28 @@ export class GpuService {
     await prisma.gpu.update({
       where: { id: availableGpu.id },
       data: {
-        status: GpuStatus.ALLOCATED,
-        currentAllocationId: allocation.id,
+        allocated: true,
       },
     });
+
+    // Get user email and send notification
+    const userEmail = await this.getUserEmail(userId);
+    if (userEmail) {
+      const taskInfo = taskId ? await this.getTaskName(taskId) : null;
+      await emailQueueService.enqueue(
+        EmailType.GPU_ALLOCATED,
+        userEmail,
+        {
+          userId,
+          username: await this.getUsername(userId),
+          gpuModel: availableGpu.model,
+          memory: availableGpu.memory,
+          serverName: availableGpu.server.name,
+          taskName: taskInfo || 'N/A',
+        },
+        'high'
+      );
+    }
 
     return {
       allocationId: allocation.id,
@@ -80,9 +106,29 @@ export class GpuService {
       serverName: availableGpu.server.name,
       gpuModel: availableGpu.model,
       gpuMemory: availableGpu.memory,
-      deviceId: availableGpu.deviceId,
-      startTime: allocation.startTime,
     };
+  }
+
+  /**
+   * Get username by ID
+   */
+  private async getUsername(userId: string): Promise<string> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+    return user?.username || 'User';
+  }
+
+  /**
+   * Get task name by ID
+   */
+  private async getTaskName(taskId: string): Promise<string | null> {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: { name: true },
+    });
+    return task?.name || null;
   }
 
   /**
@@ -92,7 +138,11 @@ export class GpuService {
     const allocation = await prisma.gpuAllocation.findUnique({
       where: { id: allocationId },
       include: {
-        gpu: true,
+        gpu: {
+          include: {
+            server: true,
+          },
+        },
       },
     });
 
@@ -104,16 +154,21 @@ export class GpuService {
       throw new Error('Not authorized to release this GPU');
     }
 
-    if (allocation.status !== AllocationStatus.ACTIVE) {
+    if (allocation.releasedAt) {
       throw new Error('Allocation is not active');
     }
 
     // Update allocation
+    const now = new Date();
+    const duration = allocation.allocatedAt 
+      ? Math.floor((now.getTime() - allocation.allocatedAt.getTime()) / 1000)
+      : 0;
+
     await prisma.gpuAllocation.update({
       where: { id: allocationId },
       data: {
-        status: AllocationStatus.COMPLETED,
-        endTime: new Date(),
+        releasedAt: now,
+        duration,
       },
     });
 
@@ -121,10 +176,28 @@ export class GpuService {
     await prisma.gpu.update({
       where: { id: allocation.gpuId },
       data: {
-        status: GpuStatus.AVAILABLE,
-        currentAllocationId: null,
+        allocated: false,
       },
     });
+
+    // Send email notification for GPU release
+    const userEmail = await this.getUserEmail(userId);
+    if (userEmail) {
+      await emailQueueService.enqueue(
+        EmailType.GPU_ALLOCATED, // Reuse GPU allocated template with different context
+        userEmail,
+        {
+          userId,
+          username: await this.getUsername(userId),
+          gpuModel: allocation.gpu.model,
+          memory: allocation.gpu.memory,
+          serverName: allocation.gpu.server.name,
+          taskName: 'Released',
+          releaseTime: new Date().toISOString(),
+        },
+        'medium'
+      );
+    }
 
     return { success: true, gpuId: allocation.gpuId };
   }
@@ -136,7 +209,7 @@ export class GpuService {
     const allocations = await prisma.gpuAllocation.findMany({
       where: {
         userId,
-        status: AllocationStatus.ACTIVE,
+        releasedAt: null,
       },
       include: {
         gpu: {
@@ -156,7 +229,7 @@ export class GpuService {
   async getAllActiveAllocations() {
     const allocations = await prisma.gpuAllocation.findMany({
       where: {
-        status: AllocationStatus.ACTIVE,
+        releasedAt: null,
       },
       include: {
         user: {
@@ -172,7 +245,7 @@ export class GpuService {
           },
         },
       },
-      orderBy: { startTime: 'desc' },
+      orderBy: { allocatedAt: 'desc' },
     });
 
     return allocations;
@@ -191,7 +264,7 @@ export class GpuService {
           },
         },
       },
-      orderBy: { startTime: 'desc' },
+      orderBy: { allocatedAt: 'desc' },
       take: limit,
     });
 
@@ -214,11 +287,16 @@ export class GpuService {
     }
 
     // Update allocation
+    const now = new Date();
+    const duration = allocation.allocatedAt 
+      ? Math.floor((now.getTime() - allocation.allocatedAt.getTime()) / 1000)
+      : 0;
+
     await prisma.gpuAllocation.update({
       where: { id: allocationId },
       data: {
-        status: AllocationStatus.TERMINATED,
-        endTime: new Date(),
+        releasedAt: now,
+        duration,
       },
     });
 
@@ -226,8 +304,7 @@ export class GpuService {
     await prisma.gpu.update({
       where: { id: allocation.gpuId },
       data: {
-        status: GpuStatus.AVAILABLE,
-        currentAllocationId: null,
+        allocated: false,
       },
     });
 
@@ -246,10 +323,8 @@ export class GpuService {
 
     const stats = {
       total: gpus.length,
-      available: gpus.filter((g) => g.status === GpuStatus.AVAILABLE).length,
-      allocated: gpus.filter((g) => g.status === GpuStatus.ALLOCATED).length,
-      error: gpus.filter((g) => g.status === GpuStatus.ERROR).length,
-      maintenance: gpus.filter((g) => g.status === GpuStatus.MAINTENANCE).length,
+      available: gpus.filter((g) => !g.allocated).length,
+      allocated: gpus.filter((g) => g.allocated).length,
       byModel: {} as Record<string, number>,
     };
 

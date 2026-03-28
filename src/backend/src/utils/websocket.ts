@@ -3,7 +3,13 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import monitoringService from '../services/monitoring.service';
 import taskService from '../services/task.service';
 import gpuService from '../services/gpu.service';
-import { TaskStatus } from '@prisma/client';
+import { task_status as TaskStatus } from '@prisma/client';
+import { websocketSessionService } from '../services/websocket-session.service';
+import { mcpTools } from '../routes/mcp.routes';
+import openClawService from '../services/openclaw.service';
+
+// Chat session storage (in-memory for simplicity)
+const chatSessions = new Map<string, { id: string; userId: string; messages: any[]; createdAt: Date }>();
 
 export class WebSocketHandler {
   private io: SocketIOServer;
@@ -18,6 +24,9 @@ export class WebSocketHandler {
       },
     });
 
+    // Initialize session service
+    websocketSessionService.initialize(this.io);
+
     this.setupMiddleware();
     this.setupEventHandlers();
   }
@@ -30,20 +39,26 @@ export class WebSocketHandler {
         return next(new Error('Authentication required'));
       }
 
-      // Token validation would happen here in production
-      // For now, we'll accept all tokens
+      // Extract userId from JWT token
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        (socket as any).userId = payload.userId;
+      } catch {
+        (socket as any).userId = 'anonymous';
+      }
       next();
     });
   }
 
   private setupEventHandlers() {
     this.io.on('connection', (socket: Socket) => {
-      console.log(`Client connected: ${socket.id}`);
+      const userId = (socket as any).userId;
+      console.log(`Client connected: ${socket.id}, userId: ${userId}`);
 
       // Join user-specific room
-      socket.on('join:user', (userId: string) => {
-        socket.join(`user:${userId}`);
-        console.log(`Client ${socket.id} joined user room: user:${userId}`);
+      socket.on('join:user', (uid: string) => {
+        socket.join(`user:${uid}`);
+        console.log(`Client ${socket.id} joined user room: user:${uid}`);
       });
 
       // Subscribe to server updates
@@ -62,6 +77,96 @@ export class WebSocketHandler {
       socket.on('subscribe:tasks', () => {
         socket.join('tasks');
         console.log(`Client ${socket.id} subscribed to task updates`);
+      });
+
+      // ===== Chat Events =====
+      socket.on('create:session', () => {
+        const sessionId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        chatSessions.set(sessionId, { id: sessionId, userId, messages: [], createdAt: new Date() });
+        socket.join(`session:${sessionId}`);
+        socket.emit('chat:session', { sessionId });
+        console.log(`[Chat] Created session: ${sessionId}`);
+      });
+
+      socket.on('join:chat', (data: { sessionId: string }) => {
+        const session = chatSessions.get(data.sessionId);
+        if (session) {
+          socket.join(`session:${data.sessionId}`);
+          socket.emit('chat:history', { messages: session.messages });
+        } else {
+          socket.emit('chat:error', { message: 'Session not found' });
+        }
+      });
+
+      socket.on('chat:message', async (data: { type: string; content: string; sessionId: string }) => {
+        const session = chatSessions.get(data.sessionId);
+        if (!session) {
+          return socket.emit('chat:error', { message: 'Session not found' });
+        }
+
+        // Add user message
+        const userMsg = { id: `msg-${Date.now()}`, role: 'user', content: data.content, timestamp: new Date().toISOString() };
+        session.messages.push(userMsg);
+
+        // Show typing indicator
+        socket.emit('chat:typing', { typing: true });
+        
+        try {
+          // Call OpenClaw service
+          const response = await openClawService.chat(data.content, {
+            userId,
+            sessionId: data.sessionId
+          });
+
+          const aiMsg = {
+            id: `msg-${Date.now()}-ai`,
+            role: 'assistant',
+            content: response.message || response.error || '抱歉，我暂时无法处理您的请求。',
+            timestamp: new Date().toISOString()
+          };
+          session.messages.push(aiMsg);
+          socket.emit('chat:message', { type: 'message', payload: aiMsg });
+        } catch (error: any) {
+          console.error('[Chat] Error:', error.message);
+          const errorMsg = {
+            id: `msg-${Date.now()}-error`,
+            role: 'system',
+            content: '服务暂时不可用，请稍后重试。',
+            timestamp: new Date().toISOString()
+          };
+          socket.emit('chat:message', { type: 'message', payload: errorMsg });
+        } finally {
+          socket.emit('chat:typing', { typing: false });
+        }
+      });
+
+      socket.on('chat:clear', (data: { sessionId: string }) => {
+        const session = chatSessions.get(data.sessionId);
+        if (session) {
+          session.messages = [];
+        }
+      });
+
+      socket.on('leave:chat', (data: { sessionId: string }) => {
+        socket.leave(`session:${data.sessionId}`);
+      });
+
+      // MCP WebSocket Bridge
+      socket.on('mcp:invoke', async (data: { tool: string; params?: any; requestId?: string }) => {
+        try {
+          const handler = mcpTools[data.tool as keyof typeof mcpTools];
+          if (!handler) {
+            return socket.emit('mcp:error', { requestId: data.requestId, error: `Unknown tool: ${data.tool}` });
+          }
+          const result = await handler(data.params || {});
+          socket.emit('mcp:result', { requestId: data.requestId, tool: data.tool, result });
+        } catch (err: any) {
+          socket.emit('mcp:error', { requestId: data.requestId, error: err.message || 'Internal error' });
+        }
+      });
+
+      socket.on('mcp:tools', () => {
+        socket.emit('mcp:tools:list', { tools: Object.keys(mcpTools) });
       });
 
       // Handle disconnection
@@ -181,6 +286,38 @@ export class WebSocketHandler {
   getIO() {
     return this.io;
   }
+
+  /**
+   * Broadcast message to all connected clients
+   */
+  broadcast(message: any) {
+    this.io.emit('message', message);
+  }
+
+  /**
+   * Broadcast alert to all clients
+   */
+  broadcastAlert(alert: {
+    id: string;
+    type: string;
+    severity: string;
+    title: string;
+    message: string;
+    timestamp: string;
+    metadata?: any;
+  }) {
+    this.io.emit('alert', alert);
+    this.io.to('servers').emit('alerts:new', [alert]);
+  }
+}
+
+// Export singleton instance for global access
+let websocketInstance: WebSocketHandler | null = null;
+
+export function initializeWebSocket(httpServer: HttpServer): WebSocketHandler {
+  websocketInstance = new WebSocketHandler(httpServer);
+  (global as any).websocketServer = websocketInstance;
+  return websocketInstance;
 }
 
 export default WebSocketHandler;

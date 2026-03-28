@@ -1,0 +1,481 @@
+/* CalendarView.css */
+
+.calendar-view {
+  min-height: 600px;
+}
+
+.calendar-view .ant-card-body {
+  padding: 16px;
+}
+
+/* Toolbar */
+.calendar-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.current-date {
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 180px;
+  text-align: center;
+}
+
+.current-date:hover {
+  color: #1890ff;
+}
+
+/* Legend */
+.calendar-legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #666;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Common Calendar Styles */
+.calendar-header {
+  display: flex;
+  border-bottom: 1px solid #f0f0f0;
+  font-weight: 500;
+  background: #fafafa;
+}
+
+.calendar-body {
+  flex: 1;
+}
+
+.time-column-header {
+  width: 80px;
+  padding: 12px 8px;
+  text-align: center;
+  border-right: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+
+.calendar-row {
+  display: flex;
+  min-height: 60px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.calendar-row:hover {
+  background: #fafafa;
+}
+
+.time-cell {
+  width: 80px;
+  padding: 12px 8px;
+  text-align: center;
+  border-right: 1px solid #f0f0f0;
+  font-size: 12px;
+  color: #666;
+}
+
+/* Day View */
+.calendar-day-view {
+  height: 600px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.reservation-column-header {
+  flex: 1;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.date-display {
+  color: #666;
+  font-weight: 400;
+}
+
+.reservation-cell {
+  flex: 1;
+  padding: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.reservation-cell:hover,
+.reservation-cell.hovered {
+  background: #e6f7ff;
+}
+
+.reservation-item {
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  background: #f5f5f5;
+  border-left: 3px solid #1890ff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reservation-item:hover {
+  transform: translateX(2px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.reservation-item.status-pending {
+  border-left-color: #faad14;
+  background: rgba(250, 173, 20, 0.1);
+}
+
+.reservation-item.status-approved {
+  border-left-color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.reservation-item.status-active {
+  border-left-color: #52c41a;
+  background: rgba(82, 196, 26, 0.1);
+}
+
+.reservation-item.status-completed {
+  border-left-color: #8c8c8c;
+  background: rgba(140, 140, 140, 0.1);
+}
+
+.reservation-item.status-cancelled {
+  border-left-color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  opacity: 0.6;
+}
+
+.reservation-user {
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.reservation-purpose {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Week View */
+.calendar-week-view {
+  height: 600px;
+  overflow: auto;
+}
+
+.day-column-header {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+  border-right: 1px solid #f0f0f0;
+}
+
+.day-column-header.today {
+  background: #e6f7ff;
+}
+
+.day-name {
+  font-size: 12px;
+  color: #666;
+}
+
+.day-date {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.week-cell {
+  flex: 1;
+  min-height: 60px;
+  padding: 4px;
+  border-right: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.week-cell.today {
+  background: rgba(24, 144, 255, 0.05);
+}
+
+.week-cell:hover,
+.week-cell.hovered {
+  background: #e6f7ff;
+}
+
+.week-reservation-item {
+  padding: 4px 8px;
+  margin-bottom: 2px;
+  border-radius: 2px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.week-reservation-item.status-pending {
+  background: rgba(250, 173, 20, 0.2);
+  color: #d48806;
+}
+
+.week-reservation-item.status-approved {
+  background: rgba(24, 144, 255, 0.2);
+  color: #096dd9;
+}
+
+.week-reservation-item.status-active {
+  background: rgba(82, 196, 26, 0.2);
+  color: #389e0d;
+}
+
+.week-reservation-item.status-completed {
+  background: rgba(140, 140, 140, 0.2);
+  color: #595959;
+}
+
+.week-reservation-item.status-cancelled {
+  background: rgba(255, 77, 79, 0.1);
+  color: #cf1322;
+  text-decoration: line-through;
+}
+
+.more-items {
+  font-size: 11px;
+  color: #1890ff;
+  text-align: center;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+/* Month View */
+.calendar-month-view {
+  min-height: 600px;
+}
+
+.month-view-header {
+  display: flex;
+}
+
+.weekday-header {
+  flex: 1;
+  padding: 12px;
+  text-align: center;
+  font-weight: 500;
+  border-right: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.calendar-week-row {
+  display: flex;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.month-cell.has-reservations {
+  background: rgba(24, 144, 255, 0.03);
+  border-left: 3px solid #1890ff;
+}
+
+.month-cell.has-reservations:hover {
+  background: rgba(24, 144, 255, 0.08);
+}
+
+.month-cell {
+  flex: 1;
+  min-height: 120px;
+  padding: 8px;
+  border-right: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.month-cell:hover {
+  background: #f5f5f5;
+}
+
+.month-cell.today {
+  background: rgba(24, 144, 255, 0.05);
+}
+
+.month-cell.today .month-date {
+  background: #1890ff;
+  color: white;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.month-cell.other-month {
+  background: #fafafa;
+}
+
+.month-cell.other-month .month-date {
+  color: #bfbfbf;
+}
+
+.month-date {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.month-reservations {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.month-reservation-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.month-reservation-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.month-reservation-item.status-pending {
+  background: rgba(250, 173, 20, 0.25);
+  border: 1px solid rgba(250, 173, 20, 0.4);
+  color: #d48806;
+}
+
+.month-reservation-item.status-approved {
+  background: rgba(24, 144, 255, 0.25);
+  border: 1px solid rgba(24, 144, 255, 0.4);
+  color: #096dd9;
+}
+
+.month-reservation-item.status-active {
+  background: rgba(82, 196, 26, 0.25);
+  border: 1px solid rgba(82, 196, 26, 0.4);
+  color: #389e0d;
+}
+
+.month-reservation-item.status-completed {
+  background: rgba(140, 140, 140, 0.25);
+  border: 1px solid rgba(140, 140, 140, 0.4);
+  color: #595959;
+}
+
+.month-reservation-item.status-cancelled {
+  background: rgba(255, 77, 79, 0.15);
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  text-decoration: line-through;
+  color: #cf1322;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .calendar-toolbar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .toolbar-left,
+  .toolbar-center,
+  .toolbar-right {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .time-column-header,
+  .time-cell {
+    width: 60px;
+    font-size: 11px;
+  }
+
+  .calendar-row {
+    min-height: 50px;
+  }
+
+  .month-cell {
+    min-height: 80px;
+    padding: 4px;
+  }
+}
+
+/* Dark Mode */
+[data-theme='dark'] .calendar-view {
+  background: #1a1a2e;
+}
+
+[data-theme='dark'] .calendar-toolbar {
+  border-bottom-color: #303030;
+}
+
+[data-theme='dark'] .calendar-legend {
+  background: #252525;
+}
+
+[data-theme='dark'] .calendar-header {
+  background: #252525;
+  border-bottom-color: #303030;
+}
+
+[data-theme='dark'] .calendar-row {
+  border-bottom-color: #303030;
+}
+
+[data-theme='dark'] .time-cell,
+[data-theme='dark'] .time-column-header {
+  border-right-color: #303030;
+  color: #a0a0a0;
+}
+
+[data-theme='dark'] .calendar-row:hover {
+  background: #252525;
+}
+
+[data-theme='dark'] .reservation-cell:hover,
+[data-theme='dark'] .week-cell:hover,
+[data-theme='dark'] .month-cell:hover {
+  background: #303030;
+}
+
+[data-theme='dark'] .reservation-item {
+  background: #252525;
+}
+
+[data-theme='dark'] .month-cell.other-month {
+  background: #1a1a2e;
+}

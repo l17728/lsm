@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import taskService from '../services/task.service';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware';
-import { TaskStatus } from '@prisma/client';
+import { authenticate, requireAdmin, requireManager, AuthRequest } from '../middleware/auth.middleware';
+import { task_status as TaskStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -152,15 +152,23 @@ router.post(
   ],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const userId = req.user!.userId;
-      const { name, description, priority, scheduledAt } = req.body;
+      const { name, description, priority } = req.body;
 
       const task = await taskService.createTask({
         name,
         description,
         userId,
         priority,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
       });
 
       res.status(201).json({
@@ -191,20 +199,136 @@ router.put(
   ],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const userId = req.user!.userId;
       const { id } = req.params;
-      const { name, description, priority, scheduledAt } = req.body;
+      const { name, description, priority } = req.body;
 
       const task = await taskService.updateTask(id, {
         name,
         description,
         priority,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
       }, userId);
 
       res.json({
         success: true,
         data: task,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   DELETE /api/tasks/batch
+ * @desc    Batch delete tasks
+ * @access  Private
+ */
+router.delete(
+  '/batch',
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Task IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each task ID must be a valid UUID'),
+  ],
+  async (req: AuthRequest, res) => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
+      const userId = req.user!.userId;
+      const { ids } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await taskService.deleteTask(id, userId);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch delete completed: ${results.success} succeeded, ${results.failed} failed`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   POST /api/tasks/batch/cancel
+ * @desc    Batch cancel tasks
+ * @access  Private
+ */
+router.post(
+  '/batch/cancel',
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Task IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each task ID must be a valid UUID'),
+  ],
+  async (req: AuthRequest, res) => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
+      const userId = req.user!.userId;
+      const { ids } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await taskService.cancelTask(id, userId);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch cancel completed: ${results.success} succeeded, ${results.failed} failed`,
       });
     } catch (error: any) {
       res.status(400).json({
@@ -273,11 +397,20 @@ router.post(
   [body('result').optional().isString()],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       // In production, this would be restricted to scheduler service
       const { id } = req.params;
       const { result } = req.body;
 
-      const task = await taskService.completeTask(id, result);
+      const task = await taskService.completeTask(id);
 
       res.json({
         success: true,
@@ -302,6 +435,15 @@ router.post(
   [body('error').optional().isString()],
   async (req: AuthRequest, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const { id } = req.params;
       const { error } = req.body;
 
@@ -310,6 +452,61 @@ router.post(
       res.json({
         success: true,
         data: task,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   PATCH /api/tasks/batch/status
+ * @desc    Batch update task status
+ * @access  Private/Manager
+ */
+router.patch(
+  '/batch/status',
+  requireManager,
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Task IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each task ID must be a valid UUID'),
+    body('status').isIn(['PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED']).withMessage('Invalid status'),
+  ],
+  async (req, res) => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
+      const { ids, status } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await taskService.updateTask(id, { status: status as TaskStatus }, req.user!.userId);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch status update completed: ${results.success} succeeded, ${results.failed} failed`,
       });
     } catch (error: any) {
       res.status(400).json({

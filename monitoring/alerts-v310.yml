@@ -1,0 +1,173 @@
+# Prometheus Alert Rules for LSM v3.1.0
+# Auto-Scaling, Self-Healing, Alert Deduplication
+# Date: 2026-03-14
+
+groups:
+  # ============================================
+  # Auto-Scaling Alerts
+  # ============================================
+  - name: lsm-autoscaling
+    interval: 30s
+    rules:
+      # Scaling Policy Triggered
+      - alert: LSMAutoScalingTriggered
+        expr: lsm_autoscaling_action_total > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "自动扩缩容策略触发"
+          description: "策略 {{ $labels.policy_id }} 执行了 {{ $labels.action }} 操作"
+
+      # Scaling Near Limit
+      - alert: LSMScaleNearLimit
+        expr: (lsm_autoscaling_current_instances / lsm_autoscaling_max_instances) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "实例数接近上限"
+          description: "策略 {{ $labels.policy_id }} 当前实例数已达上限的 {{ $value | humanizePercentage }}"
+
+      # Scaling Cooldown Active
+      - alert: LSMScaleCooldownActive
+        expr: lsm_autoscaling_cooldown_remaining_seconds > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "扩缩容冷却中"
+          description: "策略 {{ $labels.policy_id }} 正在冷却，剩余 {{ $value }} 秒"
+
+  # ============================================
+  # Self-Healing Alerts
+  # ============================================
+  - name: lsm-self-healing
+    interval: 30s
+    rules:
+      # Fault Detected
+      - alert: LSMFaultDetected
+        expr: lsm_fault_active_total > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "检测到故障"
+          description: "检测到 {{ $value }} 个活跃故障需要处理"
+
+      # Auto-Repair Failed
+      - alert: LSMAutoRepairFailed
+        expr: rate(lsm_repair_failed_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: error
+        annotations:
+          summary: "自动修复失败"
+          description: "故障 {{ $labels.fault_id }} 的自动修复尝试失败"
+
+      # Repair Attempts Exceeded
+      - alert: LSMRepairAttemptsExceeded
+        expr: lsm_fault_repair_attempts >= lsm_fault_max_repair_attempts
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "修复尝试次数超限"
+          description: "故障 {{ $labels.fault_id }} 已达到最大修复尝试次数，需要人工干预"
+
+      # Pending Confirmation
+      - alert: LSMPendingRepairConfirmation
+        expr: lsm_repair_pending_confirmation_total > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "等待修复确认"
+          description: "有 {{ $value }} 个修复动作等待人工确认"
+
+      # High Fault Rate
+      - alert: LSMHighFaultRate
+        expr: rate(lsm_fault_detected_total[1h]) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "故障频率异常"
+          description: "过去 1 小时内故障检测频率过高: {{ $value | printf \"%.1f\" }} 次/小时"
+
+  # ============================================
+  # Alert Deduplication Alerts
+  # ============================================
+  - name: lsm-alert-dedup
+    interval: 30s
+    rules:
+      # High Alert Volume
+      - alert: LSMHighAlertVolume
+        expr: rate(lsm_alerts_raw_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "告警量过高"
+          description: "原始告警生成速率: {{ $value | printf \"%.1f\" }} 条/秒，可能存在告警风暴"
+
+      # Low Deduplication Rate
+      - alert: LSMLowDeduplicationRate
+        expr: lsm_alert_deduplication_rate < 0.3
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "告警去重率偏低"
+          description: "当前去重率: {{ $value | humanizePercentage }}，建议检查告警配置"
+
+      # Many Active Silences
+      - alert: LSMManyActiveSilences
+        expr: lsm_silence_rules_active > 10
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "活跃静默规则过多"
+          description: "当前有 {{ $value }} 条活跃的静默规则，请检查是否遗忘清理"
+
+      # Critical Alerts Ignored
+      - alert: LSMCriticalAlertsIgnored
+        expr: lsm_alerts_inhibited{severity="CRITICAL"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "关键告警被抑制"
+          description: "有 {{ $value }} 个关键告警被抑制规则阻止"
+
+  # ============================================
+  # Recording Rules for v3.1.0 Metrics
+  # ============================================
+  - name: lsm-v310-recording
+    interval: 30s
+    rules:
+      # Auto-Scaling Metrics
+      - record: lsm_autoscaling_current_instances
+        expr: count by (policy_id) (lsm_scaling_policy_enabled == 1)
+
+      - record: lsm_autoscaling_action_total
+        expr: sum by (policy_id, action) (increase(lsm_scaling_events_total[5m]))
+
+      # Self-Healing Metrics
+      - record: lsm_fault_active_total
+        expr: sum(lsm_fault_events{status="ACTIVE"})
+
+      - record: lsm_repair_success_rate
+        expr: rate(lsm_repair_success_total[1h]) / (rate(lsm_repair_success_total[1h]) + rate(lsm_repair_failed_total[1h]))
+
+      # Alert Deduplication Metrics
+      - record: lsm_alert_deduplication_rate
+        expr: (lsm_alerts_raw_total - lsm_alerts_aggregated_total) / lsm_alerts_raw_total
+
+      - record: lsm_silence_rules_active
+        expr: count(lsm_silence_rule_enabled == 1)
+
+      # Combined Health Score
+      - record: lsm_automation_health_score
+        expr: (lsm_autoscaling_health * 0.3 + lsm_selfhealing_health * 0.4 + lsm_alert_dedup_health * 0.3)

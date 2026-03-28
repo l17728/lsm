@@ -1,0 +1,205 @@
+/**
+ * LSM v3.2.0 - Chat Input Styles
+ * Chat Input Component Styles
+ */
+
+/* ============================================
+   Input Container
+   ============================================ */
+
+.chat-input-container {
+  background: var(--bg-primary, #fff);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  padding: 8px;
+  transition: all 0.2s;
+}
+
+.chat-input-container.focused {
+  border-top-color: #1890ff;
+}
+
+.chat-input-container.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ============================================
+   Command Hints
+   ============================================ */
+
+.command-hints {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.command-hint-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.command-hint-item:hover {
+  background: var(--bg-tertiary, #e0e0e0);
+}
+
+.command-key {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.command-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.command-desc {
+  font-size: 12px;
+  color: var(--text-tertiary, #999);
+  margin-left: auto;
+}
+
+/* ============================================
+   Input Wrapper
+   ============================================ */
+
+.chat-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 20px;
+  padding: 4px 8px;
+}
+
+/* Action Button */
+.input-action-btn {
+  color: var(--text-tertiary, #999);
+  flex-shrink: 0;
+}
+
+.input-action-btn:hover {
+  color: #1890ff;
+}
+
+/* ============================================
+   Textarea
+   ============================================ */
+
+.chat-input-textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 6px 0;
+  max-height: 120px;
+  min-height: 24px;
+  font-family: inherit;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.chat-input-textarea:focus {
+  outline: none;
+}
+
+.chat-input-textarea::placeholder {
+  color: var(--text-tertiary, #999);
+}
+
+.chat-input-textarea:disabled {
+  background: transparent;
+}
+
+/* ============================================
+   Send Button
+   ============================================ */
+
+.send-btn {
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.send-btn:disabled {
+  opacity: 0.4;
+}
+
+/* ============================================
+   Input Hints
+   ============================================ */
+
+.chat-input-hints {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.hint-item {
+  font-size: 11px;
+  color: var(--text-tertiary, #999);
+}
+
+.hint-divider {
+  font-size: 11px;
+  color: var(--border-color, #e0e0e0);
+}
+
+/* ============================================
+   Dark Mode
+   ============================================ */
+
+[data-theme='dark'] .chat-input-container {
+  background: var(--bg-secondary, #2a2a2a);
+  border-top-color: var(--border-color, #404040);
+}
+
+[data-theme='dark'] .chat-input-wrapper {
+  background: var(--bg-tertiary, #3a3a3a);
+}
+
+[data-theme='dark'] .command-hints {
+  background: var(--bg-tertiary, #3a3a3a);
+}
+
+[data-theme='dark'] .command-hint-item:hover {
+  background: var(--bg-secondary, #2a2a2a);
+}
+
+[data-theme='dark'] .chat-input-textarea {
+  color: var(--text-primary, #fff);
+}
+
+[data-theme='dark'] .hint-divider {
+  color: var(--border-color, #404040);
+}
+
+/* ============================================
+   Mobile Responsive
+   ============================================ */
+
+@media (max-width: 576px) {
+  .chat-input-hints {
+    display: none;
+  }
+}

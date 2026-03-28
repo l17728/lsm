@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Statistic, Table, Tag, Spin, Alert } from 'antd'
+import { Card, Row, Col, Statistic, Tag, Spin, Alert, message } from 'antd'
 import {
-  ServerOutlined,
-  GpuOutlined,
-  TaskOutlined,
+  ApiOutlined,
+  RocketOutlined,
+  ClockCircleOutlined,
   UserOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
+  ClusterOutlined,
 } from '@ant-design/icons'
+
+// Icon aliases for compatibility
+const ServerOutlined = ApiOutlined;
+const GpuOutlined = RocketOutlined;
+const TaskOutlined = ClockCircleOutlined;
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { serverApi, gpuApi, taskApi, monitoringApi } from '../services/api'
+import { serverApi, gpuApi, taskApi, monitoringApi, clusterApi } from '../services/api'
 import { wsService } from '../services/websocket'
 
 const Dashboard: React.FC = () => {
@@ -18,53 +22,93 @@ const Dashboard: React.FC = () => {
   const [gpuStats, setGpuStats] = useState<any>(null)
   const [taskStats, setTaskStats] = useState<any>(null)
   const [clusterStats, setClusterStats] = useState<any>(null)
+  const [clusterSummary, setClusterSummary] = useState<any>(null)
   const [alerts, setAlerts] = useState<any[]>([])
-  const [recentTasks, setRecentTasks] = useState<any[]>([])
   const [metricsData, setMetricsData] = useState<any[]>([])
 
   useEffect(() => {
     loadData()
 
     // Subscribe to real-time updates
-    wsService.on('servers:update', (data) => {
-      setClusterStats(data.stats)
-    })
+    const onServersUpdate = (data: any) => { setClusterStats(data.stats) }
+    const onTasksUpdate = (data: any) => { setTaskStats(data) }
+    const onAlertsNew = (data: any) => { setAlerts(data) }
 
-    wsService.on('tasks:update', (data) => {
-      setTaskStats(data)
-    })
-
-    wsService.on('alerts:new', (data) => {
-      setAlerts(data)
-    })
+    wsService.on('servers:update', onServersUpdate)
+    wsService.on('tasks:update', onTasksUpdate)
+    wsService.on('alerts:new', onAlertsNew)
 
     return () => {
-      wsService.off('servers:update', () => {})
-      wsService.off('tasks:update', () => {})
-      wsService.off('alerts:new', () => {})
+      wsService.off('servers:update', onServersUpdate)
+      wsService.off('tasks:update', onTasksUpdate)
+      wsService.off('alerts:new', onAlertsNew)
     }
   }, [])
 
+  /**
+   * Load dashboard data using Promise.allSettled so that each request is
+   * independent. Previously Promise.all was used: if any single request failed,
+   * ALL data was lost. Now each module degrades independently.
+   *
+   * Fix: replaced Promise.all (all-or-nothing) with Promise.allSettled
+   * (each request succeeds or fails independently).
+   */
   const loadData = async () => {
+    setLoading(true)
     try {
-      const [serverRes, gpuRes, taskRes, clusterRes, alertsRes] = await Promise.all([
+      const [serverRes, gpuRes, taskRes, clusterRes, clusterSummaryRes, alertsRes] = await Promise.allSettled([
         serverApi.getStats(),
         gpuApi.getStats(),
         taskApi.getStats(),
         monitoringApi.getClusterStats(),
+        clusterApi.getStats(),
         monitoringApi.getAlerts(),
       ])
 
-      setServerStats(serverRes.data.data)
-      setGpuStats(gpuRes.data.data)
-      setTaskStats(taskRes.data.data)
-      setClusterStats(clusterRes.data.data)
-      setAlerts(alertsRes.data.data)
+      if (serverRes.status === 'fulfilled') {
+        setServerStats(serverRes.value?.data?.data || [])
+      } else {
+        console.error('[Dashboard] Failed to load server stats:', serverRes.reason)
+        message.error('Server statistics failed to load, please refresh and try again')
+      }
+
+      if (gpuRes.status === 'fulfilled') {
+        setGpuStats(gpuRes.value?.data?.data || [])
+      } else {
+        console.error('[Dashboard] Failed to load GPU stats:', gpuRes.reason)
+        message.error('GPU statistics failed to load, please refresh and try again')
+      }
+
+      if (taskRes.status === 'fulfilled') {
+        setTaskStats(taskRes.value?.data?.data || [])
+      } else {
+        console.error('[Dashboard] Failed to load task stats:', taskRes.reason)
+        message.error('Task statistics failed to load, please refresh and try again')
+      }
+
+      if (clusterRes.status === 'fulfilled') {
+        setClusterStats(clusterRes.value?.data?.data || [])
+      } else {
+        console.error('[Dashboard] Failed to load cluster stats:', clusterRes.reason)
+        message.error('Cluster statistics failed to load, please refresh and try again')
+      }
+
+      if (clusterSummaryRes.status === 'fulfilled') {
+        setClusterSummary(clusterSummaryRes.value?.data?.data || [])
+      } else {
+        console.error('[Dashboard] Failed to load cluster summary:', clusterSummaryRes.reason)
+      }
+
+      if (alertsRes.status === 'fulfilled') {
+        setAlerts(alertsRes.value?.data?.data || [])
+      } else {
+        console.error('[Dashboard] Failed to load alerts:', alertsRes.reason)
+        // Alerts failure is non-critical; silently default to empty
+        setAlerts([])
+      }
 
       // Generate sample metrics data for charts
       generateMetricsData()
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error)
     } finally {
       setLoading(false)
     }
@@ -84,34 +128,6 @@ const Dashboard: React.FC = () => {
     }
     setMetricsData(data)
   }
-
-  const taskColumns = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => {
-        const colorMap: Record<string, string> = {
-          PENDING: 'default',
-          RUNNING: 'processing',
-          COMPLETED: 'success',
-          FAILED: 'error',
-          CANCELLED: 'warning',
-        }
-        return <Tag color={colorMap[status] || 'default'}>{status}</Tag>
-      },
-    },
-    {
-      title: 'Priority',
-      dataIndex: 'priority',
-      key: 'priority',
-    },
-  ]
 
   if (loading) {
     return (
@@ -147,7 +163,7 @@ const Dashboard: React.FC = () => {
 
       {/* Statistics Cards */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="Servers"
@@ -163,7 +179,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="GPUs"
@@ -179,7 +195,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={6}>
+        <Col span={5}>
           <Card>
             <Statistic
               title="Tasks"
@@ -195,7 +211,23 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={6}>
+        <Col span={5}>
+          <Card>
+            <Statistic
+              title="Clusters"
+              value={clusterSummary?.byStatus?.available || 0}
+              suffix={`/ ${clusterSummary?.total || 0}`}
+              prefix={<ClusterOutlined />}
+              valueStyle={{ color: '#13c2c2' }}
+            />
+            <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+              <Tag color="green">Idle: {clusterSummary?.byStatus?.available || 0}</Tag>
+              <Tag color="blue">In Use: {clusterSummary?.byStatus?.allocated || 0}</Tag>
+            </div>
+          </Card>
+        </Col>
+
+        <Col span={4}>
           <Card>
             <Statistic
               title="Resource Usage"

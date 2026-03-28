@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Table, Tag, Button, Space, Card, Row, Col, Statistic, message, Modal } from 'antd'
-import { GpuOutlined, PlusOutlined, ReleaseOutlined } from '@ant-design/icons'
+import { RocketOutlined, PlusOutlined, LogoutOutlined } from '@ant-design/icons'
+
+// Icon aliases for compatibility
+const GpuOutlined = RocketOutlined;
+const ReleaseOutlined = LogoutOutlined;
 import { gpuApi } from '../services/api'
 import { wsService } from '../services/websocket'
+import { ExportButton } from '../components/ExportButton'
 import type { ColumnsType } from 'antd/es/table'
 
 interface GpuAllocation {
@@ -29,27 +34,35 @@ const GPUs: React.FC = () => {
   useEffect(() => {
     loadData()
 
-    wsService.on('gpus:update', () => {
-      loadData()
-    })
+    const onGpusUpdate = () => { loadData() }
+    wsService.on('gpus:update', onGpusUpdate)
 
     return () => {
-      wsService.off('gpus:update', () => {})
+      wsService.off('gpus:update', onGpusUpdate)
     }
   }, [])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [statsRes, allocationsRes] = await Promise.all([
+      const [statsRes, allocationsRes] = await Promise.allSettled([
         gpuApi.getStats(),
         gpuApi.getMyAllocations(),
       ])
 
-      setStats(statsRes.data.data)
-      setAllocations(allocationsRes.data.data)
-    } catch (error: any) {
-      message.error('Failed to load GPU data')
+      if (statsRes.status === 'fulfilled') {
+        setStats(statsRes.value.data.data)
+      } else {
+        console.error('[GPUs] Failed to load GPU stats:', statsRes.reason)
+        message.error('Failed to load GPU statistics, please refresh and try again')
+      }
+
+      if (allocationsRes.status === 'fulfilled') {
+        setAllocations(allocationsRes.value.data.data)
+      } else {
+        console.error('[GPUs] Failed to load GPU allocations:', allocationsRes.reason)
+        message.error('Failed to load GPU allocations, please refresh and try again')
+      }
     } finally {
       setLoading(false)
     }
@@ -128,15 +141,18 @@ const GPUs: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h1>GPU Resources</h1>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setAllocateModalVisible(true)}
-        >
-          Allocate GPU
-        </Button>
+        <Space>
+          <ExportButton endpoint="/api/export/gpus" filename="gpus" formats={[{ key: 'excel', label: 'Excel', extension: 'xlsx' }]} />
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setAllocateModalVisible(true)}
+          >
+            Allocate GPU
+          </Button>
+        </Space>
       </div>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>

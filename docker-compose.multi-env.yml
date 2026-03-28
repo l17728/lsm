@@ -1,0 +1,219 @@
+# docker-compose.multi-env.yml
+# 单服务器多环境部署配置
+# 
+# 使用方法:
+#   启动生产环境: docker-compose --profile prod up -d
+#   启动测试环境: docker-compose --profile staging up -d
+#   启动开发环境: docker-compose --profile dev up -d
+#   启动所有:     docker-compose --profile prod --profile staging --profile dev up -d
+
+version: '3.8'
+
+services:
+  # ============================================
+  # 生产环境 (PRODUCTION)
+  # ============================================
+  frontend-prod:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: lsm-frontend-prod
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:4000
+      - VITE_WS_URL=ws://localhost:4000
+    depends_on:
+      - backend-prod
+    profiles:
+      - prod
+    restart: unless-stopped
+    networks:
+      - lsm-network
+
+  backend-prod:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: lsm-backend-prod
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/lsm_prod
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=your-production-jwt-secret
+    depends_on:
+      - postgres
+      - redis
+    profiles:
+      - prod
+    restart: unless-stopped
+    networks:
+      - lsm-network
+
+  # ============================================
+  # 测试环境 (STAGING) - 自主开发使用
+  # ============================================
+  frontend-staging:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: lsm-frontend-staging
+    ports:
+      - "3010:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:4010
+      - VITE_WS_URL=ws://localhost:4010
+    depends_on:
+      - backend-staging
+    profiles:
+      - staging
+    restart: unless-stopped
+    networks:
+      - lsm-network
+
+  backend-staging:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: lsm-backend-staging
+    ports:
+      - "4010:4000"
+    environment:
+      - NODE_ENV=staging
+      - PORT=4000
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/lsm_staging
+      - REDIS_URL=redis://redis:6379/1
+      - JWT_SECRET=your-staging-jwt-secret
+    depends_on:
+      - postgres
+      - redis
+    profiles:
+      - staging
+    restart: unless-stopped
+    networks:
+      - lsm-network
+
+  # ============================================
+  # 开发环境 (DEVELOPMENT) - 单元测试使用
+  # ============================================
+  frontend-dev:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile.dev
+    container_name: lsm-frontend-dev
+    ports:
+      - "3020:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:4020
+      - VITE_WS_URL=ws://localhost:4020
+    volumes:
+      - ./src/frontend/src:/app/src:ro
+    depends_on:
+      - backend-dev
+    profiles:
+      - dev
+    networks:
+      - lsm-network
+
+  backend-dev:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile.dev
+    container_name: lsm-backend-dev
+    ports:
+      - "4020:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/lsm_dev
+      - REDIS_URL=redis://redis:6379/2
+      - JWT_SECRET=dev-secret
+    volumes:
+      - ./src/backend/src:/app/src:ro
+    depends_on:
+      - postgres
+      - redis
+    profiles:
+      - dev
+    networks:
+      - lsm-network
+
+  # ============================================
+  # 共享服务 (SHARED SERVICES)
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: lsm-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    networks:
+      - lsm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lsm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    networks:
+      - lsm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # 监控服务 (MONITORING)
+  # ============================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: lsm-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    profiles:
+      - monitoring
+    networks:
+      - lsm-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: lsm-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafanadata:/var/lib/grafana
+    profiles:
+      - monitoring
+    networks:
+      - lsm-network
+
+networks:
+  lsm-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  grafanadata:

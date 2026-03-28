@@ -9,9 +9,32 @@ import serverRoutes from './routes/server.routes';
 import gpuRoutes from './routes/gpu.routes';
 import taskRoutes from './routes/task.routes';
 import monitoringRoutes from './routes/monitoring.routes';
-import WebSocketHandler from './utils/websocket';
+import exportRoutes from './routes/export.routes';
+import prometheusRoutes from './routes/prometheus.routes';
+import notificationRoutes from './routes/notification.routes';
+import alertRulesRoutes from './routes/alert-rules.routes';
+import cacheWarmupRoutes from './routes/cache-warmup.routes';
+import websocketRoutes from './routes/websocket.routes';
+import preferencesRoutes from './routes/preferences.routes';
+import notificationHistoryRoutes from './routes/notification-history.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import reservationRoutes from './routes/reservation.routes';
+import aiSchedulerRoutes from './services/ai-scheduler/ai-scheduler.routes';
+import mcpRoutes from './routes/mcp.routes';
+import docsRoutes from './routes/docs.routes';
+import feedbackRoutes from './routes/feedback.routes';
+import agentRoutes from './routes/agent.routes';
+import openclawRoutes from './routes/openclaw.routes';
+import clusterRoutes from './routes/cluster.routes';
+import clusterReservationRoutes from './routes/cluster-reservation.routes';
+import resourceRequestRoutes from './routes/resource-request.routes';
+import WebSocketHandler, { initializeWebSocket } from './utils/websocket';
 import monitoringService from './services/monitoring.service';
+import { cacheWarmupService } from './services/cache-warmup.service';
+import { scheduledAnalyzerService } from './services/feedback';
 import prisma from './utils/prisma';
+import { csrfProtection } from './middleware/csrf.middleware';
+import { applySecurity, rateLimiter, authRateLimiter } from './middleware/security.middleware';
 
 // Import generated Swagger docs (will be created by build)
 // @ts-ignore - Will be generated
@@ -21,25 +44,48 @@ const app = express();
 const httpServer = createServer(app);
 
 // Initialize WebSocket
-const wsHandler = new WebSocketHandler(httpServer);
+const wsHandler = initializeWebSocket(httpServer);
 
-// Middleware
-app.use(helmet());
+// ============================================
+// Security Middleware
+// ============================================
+
+// Apply Helmet security headers with nonce-based CSP
+applySecurity(app);
+
+// CORS configuration
 app.use(
   cors({
     origin: config.corsOrigins,
     credentials: true,
   })
 );
+
+// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging
-app.use((req, res, next) => {
+// CSRF Protection for state-changing operations
+app.use(csrfProtection);
+
+// ============================================
+// Request ID injection
+// ============================================
+app.use((req: any, _res, next) => {
+  req.requestId = (crypto as any).randomUUID ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  next();
+});
+
+// ============================================
+// Request Logging (with sensitive data masking)
+// ============================================
+app.use((req: any, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+    // Mask sensitive paths
+    const maskedPath = req.path.replace(/\/(password|token|secret|key)/gi, '/***');
+    console.log(`[${new Date().toISOString()}] ${req.method} ${maskedPath} ${res.statusCode} ${duration}ms requestId=${req.requestId}`);
   });
   next();
 });
@@ -64,6 +110,25 @@ app.use('/api/servers', serverRoutes);
 app.use('/api/gpu', gpuRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/prometheus', prometheusRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/alert-rules', alertRulesRoutes);
+app.use('/api/cache-warmup', cacheWarmupRoutes);
+app.use('/api/websocket', websocketRoutes);
+app.use('/api/preferences', preferencesRoutes);
+app.use('/api/notification-history', notificationHistoryRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/reservations', reservationRoutes);
+app.use('/api/ai-scheduler', aiSchedulerRoutes);
+app.use('/api/mcp', mcpRoutes);
+app.use('/api/docs', docsRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/agent', agentRoutes);
+app.use('/api/openclaw', openclawRoutes);
+app.use('/api/clusters', clusterRoutes);
+app.use('/api/cluster-reservations', clusterReservationRoutes);
+app.use('/api/requests', resourceRequestRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -87,7 +152,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const gracefulShutdown = async (signal: string) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
 
+  // 停止定时分析服务
+  scheduledAnalyzerService.stop();
+  console.log('Feedback analyzer service stopped');
+
   wsHandler.stop();
+  cacheWarmupService.destroy();
 
   httpServer.close(async () => {
     console.log('HTTP server closed');
@@ -133,6 +203,13 @@ httpServer.listen(config.port, () => {
     // Initial metrics collection
     monitoringService.collectMetrics().catch(console.error);
   }
+
+  // Initialize cache warmup service
+  cacheWarmupService.initialize().catch(console.error);
+
+  // 🔧 启动问题反馈定时分析服务
+  scheduledAnalyzerService.start();
+  console.log('📊 Feedback analyzer service started');
 });
 
 export default app;

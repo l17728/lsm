@@ -1,22 +1,36 @@
 import prisma from '../utils/prisma';
-import { TaskStatus } from '@prisma/client';
+import { task_status as TaskStatus, task_priority as TaskPriority } from '@prisma/client';
+import { emailQueueService } from './email-queue.service';
+import { EmailType } from './email.service';
 
 export interface CreateTaskRequest {
   name: string;
   description?: string;
   userId: string;
-  priority?: number;
-  scheduledAt?: Date;
+  teamId?: string;
+  priority?: TaskPriority;
+  gpuRequirements?: Record<string, any>;
 }
 
 export interface UpdateTaskRequest {
   name?: string;
   description?: string;
-  priority?: number;
-  scheduledAt?: Date;
+  priority?: TaskPriority;
+  status?: TaskStatus;
+  gpuRequirements?: Record<string, any>;
 }
 
 export class TaskService {
+  /**
+   * Get user email by ID
+   */
+  private async getUserEmail(userId: string): Promise<string | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    return user?.email || null;
+  }
   /**
    * Create a new task
    */
@@ -26,8 +40,9 @@ export class TaskService {
         name: data.name,
         description: data.description,
         userId: data.userId,
-        priority: data.priority ?? 0,
-        scheduledAt: data.scheduledAt,
+        teamId: data.teamId,
+        priority: data.priority ?? TaskPriority.MEDIUM,
+        gpuRequirements: data.gpuRequirements,
         status: TaskStatus.PENDING,
       },
       include: {
@@ -35,12 +50,43 @@ export class TaskService {
           select: {
             id: true,
             username: true,
+            email: true,
+          },
+        },
+        team: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
     });
 
+    // Send email notification for task assignment
+    const user = task.user;
+    if (user && user.email) {
+      await emailQueueService.enqueue(
+        EmailType.TASK_ASSIGNED,
+        user.email,
+        {
+          userId: user.id,
+          username: user.username,
+          taskName: task.name,
+          priority: this.getPriorityLabel(task.priority),
+          taskUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/tasks/${task.id}`,
+        },
+        'high'
+      );
+    }
+
     return task;
+  }
+
+  /**
+   * Get priority label
+   */
+  private getPriorityLabel(priority: TaskPriority): string {
+    return priority;
   }
 
   /**
@@ -56,7 +102,7 @@ export class TaskService {
             username: true,
           },
         },
-        server: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -81,7 +127,7 @@ export class TaskService {
     const tasks = await prisma.task.findMany({
       where,
       include: {
-        server: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -114,7 +160,7 @@ export class TaskService {
             username: true,
           },
         },
-        server: {
+        team: {
           select: {
             id: true,
             name: true,
@@ -155,13 +201,12 @@ export class TaskService {
   /**
    * Start a task
    */
-  async startTask(taskId: string, serverId: string) {
+  async startTask(taskId: string) {
     const task = await prisma.task.update({
       where: { id: taskId },
       data: {
         status: TaskStatus.RUNNING,
         startedAt: new Date(),
-        serverId,
       },
     });
 
@@ -171,15 +216,38 @@ export class TaskService {
   /**
    * Complete a task
    */
-  async completeTask(taskId: string, result?: string) {
+  async completeTask(taskId: string) {
     const task = await prisma.task.update({
       where: { id: taskId },
       data: {
         status: TaskStatus.COMPLETED,
         completedAt: new Date(),
-        result,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
       },
     });
+
+    // Send email notification for task completion
+    if (task.user && task.user.email) {
+      await emailQueueService.enqueue(
+        EmailType.TASK_COMPLETED,
+        task.user.email,
+        {
+          userId: task.user.id,
+          username: task.user.username,
+          taskName: task.name,
+          status: 'COMPLETED',
+        },
+        'medium'
+      );
+    }
 
     return task;
   }
@@ -192,10 +260,35 @@ export class TaskService {
       where: { id: taskId },
       data: {
         status: TaskStatus.FAILED,
-        completedAt: new Date(),
-        result: error,
+        failedAt: new Date(),
+        errorMessage: error,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
       },
     });
+
+    // Send email notification for task failure
+    if (task.user && task.user.email) {
+      await emailQueueService.enqueue(
+        EmailType.TASK_COMPLETED,
+        task.user.email,
+        {
+          userId: task.user.id,
+          username: task.user.username,
+          taskName: task.name,
+          status: 'FAILED',
+          result: error || 'Unknown error',
+        },
+        'high'
+      );
+    }
 
     return task;
   }
@@ -232,7 +325,7 @@ export class TaskService {
   }
 
   /**
-   * Get pending tasks ordered by priority and scheduled time
+   * Get pending tasks ordered by priority and creation time
    */
   async getPendingTasks() {
     const tasks = await prisma.task.findMany({
@@ -249,7 +342,6 @@ export class TaskService {
       },
       orderBy: [
         { priority: 'desc' },
-        { scheduledAt: 'asc' },
         { createdAt: 'asc' },
       ],
     });

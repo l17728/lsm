@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import authService, { TokenPayload, Role } from '../services/auth.service';
+import authService, { TokenPayload, UserRole } from '../services/auth.service';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
@@ -33,7 +33,7 @@ export const authenticate = (
 /**
  * Middleware to check if user has required role
  */
-export const authorize = (...allowedRoles: Role[]) => {
+export const authorize = (...allowedRoles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -49,10 +49,34 @@ export const authorize = (...allowedRoles: Role[]) => {
 
 /**
  * Convenience middleware for admin-only routes
+ * SUPER_ADMIN has all ADMIN permissions
  */
-export const requireAdmin = authorize(Role.ADMIN);
+export const requireAdmin = authorize(UserRole.ADMIN, UserRole.SUPER_ADMIN);
 
 /**
  * Convenience middleware for manager and admin routes
+ * SUPER_ADMIN has all MANAGER and ADMIN permissions
  */
-export const requireManager = authorize(Role.MANAGER, Role.ADMIN);
+export const requireManager = authorize(UserRole.MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN);
+
+/**
+ * Convenience middleware for super admin only routes
+ * Super admin has full access to cluster management and resource optimization
+ */
+export const requireSuperAdmin = authorize(UserRole.SUPER_ADMIN);
+
+/**
+ * Convenience middleware for super admin and admin routes
+ */
+export const requireSuperAdminOrAdmin = authorize(UserRole.SUPER_ADMIN, UserRole.ADMIN);
+
+/**
+ * Convenience middleware for resource managers (MANAGER, ADMIN, SUPER_ADMIN)
+ * Resource managers can create and manage resource requests
+ */
+export const requireResourceManager = authorize(UserRole.MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN);
+
+/**
+ * Alias for authenticate middleware (backward compatibility)
+ */
+export const authMiddleware = authenticate;

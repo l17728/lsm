@@ -1,0 +1,99 @@
+# LSM Backend Dockerfile - Alpine Version (最精简)
+# 使用 Alpine + 手动安装 OpenSSL 兼容库
+# 镜像大小约 ~170MB，但需要额外配置
+
+# ============================================
+# Stage 1: Dependencies
+# ============================================
+FROM node:20-alpine AS dependencies
+
+WORKDIR /app
+
+# 安装编译依赖（Prisma 在 Alpine 需要这些）
+RUN apk add --no-cache \
+    openssl \
+    openssl-dev \
+    libc6-compat \
+    python3 \
+    make \
+    g++
+
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install all dependencies
+RUN npm ci
+
+# ============================================
+# Stage 2: Builder
+# ============================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# 安装运行时依赖
+RUN apk add --no-cache openssl libc6-compat
+
+# Copy dependencies from previous stage
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package*.json ./
+COPY prisma ./prisma/
+COPY tsconfig*.json ./
+
+# Copy source code
+COPY src ./src
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# ============================================
+# Stage 3: Production (Alpine 精简版)
+# ============================================
+FROM node:20-alpine AS production
+
+# 安装运行时依赖（Prisma 必需）
+RUN apk add --no-cache openssl libc6-compat curl
+
+# Add non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S -u 1001 -G nodejs nodejs
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Copy built files
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY dist ./dist
+COPY swagger-output.json swagger.js ./
+
+# Change ownership to non-root user
+RUN chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
+EXPOSE 8080
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+# Graceful shutdown
+STOPSIGNAL SIGTERM
+
+# Start application with migration
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

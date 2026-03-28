@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { param } from 'express-validator';
+import { param, validationResult } from 'express-validator';
 import monitoringService from '../services/monitoring.service';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -81,6 +81,15 @@ router.get(
   [param('id').isUUID().withMessage('Valid server ID required')],
   async (req, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const { id } = req.params;
       const { startTime, endTime } = req.query;
 

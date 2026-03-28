@@ -3,6 +3,7 @@ import { Table, Tag, Button, Space, Modal, Form, Input, Select, message, Popconf
 import { UserOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { authApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
+import { ExportButton } from '../components/ExportButton'
 import type { ColumnsType } from 'antd/es/table'
 
 interface User {
@@ -10,6 +11,9 @@ interface User {
   username: string
   email: string
   role: string
+  displayName?: string   // Person name
+  welink?: string        // WeLink account
+  phone?: string         // Phone
   createdAt: string
   updatedAt: string
 }
@@ -31,8 +35,10 @@ const Users: React.FC = () => {
     try {
       const response = await authApi.getUsers()
       setUsers(response.data.data)
+      console.log(`[Users] Loaded ${response.data.data?.length ?? 0} users`)
     } catch (error: any) {
-      message.error('Failed to load users')
+      console.error('[Users] Failed to load users:', error)
+      message.error('Failed to load user list, please refresh and try again')
     } finally {
       setLoading(false)
     }
@@ -40,7 +46,12 @@ const Users: React.FC = () => {
 
   const handleEdit = (user: User) => {
     setEditingUser(user)
-    form.setFieldsValue({ role: user.role })
+    form.setFieldsValue({ 
+      displayName: user.displayName,
+      welink: user.welink,
+      phone: user.phone,
+      role: user.role 
+    })
     setModalVisible(true)
   }
 
@@ -64,8 +75,8 @@ const Users: React.FC = () => {
       const values = await form.validateFields()
 
       if (editingUser) {
-        await authApi.updateUserRole(editingUser.id, values.role)
-        message.success('User role updated')
+        await authApi.updateUser(editingUser.id, values)
+        message.success('User information updated')
       }
 
       setModalVisible(false)
@@ -93,9 +104,27 @@ const Users: React.FC = () => {
       key: 'username',
     },
     {
+      title: 'Name',
+      dataIndex: 'displayName',
+      key: 'displayName',
+      render: (name: string) => name || '-',
+    },
+    {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+    },
+    {
+      title: 'WeLink',
+      dataIndex: 'welink',
+      key: 'welink',
+      render: (welink: string) => welink || '-',
+    },
+    {
+      title: 'Phone',
+      dataIndex: 'phone',
+      key: 'phone',
+      render: (phone: string) => phone || '-',
     },
     {
       title: 'Role',
@@ -110,12 +139,6 @@ const Users: React.FC = () => {
       render: (time: string) => new Date(time).toLocaleString(),
     },
     {
-      title: 'Updated At',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      render: (time: string) => new Date(time).toLocaleString(),
-    },
-    {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
@@ -126,14 +149,14 @@ const Users: React.FC = () => {
             onClick={() => handleEdit(record)}
             disabled={record.id === currentUser?.id}
           >
-            Edit Role
+            Edit
           </Button>
           {record.id !== currentUser?.id && (
             <Popconfirm
-              title="Delete user?"
+              title="Confirm user deletion?"
               onConfirm={() => handleDelete(record.id)}
-              okText="Yes"
-              cancelText="No"
+              okText="Confirm"
+              cancelText="Cancel"
             >
               <Button type="link" danger icon={<DeleteOutlined />} />
             </Popconfirm>
@@ -143,7 +166,8 @@ const Users: React.FC = () => {
     },
   ]
 
-  const isAdmin = currentUser?.role === 'ADMIN'
+  // SUPER_ADMIN and ADMIN can access user management
+  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN'
 
   if (!isAdmin) {
     return (
@@ -156,7 +180,10 @@ const Users: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 16 }}>User Management</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h1>User Management</h1>
+        <ExportButton endpoint="/api/export/users" filename="users" formats={[{ key: 'excel', label: 'Excel', extension: 'xlsx' }]} />
+      </div>
 
       <Table
         columns={columns}
@@ -166,21 +193,41 @@ const Users: React.FC = () => {
       />
 
       <Modal
-        title="Edit User Role"
+        title="Edit User Information"
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
+        width={600}
       >
         <Form form={form} layout="vertical">
           <Form.Item
+            name="displayName"
+            label="Name"
+          >
+            <Input placeholder="Please enter name" />
+          </Form.Item>
+          <Form.Item
+            name="welink"
+            label="WeLink Account"
+          >
+            <Input placeholder="E.g., l00123456" />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label="Phone"
+          >
+            <Input placeholder="Please enter phone number" />
+          </Form.Item>
+          <Form.Item
             name="role"
             label="Role"
-            rules={[{ required: true, message: 'Please select a role' }]}
+            rules={[{ required: true, message: 'Please select role' }]}
           >
             <Select>
-              <Select.Option value="USER">User</Select.Option>
+              <Select.Option value="USER">Regular User</Select.Option>
               <Select.Option value="MANAGER">Manager</Select.Option>
-              <Select.Option value="ADMIN">Admin</Select.Option>
+              <Select.Option value="ADMIN">Super Admin</Select.Option>
+              <Select.Option value="SUPER_ADMIN">System Admin</Select.Option>
             </Select>
           </Form.Item>
         </Form>

@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  username      String              @unique @db.VarChar(50)
+  email         String              @unique @db.VarChar(100)
+  passwordHash  String              @map("password_hash") @db.VarChar(255)
+  role          user_role           @default(USER)
+  createdAt     DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime?           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastLoginAt   DateTime?           @map("last_login_at") @db.Timestamptz(6)
+  isActive      Boolean?            @default(true) @map("is_active")
+  alerts        Alert[]
+  auditLogs     AuditLog[]
+  notifications EmailNotification[]
+  allocations   GpuAllocation[]
+  sessions      Session[]
+  tasks         Task[]
+
+  @@index([email], map: "idx_users_email")
+  @@index([username], map: "idx_users_username")
+  @@map("users")
+}
+
+model Session {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  isRevoked Boolean?  @default(false) @map("is_revoked")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token], map: "idx_sessions_token")
+  @@index([userId], map: "idx_sessions_user_id")
+  @@map("sessions")
+}
+
+model Server {
+  id          String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String         @db.VarChar(100)
+  description String?
+  status      server_status  @default(OFFLINE)
+  gpuCount    Int            @default(0) @map("gpu_count")
+  location    String?        @db.VarChar(200)
+  ipAddress   String?        @map("ip_address") @db.Inet
+  sshPort     Int?           @default(22) @map("ssh_port")
+  sshUsername String?        @map("ssh_username") @db.VarChar(50)
+  metadata    Json?          @default("{}")
+  createdAt   DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime?      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  alerts      Alert[]
+  gpus        Gpu[]
+  metrics     ServerMetric[]
+
+  @@index([status], map: "idx_servers_status")
+  @@map("servers")
+}
+
+model Gpu {
+  id          String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  serverId    String          @map("server_id") @db.Uuid
+  model       String          @db.VarChar(100)
+  memory      Int
+  allocated   Boolean?        @default(false)
+  metadata    Json?           @default("{}")
+  createdAt   DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  allocations GpuAllocation[]
+  server      Server          @relation(fields: [serverId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([allocated], map: "idx_gpus_allocated")
+  @@index([serverId], map: "idx_gpus_server_id")
+  @@map("gpus")
+}
+
+model GpuAllocation {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  gpuId       String    @map("gpu_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  taskId      String?   @map("task_id") @db.Uuid
+  allocatedAt DateTime? @default(now()) @map("allocated_at") @db.Timestamptz(6)
+  releasedAt  DateTime? @map("released_at") @db.Timestamptz(6)
+  duration    Int?
+  metadata    Json?     @default("{}")
+  gpu         Gpu       @relation(fields: [gpuId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([gpuId], map: "idx_gpu_allocations_gpu_id")
+  @@index([userId], map: "idx_gpu_allocations_user_id")
+  @@map("gpu_allocations")
+}
+
+model Task {
+  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name            String        @db.VarChar(200)
+  description     String?
+  status          task_status   @default(PENDING)
+  priority        task_priority @default(MEDIUM)
+  userId          String        @map("user_id") @db.Uuid
+  gpuRequirements Json?         @map("gpu_requirements")
+  startedAt       DateTime?     @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime?     @map("completed_at") @db.Timestamptz(6)
+  failedAt        DateTime?     @map("failed_at") @db.Timestamptz(6)
+  errorMessage    String?       @map("error_message")
+  metadata        Json?         @default("{}")
+  createdAt       DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([priority], map: "idx_tasks_priority")
+  @@index([status], map: "idx_tasks_status")
+  @@index([userId], map: "idx_tasks_user_id")
+  @@map("tasks")
+}
+
+model ServerMetric {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  serverId    String    @map("server_id") @db.Uuid
+  cpuUsage    Decimal?  @map("cpu_usage") @db.Decimal(5, 2)
+  memoryUsage Decimal?  @map("memory_usage") @db.Decimal(5, 2)
+  gpuUsage    Decimal?  @map("gpu_usage") @db.Decimal(5, 2)
+  temperature Decimal?  @db.Decimal(5, 2)
+  diskUsage   Decimal?  @map("disk_usage") @db.Decimal(5, 2)
+  networkIn   BigInt?   @map("network_in")
+  networkOut  BigInt?   @map("network_out")
+  recordedAt  DateTime? @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  server      Server    @relation(fields: [serverId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([recordedAt(sort: Desc)], map: "idx_server_metrics_recorded_at")
+  @@index([serverId], map: "idx_server_metrics_server_id")
+  @@map("server_metrics")
+}
+
+model Alert {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  type           alert_type
+  status         alert_status @default(ACTIVE)
+  severity       String       @default("MEDIUM") @db.VarChar(20)
+  serverId       String?      @map("server_id") @db.Uuid
+  message        String
+  details        Json?        @default("{}")
+  acknowledgedBy String?      @map("acknowledged_by") @db.Uuid
+  acknowledgedAt DateTime?    @map("acknowledged_at") @db.Timestamptz(6)
+  resolvedAt     DateTime?    @map("resolved_at") @db.Timestamptz(6)
+  createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(6)
+  users          User?        @relation(fields: [acknowledgedBy], references: [id], onUpdate: NoAction)
+  server         Server?      @relation(fields: [serverId], references: [id], onUpdate: NoAction)
+
+  @@index([status], map: "idx_alerts_status")
+  @@index([type], map: "idx_alerts_type")
+  @@map("alerts")
+}
+
+model AuditLog {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  action       String    @db.VarChar(100)
+  resourceType String?   @map("resource_type") @db.VarChar(50)
+  resourceId   String?   @map("resource_id") @db.Uuid
+  details      Json?     @default("{}")
+  ipAddress    String?   @map("ip_address") @db.Inet
+  userAgent    String?   @map("user_agent")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User?     @relation(fields: [userId], references: [id], onUpdate: NoAction)
+
+  @@index([action], map: "idx_audit_logs_action")
+  @@index([createdAt(sort: Desc)], map: "idx_audit_logs_created_at")
+  @@index([userId], map: "idx_audit_logs_user_id")
+  @@map("audit_logs")
+}
+
+model EmailNotification {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  type         String    @db.VarChar(50)
+  subject      String    @db.VarChar(200)
+  body         String
+  status       String    @default("PENDING") @db.VarChar(20)
+  sentAt       DateTime? @map("sent_at") @db.Timestamptz(6)
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "idx_email_notifications_status")
+  @@index([userId], map: "idx_email_notifications_user_id")
+  @@map("email_notifications")
+}
+
+enum alert_status {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum alert_type {
+  HIGH_CPU
+  HIGH_MEMORY
+  HIGH_GPU
+  HIGH_TEMP
+  SERVER_OFFLINE
+}
+
+enum server_status {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ERROR
+}
+
+enum task_priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum task_status {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum user_role {
+  ADMIN
+  MANAGER
+  USER
+}

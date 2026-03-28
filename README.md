@@ -1,292 +1,494 @@
-# Laboratory Server Management System (LSM)
+# LSM Project - Complete Documentation
 
-A comprehensive system for managing laboratory servers, GPU resources, and task scheduling.
+**Version**: 3.2.2
+**Last Updated**: 2026-03-28
+**Status**: Production Ready ✅
+
+---
+
+## 📚 Table of Contents
+
+1. [Overview](#overview)
+2. [Features](#features)
+3. [Architecture](#architecture)
+4. [Installation](#installation)
+5. [Configuration](#configuration)
+6. [API Reference](#api-reference)
+7. [Frontend Guide](#frontend-guide)
+8. [Deployment](#deployment)
+9. [Monitoring](#monitoring)
+10. [Security](#security)
+11. [Testing](#testing)
+12. [Troubleshooting](#troubleshooting)
+
+---
+
+## Overview
+
+Laboratory Server Management System (LSM) is a comprehensive platform for managing laboratory server resources, GPU allocation, task scheduling, and AI-assisted operations.
+
+### Key Capabilities
+
+- 🖥️ **Server Management** - Manage multiple servers with status tracking
+- 🎮 **GPU Allocation** - Dynamic GPU resource allocation and recycling
+- 📋 **Task Scheduling** - Priority-based task scheduling with AI optimization
+- 📊 **Real-time Monitoring** - Live monitoring with WebSocket updates
+- 🔐 **Security** - JWT authentication, 2FA, structured audit logging with requestId
+- 📧 **Notifications** - Multi-channel notifications (email, WebSocket)
+- 📱 **Mobile Ready** - Responsive design for mobile devices
+- 🤖 **AI Agent** - LSM Agent powered by OpenClaw for natural language operations
+- 📅 **Reservations** - GPU/server resource reservation and scheduling
+- 📈 **Analytics** - Resource utilization analytics and cost reports
+- 🔄 **Auto-scaling** - Intelligent auto-scaling and self-healing (v3.1.0+)
+- 🧠 **AI Scheduling** - Intelligent time slot recommendations for cluster reservations (v3.2.2+)
+
+---
 
 ## Features
 
-### Backend
-- **User Authentication & Authorization**
-  - JWT-based authentication
-  - Role-based access control (Admin, Manager, User)
-  - Secure password hashing with bcrypt
+### Core Features
 
-- **Server Resource Management**
-  - Add, edit, delete servers
-  - Track server status (Online, Offline, Maintenance, Error)
-  - Monitor CPU, memory, and GPU resources
+| Feature | Status | Description |
+|---------|--------|-------------|
+| User Authentication | ✅ | JWT-based auth with 2FA |
+| Server Management | ✅ | CRUD operations with batch operations |
+| GPU Allocation | ✅ | Dynamic allocation with filtering |
+| Task Scheduling | ✅ | Priority-based scheduling with AI assist |
+| Real-time Monitoring | ✅ | WebSocket-based live metrics |
+| Email Notifications | ✅ | Event-driven email alerts |
+| Data Export | ✅ | CSV/Excel/JSON export |
+| Mobile Responsive | ✅ | Mobile-first design |
+| Audit Logging | ✅ | Structured audit trail with requestId |
+| Redis Caching | ✅ | Performance optimization |
+| Resource Reservations | ✅ | Calendar-based GPU/server booking (v3.2.0+) |
+| AI Agent (LSM Agent) | ✅ | Natural language operations via OpenClaw |
+| Analytics Dashboard | ✅ | Cost & utilization analysis (v3.2.0+) |
+| Cluster Management | ✅ | Create/manage clusters with server groups |
+| Cluster Reservations | ✅ | Reserve clusters with approval workflow |
+| **AI Time Slot Recommendations** | ✅ | **Smart scheduling suggestions (v3.2.2+)** |
+| Auto-scaling | ✅ | Reactive/predictive scaling (v3.1.0+) |
+| Self-healing | ✅ | Automated fault detection & repair (v3.1.0+) |
+| Alert Deduplication | ✅ | Intelligent alert noise reduction (v3.1.0+) |
+| MCP Integration | ✅ | Model Context Protocol for AI tooling |
 
-- **GPU Resource Allocation**
-  - Dynamic GPU allocation and release
-  - Track GPU usage and availability
-  - Support for multiple GPU models
+---
 
-- **Task Scheduling**
-  - Create and manage computational tasks
-  - Priority-based scheduling
-  - Task status tracking (Pending, Running, Completed, Failed)
+## Architecture
 
-- **Real-time Monitoring**
-  - WebSocket-based real-time updates
-  - Server health monitoring
-  - Resource usage metrics
-  - Alert system for critical conditions
+### Technology Stack
 
-- **RESTful API**
-  - OpenAPI/Swagger documentation
-  - Comprehensive error handling
-  - Rate limiting ready
+**Backend**:
+- Node.js 20 + TypeScript
+- Express.js framework
+- PostgreSQL database
+- Prisma ORM
+- Redis caching
+- Socket.IO for WebSocket
 
-### Frontend
-- **Modern React Application**
-  - Responsive design with Ant Design
-  - Real-time updates via WebSocket
-  - Interactive charts and visualizations
+**Frontend**:
+- React 18 + TypeScript
+- Vite build tool
+- Ant Design UI
+- Zustand state management
+- Recharts for visualization
 
-- **Dashboard**
-  - System overview with key metrics
-  - Resource usage charts
-  - Active alerts display
+**DevOps**:
+- GitHub Actions CI/CD
+- Docker containerization
+- Prometheus monitoring
+- Grafana dashboards
 
-- **Server Management**
-  - Server list with status indicators
-  - Add/edit/delete servers
-  - GPU allocation tracking
-
-- **GPU Management**
-  - Allocate and release GPUs
-  - View allocation history
-  - Real-time GPU status
-
-- **Task Management**
-  - Create and monitor tasks
-  - Priority management
-  - Task cancellation
-
-- **Monitoring**
-  - Real-time server health
-  - Resource usage trends
-  - Alert management
-
-## Tech Stack
-
-### Backend
-- **Runtime**: Node.js with TypeScript
-- **Framework**: Express.js
-- **Database**: SQLite (via Prisma ORM)
-- **Authentication**: JWT
-- **Real-time**: Socket.IO
-- **Documentation**: Swagger/OpenAPI
-
-### Frontend
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **UI Library**: Ant Design
-- **State Management**: Zustand
-- **Data Fetching**: TanStack Query (React Query)
-- **Charts**: Recharts
-- **Real-time**: Socket.IO Client
-
-## Project Structure
+### System Architecture
 
 ```
-lsm-project/
-├── backend/
-│   ├── prisma/
-│   │   └── schema.prisma
-│   ├── src/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   └── index.ts
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   ├── store/
-│   │   ├── styles/
-│   │   ├── utils/
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.ts
-└── README.md
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Frontend  │────▶│   Backend    │────▶│  PostgreSQL │
+│  (React)    │     │  (Express)   │     │  Database   │
+└─────────────┘     └──────────────┘     └─────────────┘
+       │                   │
+       │                   ▼
+       │            ┌──────────────┐
+       └───────────▶│    Redis     │
+                    │    Cache     │
+                    └──────────────┘
 ```
 
-## Quick Start
+---
+
+## Installation
 
 ### Prerequisites
-- Node.js 18+
+
+- Node.js 20+
+- PostgreSQL 14+
+- Redis 7+
 - npm or yarn
 
 ### Backend Setup
 
 ```bash
-cd backend
+cd src/backend
 
 # Install dependencies
 npm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
 
 # Generate Prisma client
 npx prisma generate
 
 # Run database migrations
-npx prisma migrate dev --name init
+npx prisma migrate dev
 
 # Start development server
 npm run dev
 ```
-
-Backend will be available at `http://localhost:8080`
-API documentation at `http://localhost:8080/api-docs`
 
 ### Frontend Setup
 
 ```bash
-cd frontend
+cd src/frontend
 
 # Install dependencies
 npm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
 
 # Start development server
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:3000`
+---
 
-## API Endpoints
+## Configuration
+
+### Environment Variables
+
+#### Backend (.env)
+
+```env
+# Server
+NODE_ENV=development
+PORT=4000
+
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/lsm"
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# JWT
+JWT_SECRET="your-secret-key"
+JWT_EXPIRES_IN="15m"
+
+# Email
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=user@example.com
+SMTP_PASSWORD=password
+```
+
+#### Frontend (.env)
+
+```env
+VITE_API_BASE_URL=http://localhost:4000/api
+VITE_WS_URL=ws://localhost:4000
+```
+
+---
+
+## API Reference
 
 ### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
-- `POST /api/auth/logout` - Logout
-- `GET /api/auth/me` - Get current user
-- `PUT /api/auth/password` - Change password
+
+#### POST /api/auth/register
+Register new user
+
+```json
+{
+  "username": "john",
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+#### POST /api/auth/login
+Login user
+
+```json
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
 
 ### Servers
-- `GET /api/servers` - List all servers
-- `GET /api/servers/:id` - Get server details
-- `POST /api/servers` - Create server (Admin)
-- `PUT /api/servers/:id` - Update server (Manager+)
-- `DELETE /api/servers/:id` - Delete server (Admin)
-- `GET /api/servers/stats` - Server statistics
 
-### GPU
-- `POST /api/gpu/allocate` - Allocate GPU
-- `POST /api/gpu/release/:id` - Release GPU
-- `GET /api/gpu/my-allocations` - Get user's allocations
-- `GET /api/gpu/stats` - GPU statistics
+#### GET /api/servers
+Get all servers
+
+#### POST /api/servers
+Create server
+
+#### PUT /api/servers/:id
+Update server
+
+#### DELETE /api/servers/:id
+Delete server
+
+### GPUs
+
+#### POST /api/gpu/allocate
+Allocate GPU
+
+#### POST /api/gpu/release/:id
+Release GPU
 
 ### Tasks
-- `GET /api/tasks` - List user's tasks
-- `POST /api/tasks` - Create task
-- `PUT /api/tasks/:id` - Update task
-- `POST /api/tasks/:id/cancel` - Cancel task
-- `GET /api/tasks/stats` - Task statistics
 
-### Monitoring
-- `GET /api/monitoring/health` - Server health status
-- `GET /api/monitoring/cluster-stats` - Cluster statistics
-- `GET /api/monitoring/alerts` - Active alerts
-- `POST /api/monitoring/collect` - Trigger metrics collection
+#### GET /api/tasks
+Get all tasks
 
-## Environment Variables
+#### POST /api/tasks
+Create task
 
-### Backend (.env)
-```env
-PORT=8080
-NODE_ENV=development
-JWT_SECRET=your-secret-key-change-in-production
-JWT_EXPIRES_IN=24h
-CORS_ORIGINS=http://localhost:3000
-DATABASE_URL=file:./prisma/dev.db
-SCHEDULER_ENABLED=true
-SCHEDULER_INTERVAL_MS=5000
-MONITORING_ENABLED=true
-MONITORING_INTERVAL_MS=10000
+#### POST /api/tasks/:id/cancel
+Cancel task
+
+---
+
+## Frontend Guide
+
+### Component Structure
+
+```
+src/
+├── components/     # Reusable components
+├── pages/         # Page components
+├── services/      # API clients
+├── store/         # State management
+├── styles/        # CSS styles
+└── utils/         # Utilities
 ```
 
-## Default Admin Account
+### State Management
 
-After first run, create an admin user via the registration endpoint or API:
+Using Zustand for state management:
+
+```typescript
+import { create } from 'zustand';
+
+interface AuthStore {
+  user: User | null;
+  token: string | null;
+  login: (user: User, token: string) => void;
+  logout: () => void;
+}
+
+export const useAuthStore = create<AuthStore>((set) => ({
+  user: null,
+  token: null,
+  login: (user, token) => set({ user, token }),
+  logout: () => set({ user: null, token: null }),
+}));
+```
+
+---
+
+## Deployment
+
+### Docker Deployment
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","email":"admin@example.com","password":"admin123"}'
+# Build images
+docker-compose build
+
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
 ```
 
-Then manually update the role in the database or via API if you have access.
+### Production Checklist
 
-## WebSocket Events
+- [ ] Update environment variables
+- [ ] Configure SSL/TLS
+- [ ] Set up database backups
+- [ ] Configure monitoring
+- [ ] Set up log rotation
+- [ ] Configure firewall rules
+- [ ] Enable rate limiting
+- [ ] Test 2FA functionality
 
-### Client → Server
-- `join:user` - Join user-specific room
-- `subscribe:servers` - Subscribe to server updates
-- `subscribe:gpus` - Subscribe to GPU updates
-- `subscribe:tasks` - Subscribe to task updates
+---
 
-### Server → Client
-- `servers:update` - Server status/metrics update
-- `gpus:update` - GPU allocation update
-- `tasks:update` - Task statistics update
-- `task:update` - Individual task update
-- `alerts:new` - New system alerts
+## Monitoring
 
-## Development
+### Metrics
 
-### Backend Scripts
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run test` - Run tests
-- `npm run docs` - Generate Swagger docs
+- System metrics (CPU, memory, disk)
+- Database metrics (connections, queries)
+- Cache metrics (hits, misses)
+- Application metrics (requests, errors)
 
-### Frontend Scripts
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
+### Alerts
 
-## Production Deployment
+- High CPU usage (>90%)
+- High memory usage (>90%)
+- Database connection pool exhausted
+- High API error rate (>5%)
 
-### Backend
+---
+
+## Security
+
+### Authentication
+
+- JWT-based authentication
+- 2FA support (TOTP)
+- Session management
+- Password hashing (bcrypt)
+
+### Authorization
+
+- Role-based access control (RBAC)
+- Permission checks on all endpoints
+- Audit logging for sensitive operations
+
+### Best Practices
+
+- Use HTTPS in production
+- Rotate JWT secrets regularly
+- Enable rate limiting
+- Validate all inputs
+- Sanitize outputs
+- Keep dependencies updated
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### Database Connection Failed
 ```bash
-cd backend
-npm install --production
-npx prisma migrate deploy
-npm run build
-npm start
+# Check PostgreSQL is running
+pg_isready
+
+# Check connection string
+echo $DATABASE_URL
 ```
 
-### Frontend
+#### Redis Connection Failed
 ```bash
-cd frontend
-npm install
-npm run build
-# Serve the dist/ directory with a static file server
+# Check Redis is running
+redis-cli ping
+
+# Should return: PONG
 ```
 
-## Security Considerations
+#### Port Already in Use
+```bash
+# Find process using port
+lsof -i :4000
 
-1. Change the default JWT secret in production
-2. Use HTTPS in production
-3. Implement rate limiting for API endpoints
-4. Enable CORS only for trusted origins
-5. Regular security audits and dependency updates
+# Kill process
+kill -9 <PID>
+```
 
-## License
+#### Debugging with requestId
 
-MIT
+Every API response (especially errors) includes a `requestId` field. Use it to correlate frontend errors with backend logs:
+
+```bash
+# Find all log entries for a specific request
+grep "requestId=abc-123" /var/log/lsm/backend.log
+
+# Error responses include requestId in the JSON body:
+# { "success": false, "error": { "code": "...", "requestId": "abc-123", ... } }
+```
+
+---
+
+## Testing
+
+### Test Suite Overview
+
+| Suite | Framework | Tests | Pass Rate |
+|-------|-----------|-------|-----------|
+| Backend Unit + Integration | Jest | 783/832 | 94% |
+| Frontend Pages | Vitest | 58/60 | 97% |
+| E2E (Playwright) | Playwright | 98/98 | 100% |
+
+### Running Tests
+
+```bash
+# Backend tests (with coverage)
+cd src/backend
+npm test -- --coverage
+
+# Frontend tests
+cd src/frontend
+npm run test:run
+
+# E2E tests (requires running app)
+cd e2e
+npx playwright test
+```
+
+### Coverage
+
+| Metric | Current |
+|--------|---------|
+| Backend Statements | ~34% |
+| Backend Branches | ~26% |
+| Backend Functions | ~33% |
+| Backend Lines | ~35% |
+
+### Test File Locations
+
+- **Backend integration**: `src/backend/src/__tests__/integration/`
+- **Backend services**: `src/backend/src/__tests__/services/`
+- **Frontend pages**: `src/frontend/src/pages/__tests__/`
+- **E2E specs**: `e2e/tests/`
+
+---
+
+## Documentation
+
+### User Documentation
+
+- **User Manual** (`docs/USER_MANUAL.md`) - Complete user guide covering all features
+  - Chapter 18: Resource Reservation Management (Server & Cluster)
+  - Chapter 19: Requirements Management
+
+### Operations Documentation
+
+- **Operations Manual** (`docs/OPERATIONS_MANUAL.md`) - DevOps guide
+  - Chapter 20: Reservation System Operations
+
+### API Documentation
+
+- **Backend API** (`backend/docs/API.md`) - REST API reference
+- **OpenAPI Spec** - Available at `/api/docs` when running
+
+---
 
 ## Support
 
-For issues and feature requests, please open an issue in the repository.
+For issues and questions:
+- GitHub Issues: [Link]
+- Documentation: [Link]
+- Email: support@lsm.local
+
+---
+
+**Last Updated**: 2026-03-28
+**Version**: 3.2.2
+**Status**: Production Ready ✅

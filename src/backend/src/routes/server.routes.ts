@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
+import { body, param, validationResult } from 'express-validator';
 import serverService from '../services/server.service';
 import { authenticate, requireAdmin, requireManager, AuthRequest } from '../middleware/auth.middleware';
-import { ServerStatus } from '@prisma/client';
+import { server_status as ServerStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -73,6 +73,169 @@ router.get('/available', async (req, res) => {
 });
 
 /**
+ * @route   POST /api/servers
+ * @desc    Create a new server
+ * @access  Private/Admin
+ */
+router.post(
+  '/',
+  requireAdmin,
+  [
+    body('name').notEmpty().withMessage('Server name required'),
+    body('hostname').notEmpty().withMessage('Hostname required'),
+    body('ipAddress').isIP().withMessage('Valid IP address required'),
+    body('cpuCores').isInt({ min: 1 }).withMessage('CPU cores must be at least 1'),
+    body('totalMemory').isInt({ min: 1 }).withMessage('Total memory must be at least 1 GB'),
+  ],
+  async (req, res) => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
+      const { name, hostname, ipAddress, cpuCores, totalMemory, gpuCount, gpus, location, description } = req.body;
+
+      const server = await serverService.createServer({
+        name,
+        hostname,
+        ipAddress,
+        cpuCores,
+        totalMemory,
+        gpuCount,
+        gpus,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: server,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   DELETE /api/servers/batch
+ * @desc    Batch delete servers
+ * @access  Private/Admin
+ * @note    Must be defined BEFORE /:id to avoid route collision
+ */
+router.delete(
+  '/batch',
+  requireAdmin,
+  [
+    body('ids').exists().withMessage('Server IDs are required'),
+    body('ids').isArray({ min: 1 }).withMessage('Server IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each server ID must be a valid UUID'),
+  ],
+  async (req, res) => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
+      const { ids } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await serverService.deleteServer(id);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch delete completed: ${results.success} succeeded, ${results.failed} failed`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   PATCH /api/servers/batch/status
+ * @desc    Batch update server status
+ * @access  Private/Manager
+ * @note    Must be defined BEFORE /:id to avoid route collision
+ */
+router.patch(
+  '/batch/status',
+  requireManager,
+  [
+    body('ids').isArray({ min: 1 }).withMessage('Server IDs must be an array with at least one ID'),
+    body('ids.*').isUUID().withMessage('Each server ID must be a valid UUID'),
+    body('status').isIn(['ONLINE', 'OFFLINE', 'MAINTENANCE', 'ERROR']).withMessage('Invalid status'),
+  ],
+  async (req, res) => {
+    try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
+      const { ids, status } = req.body;
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as Array<{ id: string; error: string }>,
+      };
+
+      for (const id of ids) {
+        try {
+          await serverService.updateServerStatus(id, status as ServerStatus);
+          results.success++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push({ id, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: results,
+        message: `Batch status update completed: ${results.success} succeeded, ${results.failed} failed`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
  * @route   GET /api/servers/:id
  * @desc    Get server by ID
  * @access  Private
@@ -107,48 +270,6 @@ router.get(
 );
 
 /**
- * @route   POST /api/servers
- * @desc    Create a new server
- * @access  Private/Admin
- */
-router.post(
-  '/',
-  requireAdmin,
-  [
-    body('name').notEmpty().withMessage('Server name required'),
-    body('hostname').notEmpty().withMessage('Hostname required'),
-    body('ipAddress').isIP().withMessage('Valid IP address required'),
-    body('cpuCores').isInt({ min: 1 }).withMessage('CPU cores must be at least 1'),
-    body('totalMemory').isInt({ min: 1 }).withMessage('Total memory must be at least 1 GB'),
-  ],
-  async (req, res) => {
-    try {
-      const { name, hostname, ipAddress, cpuCores, totalMemory, gpuCount, gpus } = req.body;
-
-      const server = await serverService.createServer({
-        name,
-        hostname,
-        ipAddress,
-        cpuCores,
-        totalMemory,
-        gpuCount,
-        gpus,
-      });
-
-      res.status(201).json({
-        success: true,
-        data: server,
-      });
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        error: error.message,
-      });
-    }
-  }
-);
-
-/**
  * @route   PUT /api/servers/:id
  * @desc    Update server
  * @access  Private/Manager
@@ -160,7 +281,7 @@ router.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, hostname, ipAddress, cpuCores, totalMemory, status } = req.body;
+      const { name, hostname, ipAddress, cpuCores, totalMemory, status, location, description } = req.body;
 
       const server = await serverService.updateServer(id, {
         name,
@@ -169,6 +290,8 @@ router.put(
         cpuCores,
         totalMemory,
         status,
+        location,
+        description,
       });
 
       res.json({
@@ -198,6 +321,15 @@ router.patch(
   ],
   async (req, res) => {
     try {
+      // Check validation results
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: errors.array()[0].msg,
+        });
+      }
+
       const { id } = req.params;
       const { status } = req.body;
 
