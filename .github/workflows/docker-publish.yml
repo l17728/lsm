@@ -20,8 +20,8 @@ on:
 
 env:
   REGISTRY: docker.io
-  BACKEND_IMAGE: l17728/lsm-backend
-  FRONTEND_IMAGE: l17728/lsm-frontend
+  BACKEND_IMAGE: decklijia/lsm-backend
+  FRONTEND_IMAGE: decklijia/lsm-frontend
 
 jobs:
   # ============================================
