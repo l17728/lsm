@@ -408,14 +408,104 @@ docker-compose exec backend npx prisma migrate deploy
 
 ### Q: 如何备份数据
 
-**A**: 使用备份脚本
+**A**: 使用数据导出脚本
+
+```bash
+# 完整导出（数据库 + Redis + 配置）
+./scripts/data-export.sh export
+
+# 查看导出文件
+./scripts/data-export.sh list
+
+# 恢复数据
+./scripts/data-export.sh import lsm-export-xxx.tar.gz
+```
+
+**导出命令列表**:
+
+| 命令 | 说明 |
+|------|------|
+| `export` | 完整导出（推荐） |
+| `export-db` | 仅导出数据库 |
+| `export-redis` | 仅导出 Redis |
+| `import <file>` | 从导出包恢复 |
+| `list` | 列出所有导出文件 |
+| `pre-upgrade` | 升级前备份 |
+| `post-upgrade` | 升级后验证 |
+
+**或使用传统备份脚本**:
 
 ```bash
 # 运行备份脚本
-./scripts/backup.sh
+./scripts/backup.sh backup
 
-# 或手动备份
-docker-compose exec postgres pg_dump -U lsm lsm > backup_$(date +%Y%m%d).sql
+# 列出备份
+./scripts/backup.sh list
+
+# 恢复备份
+./scripts/backup.sh restore backups/backup-full-xxx.sql.gz
+```
+
+---
+
+## 数据迁移与升级
+
+### 升级前备份
+
+在升级系统版本前，务必执行完整备份：
+
+```bash
+# 升级前自动备份
+./scripts/data-export.sh pre-upgrade
+
+# 导出文件保存在 data-exports/ 目录
+```
+
+### 版本升级步骤
+
+```bash
+# 1. 备份数据
+./scripts/data-export.sh export
+
+# 2. 停止服务
+docker-compose down
+
+# 3. 拉取新版本
+git pull origin main
+
+# 4. 重新构建
+docker-compose build
+
+# 5. 启动服务
+docker-compose up -d
+
+# 6. 运行数据库迁移
+docker-compose exec backend npx prisma migrate deploy
+
+# 7. 验证升级
+./scripts/data-export.sh post-upgrade
+```
+
+### 跨服务器迁移
+
+**源服务器**:
+
+```bash
+# 导出所有数据
+./scripts/data-export.sh export
+
+# 打包传输
+scp data-exports/lsm-export-*.tar.gz user@new-server:/path/to/lsm/
+```
+
+**目标服务器**:
+
+```bash
+# 导入数据
+./scripts/data-export.sh import lsm-export-xxx.tar.gz
+
+# 验证
+./scripts/data-export.sh post-upgrade
 ```
 
 ---
