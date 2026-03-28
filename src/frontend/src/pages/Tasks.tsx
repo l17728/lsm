@@ -111,7 +111,7 @@ const Tasks: React.FC = () => {
       return
     }
 
-    const items: BatchProgressItem[] = tasks
+    const items: BatchProgressItem[] = (tasks || [])
       .filter(t => selectedRowKeys.includes(t.id))
       .map(t => ({
         id: t.id,
@@ -198,7 +198,7 @@ const Tasks: React.FC = () => {
       return
     }
 
-    const items: BatchProgressItem[] = tasks
+    const items: BatchProgressItem[] = (tasks || [])
       .filter(t => selectedRowKeys.includes(t.id))
       .map(t => ({
         id: t.id,
@@ -284,7 +284,7 @@ const Tasks: React.FC = () => {
       return
     }
 
-    const items: BatchProgressItem[] = tasks
+    const items: BatchProgressItem[] = (tasks || [])
       .filter(t => selectedRowKeys.includes(t.id))
       .map(t => ({
         id: t.id,
@@ -495,7 +495,7 @@ const Tasks: React.FC = () => {
 
   const onSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRowKeys(tasks.map(t => t.id))
+      setSelectedRowKeys((tasks || []).map(t => t.id))
     } else {
       setSelectedRowKeys([])
     }

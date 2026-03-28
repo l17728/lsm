@@ -22,7 +22,7 @@ import {
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
-import { clusterApi, clusterReservationApi } from '../services/api'
+import { clusterApi, clusterReservationApi, authApi } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import type { ColumnsType } from 'antd/es/table'
 
@@ -41,15 +41,15 @@ interface Cluster {
   totalGpus: number
   totalCpuCores: number
   totalMemory: number
-  // 新增环境信息字段
-  envName?: string           // 环境名称
-  envAlias?: string          // 环境别名
-  subEnvAlias?: string       // 子环境别名
-  prometheusAddress?: string // 普罗地址
-  deviceInfo?: string        // 设备信息
-  loginIp?: string           // 登录IP
-  usageScenario?: string     // 使用场景
-  // 责任人
+  // Environment info fields
+  envName?: string
+  envAlias?: string
+  subEnvAlias?: string
+  prometheusAddress?: string
+  deviceInfo?: string
+  loginIp?: string
+  usageScenario?: string
+  // Owners
   testOwnerId?: string
   teamOwnerId?: string
   userId?: string
@@ -77,8 +77,18 @@ interface Cluster {
       name: string
       hostname: string
       ipAddress: string
+      status?: string
+      cpuCores?: number
+      totalMemory?: number
       gpuCount: number
-      gpus: any[]
+      location?: string
+      description?: string
+      gpus: Array<{
+        id: string
+        model: string
+        memory: number
+        allocated: boolean
+      }>
     }
     priority: number
     role?: string
@@ -198,6 +208,8 @@ const Clusters: React.FC = () => {
 
   // 只有 SUPER_ADMIN 才有完全的集群管理权限
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  // 只有 SUPER_ADMIN 可以修改集群状态（手动覆盖）
+  const canModifyStatus = isSuperAdmin
   // MANAGER, ADMIN, SUPER_ADMIN 可以查看集群列表（用于预约）
   const canViewClusters = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
@@ -234,7 +246,25 @@ const Clusters: React.FC = () => {
     }
   }
 
-  // Check if user has reservation for a cluster
+  // Cluster status options
+  const clusterStatusOptions = [
+    { value: 'AVAILABLE', label: 'Available' },
+    { value: 'ALLOCATED', label: 'Allocated' },
+    { value: 'RESERVED', label: 'Reserved' },
+    { value: 'MAINTENANCE', label: 'Maintenance' },
+    { value: 'OFFLINE', label: 'Offline' },
+  ]
+
+  // Handle cluster status update
+  const handleStatusUpdate = async (clusterId: string, newStatus: string) => {
+    try {
+      await clusterApi.update(clusterId, { status: newStatus })
+      message.success('Cluster status updated')
+      loadData()
+    } catch (error: any) {
+      message.error(error.response?.data?.error || 'Failed to update cluster status')
+    }
+  }
   const getMyReservationForCluster = (clusterId: string): ClusterReservation | undefined => {
     return myReservations.find(r => 
       r.clusterId === clusterId && 
@@ -472,9 +502,12 @@ const Clusters: React.FC = () => {
   // Render cluster card
   const renderClusterCard = (cluster: Cluster) => {
     const myReservation = getMyReservationForCluster(cluster.id)
-    const statusInfo = statusConfig[cluster.status] || statusConfig.OFFLINE
-    const isAvailable = cluster.status === 'AVAILABLE'
+    // Use effectiveStatus if available, fallback to status
+    const displayStatus = (cluster as any).effectiveStatus || cluster.status
+    const statusInfo = statusConfig[displayStatus] || statusConfig.OFFLINE
+    const isAvailable = displayStatus === 'AVAILABLE'
     const isReservedByMe = myReservation && myReservation.status === 'APPROVED'
+    const isStatusOverridden = (cluster as any).isStatusOverridden
 
     // Actions for all users
     const actions = [
@@ -544,7 +577,24 @@ const Clusters: React.FC = () => {
                   <Text strong style={{ fontSize: 16 }}>{cluster.name}</Text>
                 </Space>
                 <Space>
-                  <Tag color={statusInfo.color}>{statusInfo.text}</Tag>
+                  {canModifyStatus ? (
+                    <Space size="small">
+                      <Select
+                        value={cluster.status}
+                        style={{ width: 130 }}
+                        size="small"
+                        onChange={(value) => handleStatusUpdate(cluster.id, value)}
+                        options={clusterStatusOptions}
+                      />
+                      {isStatusOverridden && (
+                        <Tooltip title={`实际状态: ${statusInfo.text} (基于当前预约)`}>
+                          <Tag color={statusInfo.color}>{statusInfo.text}</Tag>
+                        </Tooltip>
+                      )}
+                    </Space>
+                  ) : (
+                    <Tag color={statusInfo.color}>{statusInfo.text}</Tag>
+                  )}
                   <Tag color={typeColors[cluster.type] || 'default'}>{cluster.type}</Tag>
                 </Space>
               </Space>
@@ -557,7 +607,7 @@ const Clusters: React.FC = () => {
             {cluster.assignee && (
               <div>
                 <UserOutlined style={{ marginRight: 4 }} />
-                <Text type="secondary">{cluster.assignee.username}</Text>
+                <Text type="secondary">{cluster.assignee?.username || '-'}</Text>
               </div>
             )}
             
@@ -673,7 +723,7 @@ const Clusters: React.FC = () => {
       <Spin spinning={loading}>
         {clusters.length > 0 ? (
           <Row gutter={[16, 16]}>
-            {clusters.map(renderClusterCard)}
+            {(clusters || []).map(renderClusterCard)}
           </Row>
         ) : (
           <Empty description="No clusters available" />
@@ -768,7 +818,7 @@ const Clusters: React.FC = () => {
                       </Space>
                     </Space>
                     <div style={{ marginTop: 4 }}>
-                      {rec.reasons.slice(0, 2).map((reason, i) => (
+                      {(rec.reasons || []).slice(0, 2).map((reason, i) => (
                         <Tag key={i} color="geekblue" style={{ fontSize: 11, marginBottom: 2 }}>
                           {reason}
                         </Tag>
@@ -840,7 +890,7 @@ const Clusters: React.FC = () => {
                 <>
                   <Descriptions.Item label="User">
                     <UserOutlined style={{ marginRight: 4 }} />
-                    {selectedCluster.assignee.username}
+                    {selectedCluster.assignee?.username || '-'}
                   </Descriptions.Item>
                   <Descriptions.Item label="End Time">
                     {selectedCluster.assignmentEnd && 
@@ -895,30 +945,90 @@ const Clusters: React.FC = () => {
         footer={
           <Button onClick={() => setServersVisible(false)}>Close</Button>
         }
-        width={800}
+        width={900}
       >
         {selectedCluster?.servers && selectedCluster.servers.length > 0 ? (
           <Row gutter={[12, 12]}>
-            {selectedCluster.servers.map((s) => (
-              <Col key={s.server.id} span={8}>
-                <Card
-                  hoverable
-                  size="small"
-                  onClick={() => handleServerClick(s.server.id)}
-                >
-                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    <Text strong>{s.server.name}</Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {s.server.hostname || s.server.ipAddress}
-                    </Text>
-                    <Space>
-                      <Tag>GPU: {s.server.gpuCount}</Tag>
-                      {s.role && <Tag color="blue">{s.role}</Tag>}
+            {selectedCluster.servers.map((s) => {
+              // Server status config
+              const serverStatusConfig: Record<string, { color: string; text: string }> = {
+                ONLINE: { color: 'green', text: 'Online' },
+                OFFLINE: { color: 'default', text: 'Offline' },
+                MAINTENANCE: { color: 'orange', text: 'Maintenance' },
+              }
+              const serverStatus = serverStatusConfig[s.server.status || 'ONLINE'] || serverStatusConfig.ONLINE
+              
+              // Get unique GPU models
+              const gpuModels = s.server?.gpus 
+                ? [...new Set(s.server.gpus.map(g => g.model))].join(', ')
+                : 'N/A'
+              
+              return (
+                <Col key={s.server.id} span={8}>
+                  <Card
+                    hoverable
+                    size="small"
+                    onClick={() => handleServerClick(s.server.id)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                      {/* Header: Name + Status */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text strong style={{ fontSize: 14 }}>{s.server.name}</Text>
+                        <Badge status={serverStatus.color as any} text={serverStatus.text} />
+                      </div>
+                      
+                      {/* IP Address */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>IP:</Text>
+                        <Text code style={{ fontSize: 12 }}>{s.server.ipAddress || 'N/A'}</Text>
+                      </div>
+                      
+                      {/* Hostname */}
+                      {s.server.hostname && (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {s.server.hostname}
+                        </Text>
+                      )}
+                      
+                      {/* Configuration */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        <Tag color="blue" style={{ margin: 0 }}>
+                          CPU: {s.server.cpuCores || 'N/A'} cores
+                        </Tag>
+                        <Tag color="purple" style={{ margin: 0 }}>
+                          RAM: {s.server.totalMemory || 'N/A'} GB
+                        </Tag>
+                      </div>
+                      
+                      {/* GPU Info */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        <Tag color="cyan" style={{ margin: 0 }}>
+                          GPU: {s.server.gpuCount}
+                        </Tag>
+                        {s.role && <Tag color="gold" style={{ margin: 0 }}>{s.role}</Tag>}
+                      </div>
+                      
+                      {/* GPU Models (if available) */}
+                      {gpuModels && gpuModels !== 'N/A' && (
+                        <Tooltip title="GPU Models">
+                          <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
+                            {gpuModels}
+                          </Text>
+                        </Tooltip>
+                      )}
+                      
+                      {/* Location */}
+                      {s.server.location && (
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          📍 {s.server.location}
+                        </Text>
+                      )}
                     </Space>
-                  </Space>
-                </Card>
-              </Col>
-            ))}
+                  </Card>
+                </Col>
+              )
+            })}
           </Row>
         ) : (
           <Empty description="No servers in this cluster" />
@@ -1102,33 +1212,73 @@ const Clusters: React.FC = () => {
             <Title level={5}>Current Servers ({selectedCluster?.servers?.length || 0})</Title>
             {selectedCluster?.servers && selectedCluster.servers.length > 0 ? (
               <Row gutter={[12, 12]}>
-                {selectedCluster.servers.map((s) => (
-                  <Col key={s.server.id} span={8}>
-                    <Card
-                      size="small"
-                      actions={[
-                        <Tooltip title="Remove" key="remove">
-                          <DeleteOutlined 
-                            style={{ color: '#ff4d4f' }}
-                            onClick={() => handleRemoveServer(s.server.id)}
-                          />
-                        </Tooltip>,
-                      ]}
-                    >
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        <Text strong>{s.server.name}</Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {s.server.hostname || s.server.ipAddress}
-                        </Text>
-                        <Space>
-                          <Tag>GPU: {s.server.gpuCount}</Tag>
-                          {s.role && <Tag color="blue">{s.role}</Tag>}
-                          <Tag color="green">Priority: {s.priority}</Tag>
+                {selectedCluster.servers.map((s) => {
+                  const serverStatusConfig: Record<string, { color: string; text: string }> = {
+                    ONLINE: { color: 'green', text: 'Online' },
+                    OFFLINE: { color: 'default', text: 'Offline' },
+                    MAINTENANCE: { color: 'orange', text: 'Maintenance' },
+                  }
+              const serverStatus = serverStatusConfig[s.server?.status || 'ONLINE'] || serverStatusConfig.ONLINE
+                  const gpuModels = s.server?.gpus 
+                    ? [...new Set(s.server.gpus.map(g => g.model))].join(', ')
+                    : 'N/A'
+                  
+                  return (
+                    <Col key={s.server.id} span={8}>
+                      <Card
+                        size="small"
+                        actions={[
+                          <Tooltip title="Remove" key="remove">
+                            <DeleteOutlined 
+                              style={{ color: '#ff4d4f' }}
+                              onClick={() => handleRemoveServer(s.server.id)}
+                            />
+                          </Tooltip>,
+                        ]}
+                      >
+                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                          {/* Header: Name + Status */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text strong style={{ fontSize: 14 }}>{s.server.name}</Text>
+                            <Badge status={serverStatus.color as any} text={serverStatus.text} />
+                          </div>
+                          
+                          {/* IP Address */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>IP:</Text>
+                            <Text code style={{ fontSize: 12 }}>{s.server.ipAddress || 'N/A'}</Text>
+                          </div>
+                          
+                          {/* Configuration */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            <Tag color="blue" style={{ margin: 0 }}>
+                              CPU: {s.server.cpuCores || 'N/A'}
+                            </Tag>
+                            <Tag color="purple" style={{ margin: 0 }}>
+                              RAM: {s.server.totalMemory || 'N/A'}GB
+                            </Tag>
+                          </div>
+                          
+                          {/* GPU Info */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            <Tag color="cyan" style={{ margin: 0 }}>
+                              GPU: {s.server.gpuCount}
+                            </Tag>
+                            {s.role && <Tag color="gold" style={{ margin: 0 }}>{s.role}</Tag>}
+                            <Tag color="green" style={{ margin: 0 }}>P{s.priority}</Tag>
+                          </div>
+                          
+                          {/* GPU Models */}
+                          {gpuModels && gpuModels !== 'N/A' && (
+                            <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
+                              {gpuModels}
+                            </Text>
+                          )}
                         </Space>
-                      </Space>
-                    </Card>
-                  </Col>
-                ))}
+                      </Card>
+                    </Col>
+                  )
+                })}
               </Row>
             ) : (
               <Empty description="No servers" />

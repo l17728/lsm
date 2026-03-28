@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { body, param, query, validationResult } from 'express-validator';
-import { authenticate, requireManager, AuthRequest } from '../middleware/auth.middleware';
+import { authenticate, requireManager, requireSuperAdmin, requireSuperAdminOrAdmin, AuthRequest } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validation.middleware';
 import { user_role as UserRole } from '@prisma/client';
 
@@ -72,8 +72,8 @@ const reservationQuerySchema = z.object({
  * Availability query schema
  */
 const availabilityQuerySchema = z.object({
-  startTime: z.string().datetime({ message: 'Start time is required' }),
-  endTime: z.string().datetime({ message: 'End time is required' }),
+  startTime: z.string().datetime({ message: 'Invalid start time format' }).optional(),
+  endTime: z.string().datetime({ message: 'Invalid end time format' }).optional(),
   gpuCount: z.number().int().min(1).default(1),
   minMemory: z.number().int().min(0).default(0),
   gpuModel: z.string().optional(),
@@ -145,29 +145,34 @@ const isManagerOrAdmin = (role: UserRole): boolean => {
 
 /**
  * Generate mock reservation data for development
+ * @param dateStr - Optional date string (YYYY-MM-DD) to generate reservation for that date
  */
-const generateMockReservation = (id: string, userId: string, userName: string) => ({
-  id,
-  serverId: '660e8400-e29b-41d4-a716-446655440001',
-  serverName: 'GPU-Server-01',
-  userId,
-  userName,
-  title: 'Model Training Task',
-  description: 'ResNet50 model training, estimated 24 hours',
-  startTime: new Date(Date.now() + 86400000).toISOString(),
-  endTime: new Date(Date.now() + 2 * 86400000).toISOString(),
-  priority: 5,
-  gpuCount: 2,
-  allocatedGpus: [
-    { id: 'gpu-001', model: 'NVIDIA A100', memory: 40, status: 'ALLOCATED' },
-    { id: 'gpu-002', model: 'NVIDIA A100', memory: 40, status: 'ALLOCATED' },
-  ],
-  status: 'APPROVED',
-  requiresApproval: false,
-  notes: 'Requires A100 GPU',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-});
+const generateMockReservation = (id: string, userId: string, userName: string, status: string = 'PENDING', dateStr?: string) => {
+  // Use provided date or default to tomorrow
+  const baseDate = dateStr || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  return {
+    id,
+    serverId: '660e8400-e29b-41d4-a716-446655440001',
+    serverName: 'GPU-Server-01',
+    userId,
+    userName,
+    title: 'Model Training Task',
+    description: 'ResNet50 model training, estimated 24 hours',
+    startTime: new Date(`${baseDate}T09:00:00.000Z`).toISOString(),
+    endTime: new Date(`${baseDate}T18:00:00.000Z`).toISOString(),
+    priority: 5,
+    gpuCount: 2,
+    allocatedGpus: [
+      { id: 'gpu-001', model: 'NVIDIA A100', memory: 40, status: 'ALLOCATED' },
+      { id: 'gpu-002', model: 'NVIDIA A100', memory: 40, status: 'ALLOCATED' },
+    ],
+    status,
+    requiresApproval: true,
+    notes: 'Requires A100 GPU',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+};
 
 /**
  * Generate mock available servers
@@ -310,6 +315,8 @@ router.get(
   '/',
   async (req: AuthRequest, res: Response) => {
     try {
+      console.log(`[ReservationRoutes] GET /api/reservations query:`, JSON.stringify(req.query));
+      
       // Validate query parameters
       const validatedQuery = validate(reservationQuerySchema, {
         ...req.query,
@@ -319,6 +326,8 @@ router.get(
       });
 
       const { status, serverId, startTime, endTime, page, limit, sort, order } = validatedQuery;
+      
+      console.log(`[ReservationRoutes] Validated params: startTime=${startTime}, endTime=${endTime}`);
 
       // Build filter conditions
       const where: any = {};
@@ -336,10 +345,17 @@ router.get(
         if (endTime) where.startTime.lte = new Date(endTime);
       }
 
-      // Mock data for development
+      // Mock data for development - generate reservations relative to requested date range
       const userId = req.user!.userId;
       const userName = req.user!.username || 'user';
+      const now = Date.now();
       
+      // Use filter time range or default to today
+      const requestStart = startTime ? new Date(startTime).getTime() : now;
+      const requestDate = new Date(requestStart);
+      const dateStr = requestDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      
+      // Generate reservations that fall within or near the requested date range
       const mockReservations = [
         {
           id: '550e8400-e29b-41d4-a716-446655440000',
@@ -348,11 +364,13 @@ router.get(
           userId,
           userName,
           title: 'Model Training Task',
-          startTime: new Date(Date.now() + 86400000).toISOString(),
-          endTime: new Date(Date.now() + 2 * 86400000).toISOString(),
+          // Start at 9:00 AM on the requested date
+          startTime: new Date(`${dateStr}T09:00:00.000Z`).toISOString(),
+          endTime: new Date(`${dateStr}T18:00:00.000Z`).toISOString(),
           priority: 5,
           gpuCount: 2,
           status: 'APPROVED',
+          purpose: 'ResNet50 training',
           createdAt: new Date().toISOString(),
         },
         {
@@ -362,20 +380,107 @@ router.get(
           userId,
           userName,
           title: 'Inference Service',
-          startTime: new Date(Date.now() + 3 * 86400000).toISOString(),
-          endTime: new Date(Date.now() + 4 * 86400000).toISOString(),
+          // Start at 14:00 on the requested date
+          startTime: new Date(`${dateStr}T14:00:00.000Z`).toISOString(),
+          endTime: new Date(`${dateStr}T17:00:00.000Z`).toISOString(),
           priority: 3,
           gpuCount: 1,
           status: 'PENDING',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          purpose: 'Batch inference',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '550e8400-e29b-41d4-a716-446655440002',
+          serverId: '660e8400-e29b-41d4-a716-446655440001',
+          serverName: 'GPU-Server-01',
+          userId,
+          userName,
+          title: 'Quick Test',
+          // Start at 10:00 on the requested date
+          startTime: new Date(`${dateStr}T10:00:00.000Z`).toISOString(),
+          endTime: new Date(`${dateStr}T12:00:00.000Z`).toISOString(),
+          priority: 8,
+          gpuCount: 1,
+          status: 'APPROVED',
+          purpose: 'Quick model test',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '550e8400-e29b-41d4-a716-446655440003',
+          serverId: '660e8400-e29b-41d4-a716-446655440003',
+          serverName: 'GPU-Server-03',
+          userId,
+          userName,
+          title: 'Long Training',
+          // Multi-day reservation starting on requested date
+          startTime: new Date(`${dateStr}T08:00:00.000Z`).toISOString(),
+          endTime: new Date(new Date(`${dateStr}T20:00:00.000Z`).getTime() + 86400000).toISOString(),
+          priority: 7,
+          gpuCount: 4,
+          status: 'APPROVED',
+          purpose: 'Large model training',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '550e8400-e29b-41d4-a716-446655440004',
+          serverId: '660e8400-e29b-41d4-a716-446655440002',
+          serverName: 'GPU-Server-02',
+          userId,
+          userName,
+          title: 'Data Processing',
+          // Start at 19:00 on the requested date
+          startTime: new Date(`${dateStr}T19:00:00.000Z`).toISOString(),
+          endTime: new Date(`${dateStr}T23:00:00.000Z`).toISOString(),
+          priority: 4,
+          gpuCount: 2,
+          status: 'PENDING',
+          purpose: 'Data preprocessing pipeline',
+          createdAt: new Date().toISOString(),
         },
       ];
+      
+      console.log(`[ReservationRoutes] Generated mock reservations for date: ${dateStr}`);
 
-      // Apply status filter to mock data
+      // Apply filters to mock data
       let filteredReservations = mockReservations;
+      
+      // Filter by status
       if (status) {
-        filteredReservations = mockReservations.filter(r => r.status === status);
+        filteredReservations = filteredReservations.filter(r => r.status === status);
       }
+      
+      // Filter by time range
+      if (startTime || endTime) {
+        console.log(`[ReservationRoutes] Filtering by time range: ${startTime} to ${endTime}`);
+        filteredReservations = filteredReservations.filter(r => {
+          const reservationStart = new Date(r.startTime);
+          const reservationEnd = new Date(r.endTime);
+          const filterStart = startTime ? new Date(startTime) : null;
+          const filterEnd = endTime ? new Date(endTime) : null;
+          
+          console.log(`[ReservationRoutes] Reservation: ${r.title}, start=${r.startTime}, end=${r.endTime}`);
+          
+          // Check if reservation overlaps with the filter range
+          // Reservation overlaps if: reservationStart < filterEnd AND reservationEnd > filterStart
+          if (filterStart && filterEnd) {
+            const overlaps = reservationStart < filterEnd && reservationEnd > filterStart;
+            console.log(`[ReservationRoutes] Overlap check: resStart < filterEnd (${reservationStart < filterEnd}), resEnd > filterStart (${reservationEnd > filterStart}), result=${overlaps}`);
+            return overlaps;
+          } else if (filterStart) {
+            return reservationEnd > filterStart;
+          } else if (filterEnd) {
+            return reservationStart < filterEnd;
+          }
+          return true;
+        });
+      }
+      
+      // Filter by serverId
+      if (serverId) {
+        filteredReservations = filteredReservations.filter(r => r.serverId === serverId);
+      }
+      
+      console.log(`[ReservationRoutes] Filtered ${filteredReservations.length} reservations from ${mockReservations.length} total`);
 
       // Calculate pagination
       const total = filteredReservations.length;
@@ -421,9 +526,9 @@ router.get(
 
       const { startTime, endTime, gpuCount, minMemory, gpuModel } = validatedQuery;
 
-      // Validate time range
-      const start = new Date(startTime);
-      const end = new Date(endTime);
+      // Set default time range if not provided (now to 7 days later)
+      const start = startTime ? new Date(startTime) : new Date();
+      const end = endTime ? new Date(endTime) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       
       if (start >= end) {
         return res.status(400).json({
@@ -477,7 +582,10 @@ router.get(
       const validatedQuery = validate(calendarQuerySchema, req.query);
       const { serverId, start, end, view } = validatedQuery;
 
-      // Mock calendar data
+      // Use requested date range for mock data
+      const startDate = start || new Date().toISOString().split('T')[0];
+      
+      // Mock calendar data with reservations on requested dates
       const calendarData = {
         serverId: serverId || '660e8400-e29b-41d4-a716-446655440001',
         serverName: 'GPU-Server-01',
@@ -486,24 +594,38 @@ router.get(
           {
             id: '550e8400-e29b-41d4-a716-446655440000',
             title: 'Model Training Task',
-            startTime: new Date(Date.now() + 86400000).toISOString(),
-            endTime: new Date(Date.now() + 2 * 86400000).toISOString(),
+            startTime: new Date(`${startDate}T09:00:00.000Z`).toISOString(),
+            endTime: new Date(`${startDate}T18:00:00.000Z`).toISOString(),
             status: 'APPROVED',
             gpuCount: 2,
             userId: req.user!.userId,
             userName: req.user!.username || 'user',
+            purpose: 'ResNet50 training',
             color: '#4CAF50',
           },
           {
             id: '550e8400-e29b-41d4-a716-446655440003',
             title: 'Inference Service',
-            startTime: new Date(Date.now() + 5 * 86400000).toISOString(),
-            endTime: new Date(Date.now() + 5.5 * 86400000).toISOString(),
+            startTime: new Date(`${startDate}T14:00:00.000Z`).toISOString(),
+            endTime: new Date(`${startDate}T17:00:00.000Z`).toISOString(),
             status: 'APPROVED',
             gpuCount: 1,
             userId: '770e8400-e29b-41d4-a716-446655440004',
             userName: 'user2',
+            purpose: 'Batch inference',
             color: '#2196F3',
+          },
+          {
+            id: '550e8400-e29b-41d4-a716-446655440004',
+            title: 'Quick Test',
+            startTime: new Date(`${startDate}T10:00:00.000Z`).toISOString(),
+            endTime: new Date(`${startDate}T12:00:00.000Z`).toISOString(),
+            status: 'PENDING',
+            gpuCount: 1,
+            userId: req.user!.userId,
+            userName: req.user!.username || 'user',
+            purpose: 'Quick model validation',
+            color: '#faad14',
           },
         ],
         utilization: {
@@ -512,6 +634,8 @@ router.get(
           utilizationRate: 3.76,
         },
       };
+
+      console.log(`[ReservationRoutes] Calendar data for range: ${start} to ${end}`);
 
       res.json({
         success: true,
@@ -522,6 +646,108 @@ router.get(
         success: false,
         error: error.message,
         code: 'VAL_001',
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/reservations/quota
+ * @desc    Get user quota
+ * @access  Private
+ */
+router.get(
+  '/quota',
+  async (req: AuthRequest, res: Response) => {
+    try {
+      // Mock quota data
+      const quota = {
+        maxHoursPerWeek: 40,
+        usedHoursThisWeek: 10,
+        maxConcurrentReservations: 3,
+        currentReservations: 1,
+      };
+
+      res.json({
+        success: true,
+        data: quota,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        code: 'SYS_001',
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/reservations/pending
+ * @desc    Get pending reservations for approval (SUPER_ADMIN and ADMIN)
+ * @access  Private (SUPER_ADMIN and ADMIN)
+ */
+router.get(
+  '/pending',
+  requireSuperAdminOrAdmin,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      console.log(`[ReservationRoutes] Fetching pending reservations by=${req.user!.username}`);
+
+      // Mock pending reservations data - use near-future dates for pending approvals
+      const now = Date.now();
+      const today = new Date().toISOString().split('T')[0];
+      
+      const pendingReservations = [
+        {
+          id: '660e8400-e29b-41d4-a716-446655440001',
+          serverId: '550e8400-e29b-41d4-a716-446655440000',
+          serverName: 'GPU-Server-01',
+          userId: '770e8400-e29b-41d4-a716-446655440002',
+          userName: 'manager',
+          userEmail: 'manager@lsm.local',
+          title: 'Deep Learning Training',
+          description: 'Training a large language model',
+          startTime: new Date(`${today}T09:00:00.000Z`).toISOString(),
+          endTime: new Date(new Date(`${today}T18:00:00.000Z`).getTime() + 2 * 86400000).toISOString(),
+          priority: 5,
+          gpuCount: 4,
+          status: 'PENDING',
+          purpose: 'Training a large language model',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '660e8400-e29b-41d4-a716-446655440002',
+          serverId: '550e8400-e29b-41d4-a716-446655440001',
+          serverName: 'GPU-Server-02',
+          userId: '880e8400-e29b-41d4-a716-446655440003',
+          userName: 'user1',
+          userEmail: 'user1@test.com',
+          title: 'Model Inference',
+          description: 'Running batch inference jobs',
+          startTime: new Date(`${today}T14:00:00.000Z`).toISOString(),
+          endTime: new Date(`${today}T17:00:00.000Z`).toISOString(),
+          priority: 3,
+          gpuCount: 2,
+          status: 'PENDING',
+          purpose: 'Running batch inference jobs',
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+        },
+      ];
+
+      console.log(`[ReservationRoutes] Found ${pendingReservations.length} pending reservations`);
+
+      res.json({
+        success: true,
+        data: pendingReservations,
+        total: pendingReservations.length,
+      });
+    } catch (error: any) {
+      console.error(`[ReservationRoutes] Error fetching pending reservations: ${error.message}`);
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        code: 'SYS_001',
       });
     }
   }
@@ -635,6 +861,74 @@ router.get(
       res.json({
         success: true,
         data: statistics,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'VAL_001',
+      });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/reservations/my
+ * @desc    Get current user's reservations
+ * @access  Private
+ */
+router.get(
+  '/my',
+  async (req: AuthRequest, res: Response) => {
+    try {
+      // Validate query parameters
+      const validatedQuery = validate(reservationQuerySchema, {
+        ...req.query,
+        page: req.query.page ? Number(req.query.page) : 1,
+        limit: req.query.limit ? Number(req.query.limit) : 10,
+      });
+
+      const { status, page, limit } = validatedQuery;
+
+      // Mock data for current user
+      const userId = req.user!.userId;
+      const userName = req.user!.username || 'user';
+
+      const mockReservations = [
+        {
+          id: '550e8400-e29b-41d4-a716-446655440000',
+          serverId: '660e8400-e29b-41d4-a716-446655440001',
+          serverName: 'GPU-Server-01',
+          userId,
+          userName,
+          title: 'Model Training Task',
+          startTime: new Date(Date.now() + 86400000).toISOString(),
+          endTime: new Date(Date.now() + 2 * 86400000).toISOString(),
+          priority: 5,
+          gpuCount: 2,
+          status: 'APPROVED',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+      // Apply status filter
+      let filteredReservations = mockReservations;
+      if (status) {
+        filteredReservations = mockReservations.filter(r => r.status === status);
+      }
+
+      const total = filteredReservations.length;
+      const totalPages = Math.ceil(total / limit);
+      const offset = (page - 1) * limit;
+      const paginatedReservations = filteredReservations.slice(offset, offset + limit);
+
+      res.json({
+        success: true,
+        data: paginatedReservations,
+        total,
+        page,
+        limit,
+        totalPages,
       });
     } catch (error: any) {
       res.status(400).json({
@@ -884,10 +1178,13 @@ router.post(
       // Validate request body
       const validatedData = validate(approvalSchema, req.body || {});
 
+      console.log(`[ReservationRoutes] Approving reservation: id=${id}, by=${req.user!.username}`);
+
       // Mock check if reservation exists and is in PENDING status
       const existingReservation = generateMockReservation(id, req.user!.userId, req.user!.username || 'user');
       
       if (existingReservation.status !== 'PENDING') {
+        console.warn(`[ReservationRoutes] Cannot approve reservation ${id}: status is ${existingReservation.status}`);
         return res.status(400).json({
           success: false,
           error: 'Only PENDING reservations can be approved',
@@ -908,11 +1205,14 @@ router.post(
         updatedAt: new Date().toISOString(),
       };
 
+      console.log(`[ReservationRoutes] Reservation approved: id=${id}, by=${req.user!.username}`);
+
       res.json({
         success: true,
         data: approvedReservation,
       });
     } catch (error: any) {
+      console.error(`[ReservationRoutes] Error approving reservation: ${error.message}`);
       res.status(400).json({
         success: false,
         error: error.message,
@@ -939,10 +1239,13 @@ router.post(
       // Validate request body
       const validatedData = validate(rejectionSchema, req.body);
 
+      console.log(`[ReservationRoutes] Rejecting reservation: id=${id}, by=${req.user!.username}`);
+
       // Mock check if reservation exists and is in PENDING status
       const existingReservation = generateMockReservation(id, req.user!.userId, req.user!.username || 'user');
       
       if (existingReservation.status !== 'PENDING') {
+        console.warn(`[ReservationRoutes] Cannot reject reservation ${id}: status is ${existingReservation.status}`);
         return res.status(400).json({
           success: false,
           error: 'Only PENDING reservations can be rejected',
@@ -963,11 +1266,14 @@ router.post(
         updatedAt: new Date().toISOString(),
       };
 
+      console.log(`[ReservationRoutes] Reservation rejected: id=${id}, by=${req.user!.username}, reason=${validatedData.reason || 'N/A'}`);
+
       res.json({
         success: true,
         data: rejectedReservation,
       });
     } catch (error: any) {
+      console.error(`[ReservationRoutes] Error rejecting reservation: ${error.message}`);
       res.status(400).json({
         success: false,
         error: error.message,

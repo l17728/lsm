@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Space, Card, message, Typography } from 'antd'
-import { PlusOutlined, CalendarOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { Button, Space, Card, message, Typography, Segmented, Tooltip } from 'antd'
+import { PlusOutlined, CalendarOutlined, UnorderedListOutlined, ClusterOutlined, DesktopOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import CalendarView from '../components/reservation/CalendarView'
 import ReservationCard from '../components/reservation/ReservationCard'
 import { useReservationStore } from '../store/reservationStore'
 import type { Reservation, TimeSlot } from '../services/reservation.service'
 
-const { Title } = Typography
+const { Title, Text } = Typography
 
 const Reservations: React.FC = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [viewType, setViewType] = useState<'calendar' | 'list'>('calendar')
   
@@ -36,18 +38,17 @@ const Reservations: React.FC = () => {
   }, [currentDate, viewMode, selectedServerId])
 
   const loadData = async () => {
-    const start = dayjs(currentDate).startOf(viewMode).format('YYYY-MM-DD')
-    const end = dayjs(currentDate).endOf(viewMode).format('YYYY-MM-DD')
+    const start = dayjs(currentDate).startOf(viewMode).toISOString()
+    const end = dayjs(currentDate).endOf(viewMode).toISOString()
     
     await fetchReservations({
-      startDate: start,
-      endDate: end,
+      startTime: start,
+      endTime: end,
       serverId: selectedServerId || undefined,
     })
   }
 
   const handleSlotClick = (slot: TimeSlot) => {
-    // Redirect to new reservation page with pre-filled time
     navigate('/reservations/new', {
       state: {
         serverId: slot.serverId,
@@ -58,62 +59,90 @@ const Reservations: React.FC = () => {
   }
 
   const handleReservationClick = (reservation: Reservation) => {
-    // Can open details drawer or navigate to details page
-      message.info(`View reservation details: ${reservation.purpose}`)
+    message.info(`View reservation details: ${reservation.purpose || reservation.title || 'No description'}`)
   }
 
   const handleCancel = async (id: string) => {
     try {
       await cancelReservation(id)
-      message.success('Reservation cancelled')
+      message.success(t('messages.operationSuccess'))
       loadData()
     } catch (error) {
-      message.error('Failed to cancel reservation')
+      message.error(t('messages.operationFailed'))
     }
   }
 
   const handleRelease = async (id: string) => {
     try {
       await releaseReservation(id)
-      message.success('Reservation released')
+      message.success(t('messages.operationSuccess'))
       loadData()
     } catch (error) {
-      message.error('Failed to release reservation')
+      message.error(t('messages.operationFailed'))
     }
   }
 
   return (
     <div className="reservations-page">
-      <div className="page-header">
-        <h1>Server Reservation Calendar</h1>
-        <Space>
-          <Button
-            type={viewType === 'calendar' ? 'primary' : 'default'}
-            icon={<CalendarOutlined />}
-            onClick={() => setViewType('calendar')}
-          >
-            Calendar View
-          </Button>
-          <Button
-            type={viewType === 'list' ? 'primary' : 'default'}
-            icon={<UnorderedListOutlined />}
-            onClick={() => setViewType('list')}
-          >
-            List View
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/reservations/new')}
-          >
-            Create Reservation
-          </Button>
-          <Button onClick={() => navigate('/reservations/mine')}>
-            My Reservations
-          </Button>
-        </Space>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24 }}>
+        <Title level={3} style={{ marginBottom: 16 }}>
+          {t('navigation.reservations')}
+        </Title>
+        
+        {/* Control Bar */}
+        <Card size="small" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+            {/* Left: View Type Switch */}
+            <Space>
+              <Text type="secondary">{t('common.view')}:</Text>
+              <Segmented
+                value={viewType}
+                onChange={(value) => setViewType(value as 'calendar' | 'list')}
+                options={[
+                  {
+                    value: 'calendar',
+                    icon: <CalendarOutlined />,
+                    label: t('clusterReservation.reservationCalendar'),
+                  },
+                  {
+                    value: 'list',
+                    icon: <UnorderedListOutlined />,
+                    label: t('common.list'),
+                  },
+                ]}
+              />
+            </Space>
+            
+            {/* Right: Action Buttons */}
+            <Space>
+              <Tooltip title={t('clusterReservation.serverReservationTooltip')}>
+                <Button
+                  type="primary"
+                  icon={<DesktopOutlined />}
+                  onClick={() => navigate('/reservations/new')}
+                >
+                  {t('clusterReservation.newServerReservation')}
+                </Button>
+              </Tooltip>
+              <Tooltip title={t('clusterReservation.clusterReservationTooltip')}>
+                <Button
+                  type="primary"
+                  icon={<ClusterOutlined />}
+                  onClick={() => navigate('/reservations/cluster')}
+                >
+                  {t('clusterReservation.newClusterReservation')}
+                </Button>
+              </Tooltip>
+              <Button onClick={() => navigate('/reservations/mine')}>
+                {t('clusterReservation.myReservations')}
+              </Button>
+            </Space>
+          </div>
+        </Card>
       </div>
 
+      {/* Content Area - Server Reservations */}
       {viewType === 'calendar' ? (
         <CalendarView
           viewMode={viewMode}
@@ -130,15 +159,9 @@ const Reservations: React.FC = () => {
         />
       ) : (
         <Card className="reservations-list">
-          <div className="list-header">
-            <Space>
-              <span>              Status Filter:</span>
-                // Can add filters here
-            </Space>
-          </div>
           <div className="list-content">
             {reservations.length > 0 ? (
-              reservations.map((reservation) => (
+              (reservations || []).map((reservation) => (
                 <ReservationCard
                   key={reservation.id}
                   reservation={reservation}
@@ -149,8 +172,8 @@ const Reservations: React.FC = () => {
                 />
               ))
             ) : (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                    No reservation data available
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                {t('common.noData')}
               </div>
             )}
           </div>

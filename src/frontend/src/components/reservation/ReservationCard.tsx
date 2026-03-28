@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
+import { useTranslation } from 'react-i18next'
 import type { Reservation } from '../../services/reservation.service'
 import './ReservationCard.css'
 
@@ -41,12 +42,19 @@ interface ReservationCardProps {
   onView?: (id: string) => void
 }
 
-const STATUS_CONFIG: Record<string, { color: string; text: string; icon: React.ReactNode }> = {
-  pending: { color: 'warning', text: '待审批', icon: <ClockCircleOutlined /> },
-  approved: { color: 'processing', text: '已批准', icon: <CheckCircleOutlined /> },
-  active: { color: 'success', text: '进行中', icon: <PlayCircleOutlined /> },
-  completed: { color: 'default', text: '已完成', icon: <CheckCircleOutlined /> },
-  cancelled: { color: 'error', text: '已取消', icon: <CloseCircleOutlined /> },
+const STATUS_CONFIG_KEYS: Record<string, { color: string; key: string; icon: React.ReactNode }> = {
+  pending: { color: 'warning', key: 'reservation.pending', icon: <ClockCircleOutlined /> },
+  PENDING: { color: 'warning', key: 'reservation.pending', icon: <ClockCircleOutlined /> },
+  approved: { color: 'processing', key: 'reservation.approved', icon: <CheckCircleOutlined /> },
+  APPROVED: { color: 'processing', key: 'reservation.approved', icon: <CheckCircleOutlined /> },
+  active: { color: 'success', key: 'reservation.active', icon: <PlayCircleOutlined /> },
+  ACTIVE: { color: 'success', key: 'reservation.active', icon: <PlayCircleOutlined /> },
+  completed: { color: 'default', key: 'reservation.completed', icon: <CheckCircleOutlined /> },
+  COMPLETED: { color: 'default', key: 'reservation.completed', icon: <CheckCircleOutlined /> },
+  cancelled: { color: 'error', key: 'reservation.cancelled', icon: <CloseCircleOutlined /> },
+  CANCELLED: { color: 'error', key: 'reservation.cancelled', icon: <CloseCircleOutlined /> },
+  rejected: { color: 'error', key: 'reservation.rejected', icon: <CloseCircleOutlined /> },
+  REJECTED: { color: 'error', key: 'reservation.rejected', icon: <CloseCircleOutlined /> },
 }
 
 const ReservationCard: React.FC<ReservationCardProps> = ({
@@ -61,9 +69,10 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
   onReject,
   onView,
 }) => {
-  const statusConfig = STATUS_CONFIG[reservation.status] || STATUS_CONFIG.pending
+  const { t } = useTranslation()
+  const statusConfig = STATUS_CONFIG_KEYS[reservation.status] || STATUS_CONFIG_KEYS.pending
   
-  // 计算剩余时间或已用时间
+  // Calculate remaining time or used time
   const getTimeInfo = () => {
     const start = dayjs(reservation.startTime)
     const end = dayjs(reservation.endTime)
@@ -72,40 +81,45 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     if (reservation.status === 'active') {
       const remaining = end.diff(now)
       if (remaining > 0) {
-        const dur = dayjs.duration(remaining)
+        const totalMinutes = Math.floor(remaining / 60000)
+        const hours = Math.floor(totalMinutes / 60)
+        const minutes = totalMinutes % 60
         return {
-          text: `剩余: ${dur.hours()}小时${dur.minutes()}分钟`,
+          text: `${t('reservation.remaining')}: ${hours}${t('reservation.hours')}${minutes}${t('reservation.minutes')}`,
           progress: ((now.diff(start)) / (end.diff(start))) * 100,
         }
       }
     }
     
     if (reservation.status === 'completed') {
-      const actual = end.diff(start)
-      const dur = dayjs.duration(actual)
+      const totalMinutes = Math.floor(end.diff(start) / 60000)
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
       return {
-        text: `实际使用: ${dur.hours()}小时${dur.minutes()}分钟`,
+        text: `${t('reservation.actualUsage')}: ${hours}${t('reservation.hours')}${minutes}${t('reservation.minutes')}`,
         progress: 100,
       }
     }
     
-    const dur = dayjs.duration(end.diff(start))
+    const totalMinutes = Math.floor(end.diff(start) / 60000)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
     return {
-      text: `时长: ${dur.hours()}小时${dur.minutes()}分钟`,
+      text: `${t('reservation.duration')}: ${hours}${t('reservation.hours')}${minutes}${t('reservation.minutes')}`,
       progress: 0,
     }
   }
   
   const timeInfo = getTimeInfo()
   
-  // 默认操作按钮
+  // Default action buttons
   const getDefaultActions = (): ReservationAction[] => {
     const result: ReservationAction[] = []
     
     if (onView) {
       result.push({
         key: 'view',
-        label: '详情',
+        label: t('reservation.details'),
         icon: <EyeOutlined />,
         onClick: () => onView(reservation.id),
       })
@@ -114,10 +128,10 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     if (reservation.status === 'pending' && onCancel) {
       result.push({
         key: 'cancel',
-        label: '取消',
+        label: t('common.cancel'),
         icon: <CloseCircleOutlined />,
         danger: true,
-        confirm: '确定要取消此预约吗？',
+        confirm: t('reservation.cancelConfirm'),
         onClick: () => onCancel(reservation.id),
       })
     }
@@ -125,10 +139,10 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     if (reservation.status === 'active' && onRelease) {
       result.push({
         key: 'release',
-        label: '释放',
+        label: t('gpu.release'),
         icon: <StopOutlined />,
         danger: true,
-        confirm: '确定要提前释放此预约吗？',
+        confirm: t('reservation.releaseConfirm'),
         onClick: () => onRelease(reservation.id),
       })
     }
@@ -136,7 +150,7 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     if (reservation.status === 'pending' && onApprove) {
       result.push({
         key: 'approve',
-        label: '批准',
+        label: t('reservation.approved'),
         icon: <CheckCircleOutlined />,
         onClick: () => onApprove(reservation.id),
       })
@@ -145,10 +159,10 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     if (reservation.status === 'pending' && onReject) {
       result.push({
         key: 'reject',
-        label: '拒绝',
+        label: t('reservation.rejected'),
         icon: <CloseCircleOutlined />,
         danger: true,
-        confirm: '确定要拒绝此预约吗？',
+        confirm: t('reservation.rejectConfirm'),
         onClick: () => onReject(reservation.id),
       })
     }
@@ -195,7 +209,7 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     return button
   }
 
-  // 日历模式 - 紧凑显示
+  // Calendar mode - compact display
   if (mode === 'calendar') {
     return (
       <div
@@ -203,7 +217,7 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
         onClick={onClick}
       >
         <Tag color={statusConfig.color} className="status-tag">
-          {statusConfig.icon} {statusConfig.text}
+          {statusConfig.icon} {t(statusConfig.key)}
         </Tag>
         <div className="reservation-title">{reservation.purpose}</div>
         <div className="reservation-time">
@@ -213,14 +227,14 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     )
   }
 
-  // 详情模式 - 完整显示
+  // Detail mode - full display
   if (mode === 'detail') {
     return (
       <Card className="reservation-card detail-mode" onClick={onClick}>
         <div className="reservation-header">
           <Space>
             <Tag color={statusConfig.color} className="status-tag">
-              {statusConfig.icon} {statusConfig.text}
+              {statusConfig.icon} {t(statusConfig.key)}
             </Tag>
             <span className="server-name">
               <DesktopOutlined /> {reservation.serverName}
@@ -230,26 +244,25 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
         
         <div className="reservation-content">
           <div className="info-row">
-            <span className="label"><UserOutlined /> 用户:</span>
+            <span className="label"><UserOutlined /> {t('user.username')}:</span>
             <span className="value">{reservation.userName}</span>
           </div>
           <div className="info-row">
-            <span className="label"><DesktopOutlined /> 服务器:</span>
+            <span className="label"><DesktopOutlined /> {t('server.title')}:</span>
             <span className="value">{reservation.serverName}</span>
           </div>
           <div className="info-row">
-            <span className="label"><ClockCircleOutlined /> 时间:</span>
+            <span className="label"><ClockCircleOutlined /> {t('reservation.time')}:</span>
             <span className="value">
-              {dayjs(reservation.startTime).format('YYYY-MM-DD HH:mm')} - 
-              {dayjs(reservation.endTime).format('YYYY-MM-DD HH:mm')}
+              {dayjs(reservation.startTime).format('YYYY-MM-DD HH:mm')} - {dayjs(reservation.endTime).format('YYYY-MM-DD HH:mm')}
             </span>
           </div>
           <div className="info-row">
             <span className="label">GPU:</span>
-            <span className="value">{reservation.gpuIds.join(', ')}</span>
+            <span className="value">{reservation.gpuIds?.join(', ') || ''}</span>
           </div>
           <div className="info-row">
-            <span className="label">用途:</span>
+            <span className="label">{t('reservation.purpose')}:</span>
             <span className="value">{reservation.purpose}</span>
           </div>
         </div>
@@ -263,16 +276,16 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
     )
   }
 
-  // 列表模式 - 默认
+  // List mode - default
   return (
     <Card className="reservation-card list-mode" hoverable onClick={onClick}>
       <div className="reservation-header">
         <Space>
           <Tag color={statusConfig.color} className="status-tag">
-            {statusConfig.icon} {statusConfig.text}
+            {statusConfig.icon} {t(statusConfig.key)}
           </Tag>
           <span className="server-name">
-            <DesktopOutlined /> {reservation.serverName} - {reservation.gpuIds.join(', ')}
+            <DesktopOutlined /> {reservation.serverName} - {reservation.gpuIds?.join(', ') || ''}
           </span>
         </Space>
       </div>
@@ -281,11 +294,10 @@ const ReservationCard: React.FC<ReservationCardProps> = ({
         <div className="time-info">
           <ClockCircleOutlined />
           <span>
-            {dayjs(reservation.startTime).format('YYYY-MM-DD HH:mm')} - 
-            {dayjs(reservation.endTime).format('HH:mm')}
+            {dayjs(reservation.startTime).format('YYYY-MM-DD HH:mm')} - {dayjs(reservation.endTime).format('HH:mm')}
           </span>
         </div>
-        <div className="purpose">{reservation.purpose}</div>
+        <div className="purpose">{reservation.purpose || ''}</div>
       </div>
       
       <div className="reservation-footer">

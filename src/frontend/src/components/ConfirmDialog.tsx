@@ -14,6 +14,7 @@
 
 import React, { useState } from 'react';
 import { Modal, Form, Input, Alert, Typography, Space, Checkbox } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { 
   ExclamationCircleOutlined, 
   WarningOutlined, 
@@ -50,29 +51,35 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   title,
   message,
   itemCount,
-  itemLabel = '项',
-  actionLabel = '确认',
+  itemLabel: propsItemLabel,
+  actionLabel: propsActionLabel,
   warningMessage,
   requireConfirmation = false,
-  confirmationText = '我已知晓风险，确认执行',
+  confirmationText: propsConfirmationText,
   loading = false,
   onConfirm,
   onCancel,
   danger = false,
 }) => {
+  const { t } = useTranslation();
   const [confirmed, setConfirmed] = useState(false);
   const [confirmInput, setConfirmInput] = useState('');
+
+  const itemLabelText = propsItemLabel || t('confirmDialog.item');
+  const actionLabelText = propsActionLabel || t('confirmDialog.confirm');
+  const confirmationTextDefault = t('confirmDialog.confirmText');
+  const finalConfirmationText = propsConfirmationText || confirmationTextDefault;
 
   const getDefaultTitle = () => {
     switch (type) {
       case 'delete':
-        return '确认删除';
+        return t('confirmDialog.confirmDelete');
       case 'status_change':
-        return '确认状态变更';
+        return t('confirmDialog.confirmStatusChange');
       case 'dangerous':
-        return '危险操作确认';
+        return t('confirmDialog.dangerConfirm');
       default:
-        return '确认操作';
+        return t('confirmDialog.confirmAction');
     }
   };
 
@@ -89,9 +96,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const getDefaultWarning = () => {
     switch (type) {
       case 'delete':
-        return '删除操作不可恢复，请谨慎操作。';
+        return t('confirmDialog.deleteWarning');
       case 'dangerous':
-        return '此操作可能对系统造成影响，请确保您了解所有风险。';
+        return t('confirmDialog.systemImpactWarning');
       default:
         return undefined;
     }
@@ -102,8 +109,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   const canConfirm = () => {
     if (loading) return false;
-    if (requireConfirmation && confirmationText) {
-      return confirmed && confirmInput === confirmationText;
+    if (requireConfirmation && finalConfirmationText) {
+      return confirmed && confirmInput === finalConfirmationText;
     }
     if (requireConfirmation) {
       return confirmed;
@@ -141,8 +148,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       onCancel={handleClose}
       onOk={handleConfirm}
       confirmLoading={loading}
-      okText={actionLabel}
-      cancelText="取消"
+      okText={actionLabelText}
+      cancelText={t('common.cancel')}
       okButtonProps={{ 
         danger: danger || type === 'delete',
         disabled: !canConfirm(),
@@ -158,7 +165,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         {/* Item Count */}
         {itemCount !== undefined && itemCount > 0 && (
           <Alert
-            message={`${itemCount} ${itemLabel}将被影响`}
+            message={`${itemCount} ${itemLabelText}${t('batch.willBeAffected')}`}
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
@@ -190,12 +197,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               onChange={(e) => setConfirmed(e.target.checked)}
               style={{ display: 'block', marginBottom: 12 }}
             >
-              <Text strong>{confirmationText}</Text>
+              <Text strong>{finalConfirmationText}</Text>
             </Checkbox>
             
-            {confirmationText && (
+            {propsConfirmationText && (
               <Input
-                placeholder={`请输入"${confirmationText}"以确认`}
+                placeholder={t('confirmDialog.enterToConfirm', { text: finalConfirmationText })}
                 value={confirmInput}
                 onChange={(e) => setConfirmInput(e.target.value)}
                 disabled={!confirmed}
@@ -211,44 +218,54 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
 /**
  * Pre-configured dialog creators for common scenarios
+ * Note: confirmationText should be a translation key string, the component will translate it
  */
 export const ConfirmDialogPresets = {
   /**
    * Batch delete confirmation
    */
-  delete: (props: Omit<ConfirmDialogProps, 'type' | 'danger'>) => (
-    <ConfirmDialog
-      {...props}
-      type="delete"
-      danger
-      requireConfirmation={props.itemCount !== undefined && props.itemCount > 5}
-      confirmationText={props.itemCount !== undefined && props.itemCount > 5 ? '确认删除' : undefined}
-    />
-  ),
+  delete: (props: Omit<ConfirmDialogProps, 'type' | 'danger'>) => {
+    const { t } = useTranslation();
+    return (
+      <ConfirmDialog
+        {...props}
+        type="delete"
+        danger
+        requireConfirmation={props.itemCount !== undefined && props.itemCount > 5}
+        confirmationText={props.itemCount !== undefined && props.itemCount > 5 ? t('confirmDialog.confirmDelete') : undefined}
+      />
+    );
+  },
 
   /**
    * Batch status change confirmation
    */
-  statusChange: (props: Omit<ConfirmDialogProps, 'type'>) => (
-    <ConfirmDialog
-      {...props}
-      type="status_change"
-      danger={false}
-    />
-  ),
+  statusChange: (props: Omit<ConfirmDialogProps, 'type'>) => {
+    const { t } = useTranslation();
+    return (
+      <ConfirmDialog
+        {...props}
+        type="status_change"
+        danger={false}
+      />
+    );
+  },
 
   /**
    * Dangerous operation confirmation
    */
-  dangerous: (props: Omit<ConfirmDialogProps, 'type' | 'danger'>) => (
-    <ConfirmDialog
-      {...props}
-      type="dangerous"
-      danger
-      requireConfirmation
-      confirmationText="我已知晓风险，确认执行"
-    />
-  ),
+  dangerous: (props: Omit<ConfirmDialogProps, 'type' | 'danger'>) => {
+    const { t } = useTranslation();
+    return (
+      <ConfirmDialog
+        {...props}
+        type="dangerous"
+        danger
+        requireConfirmation
+        confirmationText={t('confirmDialog.confirmText')}
+      />
+    );
+  },
 };
 
 export default ConfirmDialog;

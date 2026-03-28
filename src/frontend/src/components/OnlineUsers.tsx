@@ -86,7 +86,7 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ showList = false }) =>
               description={
                 <Space size="small">
                   <span style={{ fontSize: 12 }}>
-                    最后活动：{getTimeAgo(user.lastActivityAt.toISOString())}
+                    最后活动：{getTimeAgo(user.lastActivityAt?.toISOString() || new Date(0).toISOString())}
                   </span>
                 </Space>
               }

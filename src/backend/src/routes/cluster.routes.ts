@@ -82,6 +82,38 @@ const allocateValidation = [
 // ==================== Routes ====================
 
 /**
+ * @route   GET /api/clusters/available-for-reservation
+ * @desc    Get clusters available for reservation (all authenticated users)
+ * @access  Private
+ */
+router.get('/available-for-reservation', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    // Get all clusters that are available for reservation
+    const clusters = await clusterService.getAllClusters({ status: 'AVAILABLE' });
+    
+    // Filter to only include essential info for reservation
+    const clusterList = Array.isArray(clusters) ? clusters : [];
+    const availableClusters = clusterList.map((cluster: any) => ({
+      id: cluster.id,
+      name: cluster.name,
+      code: cluster.code,
+      status: cluster.status,
+      type: cluster.type,
+      totalServers: cluster.totalServers || cluster.servers?.length || 0,
+      totalGpus: cluster.totalGpus || 0,
+      totalCpuCores: cluster.totalCpuCores || 0,
+      totalMemory: cluster.totalMemory || 0,
+      description: cluster.description,
+    }));
+    
+    res.json({ success: true, data: availableClusters });
+  } catch (error: any) {
+    console.error(`[ClusterRoutes] Error fetching available clusters: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * @route   GET /api/clusters
  * @desc    Get all clusters
  * @access  Private (MANAGER and above can view)
@@ -195,6 +227,35 @@ router.delete('/:id', authenticate, requireSuperAdmin, async (req: AuthRequest, 
     res.status(400).json({ success: false, error: error.message });
   }
 });
+
+/**
+ * @route   PATCH /api/clusters/:id/status
+ * @desc    Update cluster status (manual override)
+ * @access  Private (SuperAdmin/Admin)
+ */
+router.patch(
+  '/:id/status',
+  authenticate,
+  requireSuperAdminOrAdmin,
+  [
+    body('status').isIn(['AVAILABLE', 'ALLOCATED', 'RESERVED', 'MAINTENANCE', 'OFFLINE']).withMessage('Invalid status'),
+    body('reason').optional().isString(),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, reason } = req.body;
+
+      const cluster = await clusterService.updateClusterStatus(id, status, reason);
+      console.log(`[ClusterRoutes] Updated cluster status: id=${id}, status=${status}, by=${req.user!.username}, reason=${reason || 'N/A'}`);
+
+      res.json({ success: true, data: cluster });
+    } catch (error: any) {
+      console.error(`[ClusterRoutes] Error updating cluster status: ${error.message}`);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+);
 
 /**
  * @route   POST /api/clusters/:id/servers

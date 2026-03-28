@@ -405,7 +405,7 @@ const RequirementsPage: React.FC = () => {
                 <Row gutter={[16, 16]}>
                   <Col span={8}>
                     <div style={{ marginBottom: 8 }}>Feasibility</div>
-                    <Progress percent={selectedRequirement.analysisReport.feasibility === 'high' ? 90 : selectedRequirement.analysisReport.feasibility === 'medium' ? 60 : 30} status={selectedRequirement.analysisReport.feasibility === 'high' ? 'success' : 'normal'} />
+                    <Progress percent={(selectedRequirement.analysisReport?.feasibility || 'low') === 'high' ? 90 : (selectedRequirement.analysisReport?.feasibility || 'low') === 'medium' ? 60 : 30} status={(selectedRequirement.analysisReport?.feasibility || 'low') === 'high' ? 'success' : 'normal'} />
                   </Col>
                   <Col span={8}>
                     <div style={{ marginBottom: 8 }}>Impact</div>
@@ -419,13 +419,13 @@ const RequirementsPage: React.FC = () => {
                 <div style={{ marginTop: 16 }}>
                   <div style={{ fontWeight: 'bold', marginBottom: 8 }}>Risks:</div>
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
-                    {selectedRequirement.analysisReport.risks.map((risk, i) => <li key={i}>{risk}</li>)}
+                    {(selectedRequirement.analysisReport.risks || []).map((risk, i) => <li key={i}>{risk}</li>)}
                   </ul>
                 </div>
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontWeight: 'bold', marginBottom: 8 }}>Suggestions:</div>
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
-                    {selectedRequirement.analysisReport.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+                    {(selectedRequirement.analysisReport.suggestions || []).map((s, i) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
               </Card>

@@ -33,6 +33,20 @@ jest.mock('../../middleware/auth.middleware', () => ({
       res.status(403).json({ success: false, error: 'Manager access required' });
     }
   },
+  requireSuperAdmin: (req: any, res: any, next: any) => {
+    if (req.user?.role === 'SUPER_ADMIN') {
+      next();
+    } else {
+      res.status(403).json({ success: false, error: 'Super admin access required' });
+    }
+  },
+  requireSuperAdminOrAdmin: (req: any, res: any, next: any) => {
+    if (['SUPER_ADMIN', 'ADMIN'].includes(req.user?.role)) {
+      next();
+    } else {
+      res.status(403).json({ success: false, error: 'Admin or Super Admin access required' });
+    }
+  },
   AuthRequest: {},
 }));
 
@@ -187,6 +201,62 @@ describe('Reservation Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.data).toHaveLength(0);
     });
+
+    it('should generate reservations based on requested date range', async () => {
+      // Request a specific date
+      const specificDate = '2026-04-15';
+      const startTime = `${specificDate}T00:00:00.000Z`;
+      const endTime = `${specificDate}T23:59:59.999Z`;
+
+      const response = await request(app).get(
+        `/api/reservations?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.length).toBeGreaterThan(0);
+      
+      // All returned reservations should have times on the requested date
+      response.body.data.forEach((r: any) => {
+        const resStart = new Date(r.startTime);
+        const requestDate = new Date(specificDate);
+        // Reservation should overlap with the requested date
+        expect(resStart.getTime()).toBeLessThan(new Date(endTime).getTime());
+      });
+    });
+
+    it('should return different reservations for different dates', async () => {
+      const date1 = '2026-04-15';
+      const date2 = '2026-04-20';
+
+      const response1 = await request(app).get(
+        `/api/reservations?startTime=${encodeURIComponent(`${date1}T00:00:00.000Z`)}&endTime=${encodeURIComponent(`${date1}T23:59:59.999Z`)}`
+      );
+
+      const response2 = await request(app).get(
+        `/api/reservations?startTime=${encodeURIComponent(`${date2}T00:00:00.000Z`)}&endTime=${encodeURIComponent(`${date2}T23:59:59.999Z`)}`
+      );
+
+      expect(response1.status).toBe(200);
+      expect(response2.status).toBe(200);
+      
+      // Both should return data
+      expect(response1.body.data.length).toBeGreaterThan(0);
+      expect(response2.body.data.length).toBeGreaterThan(0);
+      
+      // Dates in the reservations should be on the respective requested dates
+      const date1Reservations = response1.body.data;
+      date1Reservations.forEach((r: any) => {
+        const startTime = new Date(r.startTime).toISOString();
+        expect(startTime).toContain(date1);
+      });
+
+      const date2Reservations = response2.body.data;
+      date2Reservations.forEach((r: any) => {
+        const startTime = new Date(r.startTime).toISOString();
+        expect(startTime).toContain(date2);
+      });
+    });
   });
 
   // ==================== GET /availability ====================
@@ -238,6 +308,37 @@ describe('Reservation Routes', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('reservations');
       expect(response.body.data).toHaveProperty('utilization');
+    });
+
+    it('should generate reservations on the requested date range', async () => {
+      const specificDate = '2026-04-15';
+      const response = await request(app).get(
+        `/api/reservations/calendar?start=${specificDate}&end=${specificDate}`
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.reservations.length).toBeGreaterThan(0);
+
+      // Reservations should be on the requested date
+      response.body.data.reservations.forEach((r: any) => {
+        const startTime = new Date(r.startTime).toISOString();
+        expect(startTime).toContain(specificDate);
+      });
+    });
+
+    it('should include purpose field in calendar reservations', async () => {
+      const response = await request(app).get(
+        '/api/reservations/calendar?start=2026-04-01&end=2026-04-30'
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.reservations.length).toBeGreaterThan(0);
+      
+      // Each reservation should have a purpose field
+      response.body.data.reservations.forEach((r: any) => {
+        expect(r).toHaveProperty('purpose');
+      });
     });
   });
 
@@ -330,16 +431,15 @@ describe('Reservation Routes', () => {
   // ==================== POST /:id/approve ====================
 
   describe('POST /api/reservations/:id/approve', () => {
-    it('should return 400 when reservation is not PENDING (mock always returns APPROVED)', async () => {
-      // generateMockReservation always returns status: 'APPROVED',
-      // so approve endpoint always returns RES_010
+    it('should approve a PENDING reservation successfully', async () => {
+      // generateMockReservation now returns status: 'PENDING' by default
       const response = await request(managerApp)
         .post(`/api/reservations/${validReservationId}/approve`)
         .send({ notes: 'Approved for priority research' });
 
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.code).toBe('RES_010');
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toBe('APPROVED');
     });
 
     it('should deny regular user from approving', async () => {
@@ -354,16 +454,15 @@ describe('Reservation Routes', () => {
   // ==================== POST /:id/reject ====================
 
   describe('POST /api/reservations/:id/reject', () => {
-    it('should return 400 when reservation is not PENDING (mock always returns APPROVED)', async () => {
-      // generateMockReservation always returns status: 'APPROVED',
-      // so reject endpoint always returns RES_010
+    it('should reject a PENDING reservation successfully', async () => {
+      // generateMockReservation now returns status: 'PENDING' by default
       const response = await request(managerApp)
         .post(`/api/reservations/${validReservationId}/reject`)
         .send({ reason: 'Resources not available during this period' });
 
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.code).toBe('RES_010');
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toBe('REJECTED');
     });
 
     it('should deny regular user from rejecting', async () => {

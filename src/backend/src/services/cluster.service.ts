@@ -84,6 +84,64 @@ export class ClusterService {
   private static readonly CACHE_TTL = 300; // 5 minutes
 
   /**
+   * Calculate the effective status of a cluster based on current reservations
+   * This provides real-time status considering active/approved reservations
+   */
+  async calculateEffectiveStatus(clusterId: string): Promise<string> {
+    const now = new Date();
+
+    // Check for active reservations
+    const activeReservation = await prisma.clusterReservation.findFirst({
+      where: {
+        clusterId,
+        status: 'APPROVED',
+        startTime: { lte: now },
+        endTime: { gt: now },
+      },
+    });
+
+    if (activeReservation) {
+      return 'ALLOCATED';
+    }
+
+    // Check for approved future reservations
+    const futureReservation = await prisma.clusterReservation.findFirst({
+      where: {
+        clusterId,
+        status: 'APPROVED',
+        startTime: { gt: now },
+      },
+    });
+
+    if (futureReservation) {
+      return 'RESERVED';
+    }
+
+    // Return the database status
+    const cluster = await prisma.cluster.findUnique({
+      where: { id: clusterId },
+      select: { status: true },
+    });
+
+    return cluster?.status || 'AVAILABLE';
+  }
+
+  /**
+   * Get cluster with effective status calculated from reservations
+   */
+  async getClusterWithEffectiveStatus(clusterId: string) {
+    const cluster = await this.getClusterById(clusterId);
+    if (!cluster) return null;
+
+    const effectiveStatus = await this.calculateEffectiveStatus(clusterId);
+    return {
+      ...(cluster as any),
+      effectiveStatus,
+      isStatusOverridden: (cluster as any).status !== effectiveStatus,
+    };
+  }
+
+  /**
    * Create a new cluster
    */
   async createCluster(data: CreateClusterRequest, createdBy: string) {
@@ -183,10 +241,49 @@ export class ClusterService {
     });
 
     console.log(`[Cluster] Found ${clusters.length} clusters`);
+
+    // Calculate effective status for each cluster based on current reservations
+    const now = new Date();
+    const clustersWithEffectiveStatus = await Promise.all(
+      clusters.map(async (cluster) => {
+        // Check for active reservations
+        const activeReservation = await prisma.clusterReservation.findFirst({
+          where: {
+            clusterId: cluster.id,
+            status: 'APPROVED',
+            startTime: { lte: now },
+            endTime: { gt: now },
+          },
+        });
+
+        // Check for future approved reservations
+        const futureReservation = await prisma.clusterReservation.findFirst({
+          where: {
+            clusterId: cluster.id,
+            status: 'APPROVED',
+            startTime: { gt: now },
+          },
+        });
+
+        // Calculate effective status
+        let effectiveStatus = cluster.status;
+        if (activeReservation) {
+          effectiveStatus = 'ALLOCATED';
+        } else if (futureReservation) {
+          effectiveStatus = 'RESERVED';
+        }
+
+        return {
+          ...cluster,
+          effectiveStatus,
+          isStatusOverridden: cluster.status !== effectiveStatus,
+        };
+      })
+    );
     
-    await cacheService.set(cacheKey, clusters, ClusterService.CACHE_TTL);
+    await cacheService.set(cacheKey, clustersWithEffectiveStatus, ClusterService.CACHE_TTL);
     
-    return clusters;
+    return clustersWithEffectiveStatus;
   }
 
   /**
@@ -285,6 +382,56 @@ export class ClusterService {
     });
 
     console.log(`[Cluster] Updated cluster: id=${id}, name=${cluster.name}`);
+
+    await this.invalidateCache(id);
+
+    return cluster;
+  }
+
+  /**
+   * Update cluster status (manual override by admin)
+   */
+  async updateClusterStatus(id: string, status: string, reason?: string) {
+    console.log(`[Cluster] Updating cluster status: id=${id}, status=${status}, reason=${reason || 'N/A'}`);
+
+    // Check if cluster exists
+    const existingCluster = await prisma.cluster.findUnique({
+      where: { id },
+    });
+
+    if (!existingCluster) {
+      throw new Error('Cluster not found');
+    }
+
+    const cluster = await prisma.cluster.update({
+      where: { id },
+      data: {
+        status: status as any,
+        metadata: {
+          ...(existingCluster.metadata as any || {}),
+          statusUpdateReason: reason,
+          statusUpdatedAt: new Date().toISOString(),
+        },
+      },
+      include: {
+        servers: {
+          select: {
+            id: true,
+            priority: true,
+            role: true,
+            server: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    console.log(`[Cluster] Updated cluster status: id=${id}, status=${status}`);
 
     await this.invalidateCache(id);
 

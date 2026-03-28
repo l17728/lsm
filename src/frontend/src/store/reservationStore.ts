@@ -61,7 +61,7 @@ interface ReservationState {
 
 export const useReservationStore = create<ReservationState>((set, get) => ({
   currentDate: new Date(),
-  viewMode: 'day',
+  viewMode: 'month',
   selectedServerId: null,
   reservations: [],
   calendarData: [],
@@ -99,7 +99,7 @@ export const useReservationStore = create<ReservationState>((set, get) => ({
       })
     } catch (error: any) {
       set({ 
-        error: error.response?.data?.message || '获取预约列表失败',
+        error: error.response?.data?.message || 'Failed to fetch reservations',
         loading: false 
       })
     }
@@ -121,7 +121,7 @@ export const useReservationStore = create<ReservationState>((set, get) => ({
       })
     } catch (error: any) {
       set({ 
-        error: error.response?.data?.message || '获取我的预约失败',
+        error: error.response?.data?.message || 'Failed to fetch my reservations',
         loading: false 
       })
     }
@@ -156,8 +156,10 @@ export const useReservationStore = create<ReservationState>((set, get) => ({
         startTime,
         endTime,
       })
+      // API returns { success: true, data: { available: true, servers: [...] } }
+      const servers = response.data.data?.servers || []
       set({ 
-        availableServers: response.data.data || [],
+        availableServers: servers,
         loading: false 
       })
     } catch (error: any) {
@@ -172,7 +174,7 @@ export const useReservationStore = create<ReservationState>((set, get) => ({
   fetchUserQuota: async () => {
     try {
       const response = await reservationApi.getUserQuota()
-      set({ userQuota: response.data })
+      set({ userQuota: response.data.data || response.data })
     } catch (error: any) {
       console.error('获取配额失败:', error)
     }

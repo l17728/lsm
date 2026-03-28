@@ -3,6 +3,28 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ChatWindow from '../ChatWindow'
 
+// Mock i18next
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        'chat.title': 'LSM Agent',
+        'chat.subtitle': '智能实验室运维助手',
+        'chat.welcome': '输入自然语言描述您的需求',
+        'chat.inputPlaceholder': '输入消息或指令...',
+        'chat.inputDisabled': '连接已断开...',
+        'chat.send': '发送',
+        'chat.clear': '清空',
+        'chat.retry': '重试',
+      };
+      return translations[key] || key;
+    },
+    i18n: {
+      changeLanguage: vi.fn(),
+    },
+  }),
+}));
+
 // Mock useChat hook
 const mockSendMessage = vi.fn()
 const mockClearHistory = vi.fn()

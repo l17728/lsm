@@ -863,3 +863,461 @@ pages.forEach(file => {
   - e2e/tests/*.spec.ts
 - Tags: verification, e2e-testing, workflow, quality, critical
 - See Also: LRN-0000-0000-PRINCIPLE (最高原则)
+
+---
+
+## [LRN-20260327-009] CRITICAL: Missing API Import Causes Runtime Error
+
+**Logged**: 2026-03-27T18:00:00+08:00
+**Priority**: critical
+**Status**: resolved
+**Area**: frontend, imports, testing
+
+### Summary
+**`Clusters.tsx` 使用了 `authApi.getUsers()` 但没有导入 `authApi`，导致运行时错误 `authApi is not defined`，集群页面无法加载数据。这是一个反复出现的问题！**
+
+### Details
+
+**问题代码:**
+```typescript
+// 第 25 行 - 只导入了部分 API
+import { clusterApi, clusterReservationApi } from '../services/api'
+
+// 第 223 行 - 使用了未导入的 authApi
+authApi.getUsers().catch(() => ({ data: { data: [] } })),
+```
+
+**错误现象:**
+- 浏览器控制台: `ReferenceError: authApi is not defined`
+- 集群页面: 数据加载失败，显示空白或错误
+- 用户无法看到责任人选择下拉框
+
+**根本原因:**
+1. 开发时添加了新 API 调用 (`authApi.getUsers()`)
+2. 忘记在文件顶部添加对应的 import
+3. TypeScript 编译时没有报错（因为 `authApi` 类型存在于 `api.ts`）
+4. 运行时报错
+
+**这是第 N 次发生类似问题！**
+
+### 问题模式
+
+| 次数 | 文件 | 缺失导入 | 影响 |
+|------|------|----------|------|
+| 1 | Clusters.tsx | `authApi` | 集群数据加载失败 |
+| 2 | (之前) | `reservationApi` | 预约页面刷新 |
+| 3 | (之前) | 其他 API | 其他功能异常 |
+
+### 为什么 TypeScript 没有捕获？
+
+TypeScript 只检查类型，不会检查运行时变量是否存在。如果 `api.ts` 导出了 `authApi`，TypeScript 会认为它是有效的，即使当前文件没有导入它。
+
+### 修复方案
+
+**1. 添加缺失的导入:**
+```typescript
+// ✅ 正确 - 导入所有使用的 API
+import { clusterApi, clusterReservationApi, authApi } from '../services/api'
+```
+
+**2. 创建自动化测试防止复发:**
+
+创建了 `src/frontend/src/__tests__/import-completeness.test.ts`，自动检查所有页面的 API 导入完整性：
+
+```typescript
+// 测试会检查：
+// 1. 所有 xxxApi. 使用模式
+// 2. 对应的 import 语句
+// 3. 报告缺失的导入
+
+it('Clusters.tsx should import all used APIs', () => {
+  const usedApis = extractApiUsage(content)  // ['clusterApi', 'clusterReservationApi', 'authApi']
+  const importedApis = extractApiImports(content)  // 应该匹配
+  const missingImports = [...usedApis].filter(api => !importedApis.has(api))
+  expect(missingImports).toHaveLength(0)
+})
+```
+
+**3. 测试覆盖 33 个文件:**
+- 15 个页面文件
+- 18 个组件文件
+
+### 预防措施
+
+**添加新 API 调用时必须:**
+```
+□ 1. 确认 API 在 api.ts 中存在
+□ 2. 在文件顶部添加 import
+□ 3. 运行 import-completeness.test.ts 验证
+□ 4. 实际测试页面功能
+```
+
+### 检测命令
+
+```bash
+# 运行导入完整性测试
+cd src/frontend && npm run test:run -- src/__tests__/import-completeness.test.ts
+
+# 手动检查特定文件
+grep -n "Api\." src/pages/Clusters.tsx  # 查找 API 使用
+grep -n "import.*Api" src/pages/Clusters.tsx  # 查找 API 导入
+```
+
+### Metadata
+- Source: debugging, user_report
+- Related Files:
+  - src/frontend/src/pages/Clusters.tsx
+  - src/frontend/src/services/api.ts
+  - src/frontend/src/__tests__/import-completeness.test.ts
+- Tags: imports, runtime-error, testing, automation, recurring-issue
+- See Also: LRN-0000-0000-PRINCIPLE (最高原则: 举一反三)
+
+---
+
+## [LRN-20260327-010] CRITICAL: Hardcoded Chinese Text in UI Components
+
+**Logged**: 2026-03-27T18:15:00+08:00
+**Priority**: critical
+**Status**: pending
+**Area**: frontend, i18n, testing
+
+### Summary
+**大量组件包含硬编码中文文本，未使用 i18n 国际化。这导致英文界面下仍显示中文。这是反复出现的问题！**
+
+### Details
+
+**问题现象:**
+- 英文界面下，侧边栏显示"预约审批"而非"Cluster Approval"
+- 多个组件包含硬编码中文文本
+
+**受影响的组件 (测试检测结果):**
+
+| 组件 | 中文文本数 | 状态 |
+|------|-----------|------|
+| ErrorDetails.tsx | 33 | ❌ 需修复 |
+| CalendarView.tsx | 22 | ❌ 需修复 |
+| BatchProgressBar.tsx | 17 | ❌ 需修复 |
+| AdvancedSearch.tsx | 16 | ❌ 需修复 |
+| ReservationCard.tsx | 15 | ❌ 需修复 |
+| ErrorDisplay.tsx | 14 | ❌ 需修复 |
+| NotificationCenter.tsx | 13 | ❌ 需修复 |
+| ChatWindow.tsx | 12 | ❌ 需修复 |
+| ConfirmDialog.tsx | 12 | ❌ 需修复 |
+| ChatInput.tsx | 15 | ❌ 需修复 |
+
+### 已创建的测试
+
+**文件**: `src/frontend/src/__tests__/i18n-completeness.test.ts`
+
+```typescript
+// 测试会检查：
+// 1. 所有页面和组件的中文硬编码文本
+// 2. 关键组件 (Sidebar, Header) 零容忍
+// 3. i18n 键的完整性 (en.json 和 zh.json 匹配)
+
+describe('i18n Completeness', () => {
+  // 检查页面
+  // 检查组件
+  // 关键组件零容忍
+  // i18n 键覆盖
+})
+```
+
+### 正确的国际化方式
+
+**错误:**
+```typescript
+// ❌ 硬编码中文
+label: '预约审批',
+placeholder: '输入消息...'
+```
+
+**正确:**
+```typescript
+// ✅ 使用 i18n
+import { useTranslation } from 'react-i18next'
+
+const { t } = useTranslation()
+label: t('navigation.clusterApproval'),
+placeholder: t('chat.inputPlaceholder')
+```
+
+### 预防措施
+
+**添加 UI 文本时必须:**
+```
+□ 1. 在 en.json 和 zh.json 中添加对应的 key
+□ 2. 使用 t('key') 而非硬编码文本
+□ 3. 运行 i18n-completeness.test.ts 验证
+□ 4. 切换语言验证显示正确
+```
+
+### 检测命令
+
+```bash
+# 运行 i18n 完整性测试
+cd src/frontend && npm run test:run -- src/__tests__/i18n-completeness.test.ts
+
+# 手动检查中文文本
+grep -rn "[\u4e00-\u9fff]" src/pages/*.tsx src/components/*.tsx
+```
+
+### Suggested Action
+
+1. 逐步修复各组件的中文文本
+2. 将测试加入 CI/CD 流程
+3. 新增 UI 文本时强制要求国际化
+
+### Metadata
+- Source: debugging, user_report, testing
+- Related Files:
+  - src/frontend/src/components/*.tsx
+  - src/frontend/src/pages/*.tsx
+  - src/frontend/src/__tests__/i18n-completeness.test.ts
+  - src/frontend/src/i18n/locales/en.json
+  - src/frontend/src/i18n/locales/zh.json
+- Tags: i18n, chinese-text, testing, automation, recurring-issue
+- See Also: LRN-0000-0000-PRINCIPLE, LRN-20260327-008
+
+---
+
+## [LRN-20260328-001] CRITICAL: Undefined Property Access Crashes Pages
+
+**Logged**: 2026-03-28T10:30:00+08:00
+**Priority**: critical
+**Status**: resolved
+**Area**: frontend, null-safety, testing
+
+### Summary
+**多个页面因 undefined 属性访问而崩溃，包括 ReservationForm、CalendarView、MyReservations。这是反复出现的问题！每次添加新功能都会引入类似问题。**
+
+### Details
+
+**发现的崩溃问题:**
+
+1. **ReservationForm.tsx** - `server.gpus.length` 当 `gpus` 为 undefined 时崩溃
+2. **CalendarView.tsx** - `r.purpose.slice()` 当 `purpose` 为 undefined 时崩溃
+3. **MyReservations.tsx** - 语法错误导致页面无法加载
+
+**根本原因:**
+
+1. API 返回的数据结构可能与前端接口定义不完全匹配
+2. 前端代码直接访问可能为 undefined 的属性
+3. 没有对从 API 获取的数据进行防御性编程
+4. 没有足够的测试覆盖这些边缘情况
+
+### 修复方案
+
+**1. 添加空值保护:**
+```typescript
+// ❌ 错误 - 直接访问可能为 undefined 的属性
+server.gpus.length
+r.purpose.slice(0, 10)
+
+// ✅ 正确 - 添加空值保护
+(server.gpus || []).length
+(r.purpose || '').slice(0, 10)
+```
+
+**2. 更新类型定义:**
+```typescript
+// 接口定义应明确可选字段
+export interface Server {
+  id: string
+  name: string
+  gpus?: GPU[]  // 可选
+  availableGpus?: GPU[]  // 可选
+  availableGpuCount: number
+  status: 'online' | 'offline' | 'maintenance'
+}
+```
+
+**3. 创建安全访问工具:**
+创建了 `src/frontend/src/utils/safeAccess.ts`:
+```typescript
+export function safeArray<T>(value: T[] | undefined | null): T[] {
+  return value ?? [];
+}
+
+export function safeString(value: string | undefined | null): string {
+  return value ?? '';
+}
+
+export function safeSlice(value: string | undefined | null, start: number, end?: number): string {
+  return (value ?? '').slice(start, end);
+}
+```
+
+### 预防措施
+
+**访问可能为 undefined 的数据时必须:**
+```
+□ 1. 检查属性是否存在于接口定义中
+□ 2. 使用可选链 (?.) 或空值合并 (??)
+□ 3. 为数组添加默认空数组
+□ 4. 为字符串添加默认空字符串
+□ 5. 添加单元测试覆盖 undefined/null 场景
+```
+
+### 已创建的测试
+
+1. `e2e/tests/16-calendarview-null-safety.spec.ts` - CalendarView 空值安全测试
+2. `e2e/tests/17-reservation-regression.spec.ts` - 预约页面回归测试
+3. `src/frontend/src/components/reservation/__tests__/CalendarView.null-safety.test.tsx` - 单元测试
+
+### API 端点问题
+
+**发现的 API 问题:**
+
+1. `/api/reservations/quota` - 缺失，导致 ReservationForm 无法加载配额
+2. `/api/reservations/my` - 路由冲突，被 `/:id` 匹配
+3. `/api/clusters/available-for-reservation` - 缺失，普通用户无法获取可预约集群
+
+**修复:**
+- 添加了 `/api/reservations/quota` 端点
+- 添加了 `/api/reservations/my` 端点（在 `/:id` 之前定义）
+- 添加了 `/api/clusters/available-for-reservation` 端点（所有认证用户可访问）
+
+### Metadata
+- Source: debugging, user_report
+- Related Files:
+  - src/frontend/src/pages/ReservationForm.tsx
+  - src/frontend/src/components/reservation/CalendarView.tsx
+  - src/frontend/src/pages/MyReservations.tsx
+  - src/frontend/src/utils/safeAccess.ts
+  - src/backend/src/routes/reservation.routes.ts
+  - src/backend/src/routes/cluster.routes.ts
+- Tags: null-safety, undefined, crashes, testing, api-design
+- See Also: LRN-0000-0000-PRINCIPLE
+
+---
+
+## [LRN-20260328-002] API Route Order Conflicts with Dynamic Parameters
+
+**Logged**: 2026-03-28T10:45:00+08:00
+**Priority**: high
+**Status**: resolved
+**Area**: backend, routing
+
+### Summary
+**`/api/reservations/my` 被 `/:id` 路由拦截，导致普通用户无法访问自己的预约列表。Express 路由顺序问题再次出现！**
+
+### Details
+
+**问题代码:**
+```typescript
+// ❌ 错误顺序 - /my 被 /:id 拦截
+router.get('/:id', ...)  // 匹配所有 /xxx，包括 /my
+router.get('/my', ...)   // 永远不会被执行
+```
+
+**现象:**
+- 请求 `/api/reservations/my?page=1&limit=10`
+- 被 `/:id` 匹配，`id = 'my'`
+- 验证器报错 `Valid reservation ID required`
+- 返回 400 错误
+
+**正确顺序:**
+```typescript
+// ✅ 正确 - 静态路由在动态参数路由之前
+router.get('/my', ...)        // 静态路由
+router.get('/calendar', ...)  // 静态路由
+router.get('/quota', ...)     // 静态路由
+router.get('/:id', ...)       // 动态路由 - 最后定义
+```
+
+### 关键规则
+
+**Express 路由匹配规则:**
+1. 按定义顺序从上到下匹配
+2. 第一个匹配的路由处理请求
+3. `:id` 匹配任何字符串，包括 `my`、`calendar`、`quota`
+4. **静态路由必须在动态参数路由之前定义**
+
+### 检查清单
+
+**添加新路由时必须:**
+```
+□ 1. 确认是否是静态路由
+□ 2. 如果是静态路由，确保在所有动态参数路由之前
+□ 3. 如果是动态路由，确保在所有静态路由之后
+□ 4. 测试所有路由端点是否可访问
+```
+
+### Metadata
+- Source: debugging, api-design
+- Related Files:
+  - src/backend/src/routes/reservation.routes.ts
+  - src/backend/src/routes/cluster.routes.ts
+- Tags: express, routing, order, dynamic-parameters, api
+- See Also: LRN-20260327-003
+
+---
+
+## [LRN-20260328-003] Permission-Based API Endpoints for Regular Users
+
+**Logged**: 2026-03-28T11:00:00+08:00
+**Priority**: high
+**Status**: resolved
+**Area**: backend, permissions, api-design
+
+### Summary
+**普通用户（USER 角色）无法访问 `/api/clusters` 获取集群列表进行预约，因为该端点需要 MANAGER 权限。需要为普通用户提供专门的可访问端点。**
+
+### Details
+
+**问题:**
+- `ClusterReservationForm` 调用 `clusterApi.getAll()` 获取集群列表
+- `/api/clusters` 端点需要 `requireManager` 权限
+- 普通用户无法获取可预约的集群列表
+- 页面显示"操作失败"
+
+**解决方案:**
+
+添加新的端点，专门为普通用户提供可预约的集群列表:
+
+```typescript
+// 新端点：所有认证用户可访问
+router.get('/available-for-reservation', authenticate, async (req, res) => {
+  const clusters = await clusterService.getAllClusters({ status: 'AVAILABLE' });
+  // 返回精简的集群信息，仅包含预约所需字段
+  res.json({ success: true, data: availableClusters });
+});
+
+// 原端点：仅 MANAGER 及以上可访问
+router.get('/', authenticate, requireManager, async (req, res) => {
+  // 返回完整集群信息，包括敏感数据
+});
+```
+
+### API 设计原则
+
+**权限分层:**
+1. **公开端点** - 无需认证，仅基础信息
+2. **认证端点** - 需登录，业务相关数据
+3. **管理端点** - 需特定角色，敏感操作
+
+**对于预约场景:**
+- 普通用户需要查看可预约资源
+- 但不应看到敏感配置信息
+- 创建单独的端点，返回精简数据
+
+### 检查清单
+
+**设计 API 时必须:**
+```
+□ 1. 明确目标用户角色
+□ 2. 确定返回数据的敏感程度
+□ 3. 选择合适的权限中间件
+□ 4. 考虑是否需要多个端点服务不同角色
+□ 5. 文档中说明权限要求
+```
+
+### Metadata
+- Source: api-design, debugging
+- Related Files:
+  - src/backend/src/routes/cluster.routes.ts
+  - src/frontend/src/services/api.ts
+  - src/frontend/src/pages/ClusterReservationForm.tsx
+- Tags: permissions, api-design, roles, authentication
+- See Also: LRN-20260327-005

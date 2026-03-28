@@ -122,7 +122,7 @@ const ReservationForm: React.FC = () => {
   const handleModeChange = (mode: string) => {
     if (mode === 'whole-server' && selectedServer) {
       // Whole server mode, select all GPUs
-      const allGpuIds = selectedServer.gpus.map((g) => g.id)
+      const allGpuIds = (selectedServer.gpus || selectedServer.availableGpus || []).map((g) => g.id)
       setSelectedGpus(allGpuIds)
       form.setFieldValue('gpuIds', allGpuIds)
     } else {
@@ -174,7 +174,7 @@ const ReservationForm: React.FC = () => {
     return (
       <Form.Item label="Select GPU">
         <div className="gpu-grid">
-          {selectedServer.gpus.map((gpu) => {
+          {(selectedServer.gpus || selectedServer.availableGpus || []).map((gpu) => {
             const isSelected = selectedGpus.includes(gpu.id)
             const isDisabled = gpu.status === 'occupied' || gpu.status === 'maintenance'
 
@@ -221,9 +221,9 @@ const ReservationForm: React.FC = () => {
               <div className="server-info">
                 <DesktopOutlined className="server-icon" />
                 <div className="server-details">
-                  <div className="server-name">{server.name}</div>
+                  <div className="server-name">{server.name || 'Unknown Server'}</div>
                   <div className="server-gpus">
-                    {server.gpus.length} GPUs
+                    {(server.gpus || []).length || (server.availableGpus || []).length} GPUs
                   </div>
                 </div>
               </div>

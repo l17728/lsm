@@ -9,6 +9,7 @@ import {
   DisconnectOutlined,
   LoadingOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
 import { useChat } from '../../hooks/useChat'
@@ -28,6 +29,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onClose,
   position = 'bottom-right',
 }) => {
+  const { t } = useTranslation()
   const [isMinimized, setIsMinimized] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -88,37 +90,37 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const getConnectionTooltip = () => {
     switch (connectionStatus) {
       case 'connected':
-        return '已连接'
+        return t('chat.connected')
       case 'connecting':
-        return '连接中...'
+        return t('chat.connecting')
       case 'disconnected':
-        return '已断开'
+        return t('chat.disconnected')
     }
   }
 
-  // 渲染欢迎消息
+  // Render welcome message
   const renderWelcomeMessage = () => (
     <div className="chat-welcome">
       <div className="chat-welcome-icon">
         <RobotOutlined />
       </div>
       <div className="chat-welcome-title">LSM Agent</div>
-      <div className="chat-welcome-subtitle">智能实验室运维助手</div>
+      <div className="chat-welcome-subtitle">{t('chat.subtitle')}</div>
       <div className="chat-welcome-tips">
-        <div className="tip-item">💡 输入自然语言描述您的需求</div>
-        <div className="tip-item">💡 例如: "帮我申请一台 A100 服务器"</div>
-        <div className="tip-item">💡 输入 /help 查看所有指令</div>
+        <div className="tip-item">💡 {t('chat.welcome')}</div>
+        <div className="tip-item">💡 {t('chat.example')}</div>
+        <div className="tip-item">💡 {t('chat.helpCommand')}</div>
       </div>
     </div>
   )
 
-  // 渲染断开连接提示
+  // Render disconnected banner
   const renderDisconnectedBanner = () => (
     <div className="chat-disconnected-banner">
       <DisconnectOutlined />
-      <span>连接已断开</span>
+      <span>{t('chat.disconnectedTip')}</span>
       <button onClick={handleReconnect} className="reconnect-btn">
-        <ReloadOutlined /> 重新连接
+        <ReloadOutlined /> {t('chat.reconnect')}
       </button>
     </div>
   )
@@ -192,7 +194,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
        connectionStatus === 'connected' && (
         <div className="chat-typing-indicator">
           <Spin size="small" />
-          <span>Agent 正在思考...</span>
+          <span>Agent {t('chat.thinking')}</span>
         </div>
       )}
 
@@ -202,8 +204,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         disabled={connectionStatus !== 'connected'}
         placeholder={
           connectionStatus !== 'connected' 
-            ? '连接已断开...' 
-            : '输入消息或指令...'
+            ? t('chat.inputDisabled') 
+            : t('chat.inputPlaceholder')
         }
       />
     </div>

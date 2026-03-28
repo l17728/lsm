@@ -34,6 +34,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const { user } = useAuthStore()
   
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isAdmin = user?.role === 'ADMIN'
+  const canApprove = isSuperAdmin || isAdmin
 
   const baseMenuItems: MenuProps['items'] = [
     {
@@ -88,14 +90,21 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
     },
   ]
   
-  // Add SUPER_ADMIN only menu items
-  const adminMenuItems: MenuProps['items'] = isSuperAdmin ? [
-    {
+  // Add approval menu items based on role
+  // ADMIN: can only see server approval
+  // SUPER_ADMIN: can see both server and cluster approval
+  const adminMenuItems: MenuProps['items'] = [
+    ...(isSuperAdmin || isAdmin ? [{
+      key: '/servers/approval',
+      icon: <CheckCircleOutlined />,
+      label: t('navigation.serverApproval'),
+    }] : []),
+    ...(isSuperAdmin ? [{
       key: '/clusters/approval',
       icon: <CheckCircleOutlined />,
-      label: '预约审批',
-    },
-  ] : []
+      label: t('navigation.clusterApproval'),
+    }] : []),
+  ]
   
   const bottomMenuItems: MenuProps['items'] = [
     {

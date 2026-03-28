@@ -25,6 +25,7 @@ import {
   Tooltip,
   message as antdMessage
 } from 'antd';
+import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import { 
   ExclamationCircleOutlined, 
@@ -76,6 +77,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
   showRetry = true,
   maxDisplay = 100,
 }) => {
+  const { t } = useTranslation();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [searchText, setSearchText] = useState('');
   const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([]);
@@ -87,17 +89,17 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
     (error.type && error.type.toLowerCase().includes(searchText.toLowerCase()))
   );
 
-  const displayErrors = filteredErrors.slice(0, maxDisplay);
+  const displayErrors = (filteredErrors || []).slice(0, maxDisplay);
 
   const handleRetrySelected = async () => {
     if (!onRetry || selectedRowKeys.length === 0) return;
     
     try {
       await onRetry(selectedRowKeys as string[]);
-      antdMessage.success(`已重试 ${selectedRowKeys.length} 项`);
+      antdMessage.success(t('messages.retrySuccess', { count: selectedRowKeys.length }));
       setSelectedRowKeys([]);
     } catch (error: any) {
-      antdMessage.error('重试失败');
+      antdMessage.error(t('messages.retryFailed'));
     }
   };
 
@@ -106,9 +108,9 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
     
     try {
       await onRetryAll();
-      antdMessage.success('已重试所有失败项');
+      antdMessage.success(t('messages.retryAllSuccess'));
     } catch (error: any) {
-      antdMessage.error('重试失败');
+      antdMessage.error(t('messages.retryFailed'));
     }
   };
 
@@ -121,11 +123,11 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
     // Default export: download as text file
     const content = errors.map((error, index) => 
       `[${index + 1}] ${error.name}\n` +
-      `    类型：${error.type || '未知'}\n` +
-      `    错误：${error.error}\n` +
-      `    代码：${error.errorCode || 'N/A'}\n` +
-      `    时间：${error.timestamp || 'N/A'}\n` +
-      `    重试次数：${error.retryCount || 0}\n`
+      `    ${t('errorDetails.type')}: ${error.type || t('errorDetails.unknown')}\n` +
+      `    ${t('errorDetails.errorMessage')}: ${error.error}\n` +
+      `    ${t('errorDetails.errorCode')}: ${error.errorCode || 'N/A'}\n` +
+      `    ${t('errorDetails.timestamp')}: ${error.timestamp || 'N/A'}\n` +
+      `    ${t('errorDetails.retryCount')}: ${error.retryCount || 0}\n`
     ).join('\n');
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -136,12 +138,12 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
     link.click();
     URL.revokeObjectURL(url);
     
-    antdMessage.success('错误日志已导出');
+    antdMessage.success(t('messages.logExported'));
   };
 
   const handleCopyError = (text: string) => {
     navigator.clipboard.writeText(text);
-    antdMessage.success('已复制到剪贴板');
+    antdMessage.success(t('messages.copied'));
   };
 
   const columns: ColumnsType<ErrorDetailItem> = [
@@ -153,7 +155,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
       render: (_, __, index) => index + 1,
     },
     {
-      title: '名称',
+      title: t('errorDetails.name'),
       dataIndex: 'name',
       key: 'name',
       width: 200,
@@ -164,16 +166,16 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
       ),
     },
     {
-      title: '类型',
+      title: t('errorDetails.type'),
       dataIndex: 'type',
       key: 'type',
       width: 100,
       render: (type?: string) => (
-        type ? <Tag color="blue">{type}</Tag> : <Tag>未知</Tag>
+        type ? <Tag color="blue">{type}</Tag> : <Tag>{t('errorDetails.unknown')}</Tag>
       ),
     },
     {
-      title: '错误信息',
+      title: t('errorDetails.errorMessage'),
       dataIndex: 'error',
       key: 'error',
       ellipsis: true,
@@ -186,20 +188,20 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
       ),
     },
     {
-      title: '重试次数',
+      title: t('errorDetails.retryCount'),
       dataIndex: 'retryCount',
       key: 'retryCount',
       width: 80,
       render: (count?: number) => count || 0,
     },
     {
-      title: '操作',
+      title: t('common.actions'),
       key: 'action',
       width: 150,
       render: (_, record) => (
         <Space size="small">
           {showRetry && record.canRetry !== false && onRetry && (
-            <Tooltip title="重试此项">
+            <Tooltip title={t('errorDetails.retryItem')}>
               <Button
                 type="link"
                 size="small"
@@ -208,7 +210,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
               />
             </Tooltip>
           )}
-          <Tooltip title="复制错误信息">
+          <Tooltip title={t('errorDetails.copyError')}>
             <Button
               type="link"
               size="small"
@@ -239,7 +241,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
       onCancel={onClose}
       footer={[
         <Button key="close" onClick={onClose}>
-          关闭
+          {t('common.close')}
         </Button>,
         showExport && (
           <Button 
@@ -247,7 +249,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
             icon={<DownloadOutlined />} 
             onClick={handleExport}
           >
-            导出日志
+            {t('errorDetails.exportLog')}
           </Button>
         ),
         showRetry && onRetryAll && errors.length > 0 && (
@@ -258,7 +260,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
             onClick={handleRetryAll}
             loading={loading}
           >
-            重试全部
+            {t('common.retryAll')}
           </Button>
         ),
         showRetry && onRetry && selectedRowKeys.length > 0 && (
@@ -269,7 +271,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
             onClick={handleRetrySelected}
             loading={loading}
           >
-            重试选中 ({selectedRowKeys.length})
+            {t('common.retrySelected')} ({selectedRowKeys.length})
           </Button>
         ),
       ]}
@@ -278,17 +280,17 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
       {/* Summary Alert */}
       {errors.length > 0 && (
         <Alert
-          message={`共 ${errors.length} 项失败`}
+          message={t('batch.selected', { count: errors.length })}
           description={
             <Space>
               <Text>
                 {selectedRowKeys.length > 0 
-                  ? `已选择 ${selectedRowKeys.length} 项` 
-                  : '可勾选失败项进行重试'}
+                  ? t('errorDetails.selectedItems', { count: selectedRowKeys.length }) 
+                  : t('errorDetails.selectFailedToRetry')}
               </Text>
               {filteredErrors.length > maxDisplay && (
                 <Text type="secondary">
-                  (仅显示前 {maxDisplay} 项)
+                  ({t('errorDetails.showingFirst', { count: maxDisplay })})
                 </Text>
               )}
             </Space>
@@ -302,7 +304,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
       {/* Search */}
       <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
         <Input
-          placeholder="搜索名称、错误信息..."
+          placeholder={t('errorDetails.searchPlaceholder')}
           prefix={<SearchOutlined />}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
@@ -314,7 +316,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
             icon={<ClearOutlined />} 
             onClick={() => setSearchText('')}
           >
-            清除搜索
+            {t('common.clearSearch')}
           </Button>
         )}
       </div>
@@ -322,7 +324,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
       {/* Error Table */}
       {displayErrors.length === 0 ? (
         <Empty 
-          description={errors.length === 0 ? '暂无错误' : '没有找到匹配的错误'} 
+          description={errors.length === 0 ? t('errorDetails.noErrors') : t('errorDetails.noMatch')} 
           style={{ padding: '40px 0' }}
         />
       ) : (
@@ -335,7 +337,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
           pagination={{
             pageSize: 20,
             showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 项`,
+            showTotal: (total) => t('pagination.totalItems', { total }),
           }}
           expandable={{
             expandedRowKeys: [...expandedRowKeys],
@@ -343,7 +345,7 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
             expandedRowRender: (record) => (
               <div style={{ margin: 0, padding: '16px', backgroundColor: 'var(--bg-secondary)' }}>
                 <Paragraph>
-                  <Text strong>错误详情：</Text>
+                  <Text strong>{t('errorDetails.title')}</Text>
                 </Paragraph>
                 <pre style={{ 
                   margin: 0, 
@@ -359,12 +361,12 @@ export const ErrorDetails: React.FC<ErrorDetailsProps> = ({
                 </pre>
                 {record.errorCode && (
                   <Paragraph style={{ marginTop: 8 }}>
-                    <Text strong>错误代码：</Text> <Text code>{record.errorCode}</Text>
+                    <Text strong>{t('errorDetails.errorCode')}</Text> <Text code>{record.errorCode}</Text>
                   </Paragraph>
                 )}
                 {record.timestamp && (
                   <Paragraph style={{ marginTop: 8 }}>
-                    <Text strong>发生时间：</Text> {record.timestamp}
+                    <Text strong>{t('errorDetails.timestamp')}</Text> {record.timestamp}
                   </Paragraph>
                 )}
               </div>

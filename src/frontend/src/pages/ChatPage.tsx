@@ -71,7 +71,7 @@ const ChatPage: React.FC = () => {
     message.info('OpenClaw connection disconnected')
   }
 
-  const sessionItems: MenuProps['items'] = sessions.slice(0, 5).map((s) => ({
+  const sessionItems: MenuProps['items'] = (sessions || []).slice(0, 5).map((s) => ({
     key: s.id, label: `${s.title} (${new Date(s.updatedAt).toLocaleDateString()})`,
     onClick: () => { chatService.loadSession(s.id); setCurrentSession(s.id) },
   }))

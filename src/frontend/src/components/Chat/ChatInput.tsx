@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Button, Tooltip, Dropdown } from 'antd'
 import type { MenuProps } from 'antd'
+import { useTranslation } from 'react-i18next'
 import {
   SendOutlined,
   QuestionCircleOutlined,
@@ -18,27 +19,44 @@ interface ChatInputProps {
   placeholder?: string
 }
 
-// 快捷指令列表
-const QUICK_COMMANDS = [
-  { key: '/help', icon: <QuestionCircleOutlined />, label: '帮助', desc: '显示帮助信息' },
-  { key: '/status', icon: <CloudServerOutlined />, label: '状态', desc: '查看资源状态' },
-  { key: '/allocate', icon: <RocketOutlined />, label: '分配', desc: '分配服务器资源' },
-  { key: '/release', icon: <StopOutlined />, label: '释放', desc: '释放服务器资源' },
-  { key: '/cancel', icon: <ReloadOutlined />, label: '取消', desc: '取消当前操作' },
+// quick command list - labels/desc will be translated inside component
+interface CommandItem {
+  key: string
+  icon: React.ReactNode
+  label: string
+  desc: string
+}
+
+const QUICK_COMMANDS: CommandItem[] = [
+  { key: '/help', icon: <QuestionCircleOutlined />, label: 'help.label', desc: 'help.desc' },
+  { key: '/status', icon: <CloudServerOutlined />, label: 'status.label', desc: 'status.desc' },
+  { key: '/allocate', icon: <RocketOutlined />, label: 'allocate.label', desc: 'allocate.desc' },
+  { key: '/release', icon: <StopOutlined />, label: 'release.label', desc: 'release.desc' },
+  { key: '/cancel', icon: <ReloadOutlined />, label: 'cancel.label', desc: 'cancel.desc' },
 ]
 
 const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
   disabled = false,
-  placeholder = '输入消息...',
+  placeholder,
 }) => {
+  const { t } = useTranslation()
+  const inputPlaceholder = placeholder || t('chat.inputPlaceholder')
+
+  // quick commands list - labels/desc will be translated in component
+  const quickCommands = QUICK_COMMANDS.map(cmd => ({
+    ...cmd,
+    label: t(`chat.commands.${cmd.label}`),
+    desc: t(`chat.commands.${cmd.desc}`),
+  }))
+
   const [inputValue, setInputValue] = useState('')
   const [isFocused, setIsFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [showCommandHint, setShowCommandHint] = useState(false)
-  const [filteredCommands, setFilteredCommands] = useState(QUICK_COMMANDS)
+  const [filteredCommands, setFilteredCommands] = useState(quickCommands)
 
-  // 自动调整高度
+  // auto-adjust height
   const adjustHeight = useCallback(() => {
     const textarea = textareaRef.current
     if (textarea) {
@@ -52,11 +70,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
     adjustHeight()
   }, [inputValue, adjustHeight])
 
-  // 检测命令输入
+  // detect command input
   useEffect(() => {
     if (inputValue.startsWith('/')) {
       const query = inputValue.toLowerCase()
-      const filtered = QUICK_COMMANDS.filter(cmd => 
+      const filtered = quickCommands.filter(cmd => 
         cmd.key.toLowerCase().startsWith(query) ||
         cmd.label.toLowerCase().includes(query.slice(1))
       )
@@ -78,31 +96,31 @@ const ChatInput: React.FC<ChatInputProps> = ({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter 发送, Shift+Enter 换行
+    // Enter send, Shift+Enter newline
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
-    // Tab 补全命令
+    // Tab complete command
     if (e.key === 'Tab' && showCommandHint && filteredCommands.length > 0) {
       e.preventDefault()
       setInputValue(filteredCommands[0].key + ' ')
       setShowCommandHint(false)
     }
-    // Escape 关闭提示
+    // Escape close hint
     if (e.key === 'Escape') {
       setShowCommandHint(false)
     }
   }
 
-  const handleCommandClick = (command: typeof QUICK_COMMANDS[0]) => {
+  const handleCommandClick = (command: typeof quickCommands[0]) => {
     setInputValue(command.key + ' ')
     setShowCommandHint(false)
     textareaRef.current?.focus()
   }
 
-  // 快捷命令下拉菜单
-  const commandMenuItems: MenuProps['items'] = QUICK_COMMANDS.map(cmd => ({
+  // quick commands dropdown menu
+  const commandMenuItems: MenuProps['items'] = quickCommands.map(cmd => ({
     key: cmd.key,
     icon: cmd.icon,
     label: `${cmd.key} - ${cmd.desc}`,
@@ -111,7 +129,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className={`chat-input-container ${isFocused ? 'focused' : ''} ${disabled ? 'disabled' : ''}`}>
-      {/* 命令提示 */}
+      {/* command prompt */}
       {showCommandHint && (
         <div className="command-hints">
           {filteredCommands.map(cmd => (
@@ -129,13 +147,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
       )}
 
       <div className="chat-input-wrapper">
-        {/* 快捷命令按钮 */}
+        {/* quick command button */}
         <Dropdown
           menu={{ items: commandMenuItems }}
           trigger={['click']}
           disabled={disabled}
         >
-          <Tooltip title="快捷指令">
+          <Tooltip title={t('chat.quickCommands')}>
             <Button 
               type="text" 
               className="input-action-btn"
@@ -145,7 +163,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           </Tooltip>
         </Dropdown>
 
-        {/* 输入框 */}
+        {/* input box */}
         <textarea
           ref={textareaRef}
           className="chat-input-textarea"
@@ -154,13 +172,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder={placeholder}
+          placeholder={inputPlaceholder}
           disabled={disabled}
           rows={1}
         />
 
-        {/* 发送按钮 */}
-        <Tooltip title={inputValue ? '发送 (Enter)' : '请输入消息'}>
+        {/* send button */}
+        <Tooltip title={inputValue ? t('chat.send') + ' (Enter)' : t('chat.inputPlaceholder')}>
           <Button
             type="primary"
             className="send-btn"
@@ -171,13 +189,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
         </Tooltip>
       </div>
 
-      {/* 快捷提示 */}
+      {/* quick prompt */}
       <div className="chat-input-hints">
-        <span className="hint-item">Enter 发送</span>
+        <span className="hint-item">{t('chat.send')}</span>
         <span className="hint-divider">|</span>
-        <span className="hint-item">Shift+Enter 换行</span>
+        <span className="hint-item">{t('chat.newline')}</span>
         <span className="hint-divider">|</span>
-        <span className="hint-item">/ 调用命令</span>
+        <span className="hint-item">{t('chat.commandTip')}</span>
       </div>
     </div>
   )

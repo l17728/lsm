@@ -66,41 +66,41 @@ const Dashboard: React.FC = () => {
       ])
 
       if (serverRes.status === 'fulfilled') {
-        setServerStats(serverRes.value.data.data)
+        setServerStats(serverRes.value?.data?.data || [])
       } else {
         console.error('[Dashboard] Failed to load server stats:', serverRes.reason)
         message.error('Server statistics failed to load, please refresh and try again')
       }
 
       if (gpuRes.status === 'fulfilled') {
-        setGpuStats(gpuRes.value.data.data)
+        setGpuStats(gpuRes.value?.data?.data || [])
       } else {
         console.error('[Dashboard] Failed to load GPU stats:', gpuRes.reason)
         message.error('GPU statistics failed to load, please refresh and try again')
       }
 
       if (taskRes.status === 'fulfilled') {
-        setTaskStats(taskRes.value.data.data)
+        setTaskStats(taskRes.value?.data?.data || [])
       } else {
         console.error('[Dashboard] Failed to load task stats:', taskRes.reason)
         message.error('Task statistics failed to load, please refresh and try again')
       }
 
       if (clusterRes.status === 'fulfilled') {
-        setClusterStats(clusterRes.value.data.data)
+        setClusterStats(clusterRes.value?.data?.data || [])
       } else {
         console.error('[Dashboard] Failed to load cluster stats:', clusterRes.reason)
         message.error('Cluster statistics failed to load, please refresh and try again')
       }
 
       if (clusterSummaryRes.status === 'fulfilled') {
-        setClusterSummary(clusterSummaryRes.value.data.data)
+        setClusterSummary(clusterSummaryRes.value?.data?.data || [])
       } else {
         console.error('[Dashboard] Failed to load cluster summary:', clusterSummaryRes.reason)
       }
 
       if (alertsRes.status === 'fulfilled') {
-        setAlerts(alertsRes.value.data.data)
+        setAlerts(alertsRes.value?.data?.data || [])
       } else {
         console.error('[Dashboard] Failed to load alerts:', alertsRes.reason)
         // Alerts failure is non-critical; silently default to empty

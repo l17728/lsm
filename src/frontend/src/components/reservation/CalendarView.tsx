@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react'
-import { Card, Tooltip, Spin, Empty, Segmented, Select, Button, Tag } from 'antd'
-import { LeftOutlined, RightOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { Card, Tooltip, Spin, Empty, Segmented, Select, Button, Tag, Badge } from 'antd'
+import { LeftOutlined, RightOutlined, ClockCircleOutlined, CalendarOutlined } from '@ant-design/icons'
 import dayjs, { Dayjs } from 'dayjs'
+import { useTranslation } from 'react-i18next'
 import type { Reservation, TimeSlot } from '../../services/reservation.service'
 import './CalendarView.css'
 
@@ -34,14 +35,6 @@ const RESERVATION_STATUS_COLORS: Record<string, string> = {
   cancelled: '#ff4d4f',
 }
 
-const RESERVATION_STATUS_TEXT: Record<string, string> = {
-  pending: '待审批',
-  approved: '已批准',
-  active: '进行中',
-  completed: '已完成',
-  cancelled: '已取消',
-}
-
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 const CalendarView: React.FC<CalendarViewProps> = ({
@@ -57,6 +50,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onServerChange,
   loading = false,
 }) => {
+  const { t } = useTranslation()
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null)
 
   // 计算日期范围
@@ -143,10 +137,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return (
       <div className="calendar-day-view">
         <div className="calendar-header">
-          <div className="time-column-header">时间</div>
+          <div className="time-column-header">{t('reservation.time')}</div>
           <div className="reservation-column-header">
-            <span>预约详情</span>
-            <span className="date-display">{current.format('YYYY年MM月DD日 dddd')}</span>
+            <span>{t('reservation.reservationDetails')}</span>
+            <span className="date-display">{current.format('YYYY-MM-DD dddd')}</span>
           </div>
         </div>
         <div className="calendar-body">
@@ -181,10 +175,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       key={r.id}
                       title={
                         <div>
-                          <div><strong>{r.userName}</strong></div>
-                          <div><ClockCircleOutlined /> {dayjs(r.startTime).format('HH:mm')} - {dayjs(r.endTime).format('HH:mm')}</div>
-                          <div>{r.serverName} - {r.gpuIds.join(', ')}</div>
-                          <div>{r.purpose}</div>
+<div><strong>{r.userName || 'Unknown'}</strong></div>
+                           <div><ClockCircleOutlined /> {dayjs(r.startTime).format('HH:mm')} - {dayjs(r.endTime).format('HH:mm')}</div>
+                           <div>{r.serverName || 'Unknown'} - {(r.gpuIds || []).join(', ')}</div>
+                           <div>{r.purpose || ''}</div>
                         </div>
                       }
                     >
@@ -196,10 +190,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         }}
                       >
                         <Tag color={RESERVATION_STATUS_COLORS[r.status]}>
-                          {RESERVATION_STATUS_TEXT[r.status]}
+                          {t(`reservation.${r.status}`)}
                         </Tag>
-                        <span className="reservation-user">{r.userName}</span>
-                        <span className="reservation-purpose">{r.purpose}</span>
+                        <span className="reservation-user">{r.userName || 'Unknown'}</span>
+                        <span className="reservation-purpose">{r.purpose || ''}</span>
                       </div>
                     </Tooltip>
                   ))}
@@ -214,12 +208,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // 渲染周视图
   const renderWeekView = () => {
-    const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+    const weekDays = t('reservation.weekdays', { returnObjects: true }) as string[]
 
     return (
       <div className="calendar-week-view">
         <div className="calendar-header">
-          <div className="time-column-header">时间</div>
+          <div className="time-column-header">{t('reservation.time')}</div>
           {dateRange.map((date) => (
             <div
               key={date.format('YYYY-MM-DD')}
@@ -256,14 +250,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       onSlotClick?.(slot)
                     }}
                   >
-                    {hourReservations.slice(0, 2).map((r) => (
+                    {(hourReservations || []).slice(0, 2).map((r) => (
                       <Tooltip
                         key={r.id}
                         title={
                           <div>
-                            <div><strong>{r.userName}</strong></div>
-                            <div>{r.serverName}</div>
-                            <div>{r.purpose}</div>
+                            <div><strong>{r.userName || 'Unknown'}</strong></div>
+                            <div>{r.serverName || 'Unknown'}</div>
+                            <div>{r.purpose || ''}</div>
                           </div>
                         }
                       >
@@ -274,12 +268,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             onReservationClick?.(r)
                           }}
                         >
-                          {r.userName}
+{r.userName || 'Unknown'}
                         </div>
                       </Tooltip>
                     ))}
                     {hourReservations.length > 2 && (
-                      <div className="more-items">+{hourReservations.length - 2}</div>
+                       <div className="more-items">+{hourReservations.length - 2} {t('reservation.more')}</div>
                     )}
                   </div>
                 )
@@ -293,7 +287,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // 渲染月视图
   const renderMonthView = () => {
-    const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+    const weekDays = t('reservation.weekdays', { returnObjects: true }) as string[]
     const weeks: Dayjs[][] = []
     let currentWeek: Dayjs[] = []
 
@@ -322,22 +316,37 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 return (
                   <div
                     key={date.format('YYYY-MM-DD')}
-                    className={`month-cell ${date.isSame(dayjs(), 'day') ? 'today' : ''} ${!isCurrentMonth ? 'other-month' : ''}`}
+                    className={`month-cell ${date.isSame(dayjs(), 'day') ? 'today' : ''} ${!isCurrentMonth ? 'other-month' : ''} ${dayReservations.length > 0 ? 'has-reservations' : ''}`}
                     onClick={() => {
+                      // Navigate to day view when clicking on the cell
                       onDateChange?.(date.toDate())
                       onViewModeChange?.('day')
                     }}
                   >
-                    <div className="month-date">{date.date()}</div>
+                    <div className="month-date">
+                      {date.date()}
+                      {/* Show clear reservation indicator badge */}
+                      {dayReservations.length > 0 && (
+                        <Badge 
+                          count={dayReservations.length} 
+                          size="small" 
+                          style={{ 
+                            marginLeft: 4, 
+                            backgroundColor: RESERVATION_STATUS_COLORS[dayReservations[0]?.status] || '#1890ff'
+                          }}
+                        />
+                      )}
+                    </div>
                     <div className="month-reservations">
-                      {dayReservations.slice(0, 3).map((r) => (
+                      {(dayReservations || []).slice(0, 3).map((r) => (
                         <Tooltip
                           key={r.id}
                           title={
                             <div>
-                              <div><strong>{r.userName}</strong></div>
-                              <div>{dayjs(r.startTime).format('HH:mm')} - {dayjs(r.endTime).format('HH:mm')}</div>
-                              <div>{r.purpose}</div>
+                              <div><strong>{r.userName || 'Unknown'}</strong></div>
+                              <div><ClockCircleOutlined style={{ marginRight: 4 }} />{dayjs(r.startTime).format('HH:mm')} - {dayjs(r.endTime).format('HH:mm')}</div>
+                              <div>{r.purpose || ''}</div>
+                              <div style={{ marginTop: 4, color: '#aaa' }}>{t('reservation.clickToViewDetails')}</div>
                             </div>
                           }
                         >
@@ -345,15 +354,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             className={`month-reservation-item status-${r.status}`}
                             onClick={(e) => {
                               e.stopPropagation()
+                              // Navigate to day view AND show this reservation
+                              onDateChange?.(date.toDate())
+                              onViewModeChange?.('day')
                               onReservationClick?.(r)
                             }}
                           >
-                            {r.purpose.slice(0, 10)}...
+                            <CalendarOutlined style={{ marginRight: 4, fontSize: 10 }} />
+                            {(r.purpose || t('reservation.noPurpose')).slice(0, 12)}
                           </div>
                         </Tooltip>
                       ))}
                       {dayReservations.length > 3 && (
-                        <div className="more-items">+{dayReservations.length - 3} 更多</div>
+                        <div 
+                          className="more-items"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Navigate to day view to see all reservations
+                            onDateChange?.(date.toDate())
+                            onViewModeChange?.('day')
+                          }}
+                        >
+                          +{dayReservations.length - 3} {t('reservation.more')}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -371,13 +394,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const current = dayjs(currentDate)
     switch (viewMode) {
       case 'day':
-        return current.format('YYYY年MM月DD日')
+        return current.format('YYYY-MM-DD')
       case 'week':
         const weekStart = current.startOf('week')
         const weekEnd = current.endOf('week')
-        return `${weekStart.format('MM月DD日')} - ${weekEnd.format('MM月DD日')}`
+        return `${weekStart.format('MM-DD')} - ${weekEnd.format('MM-DD')}`
       case 'month':
-        return current.format('YYYY年MM月')
+        return current.format('YYYY-MM')
       default:
         return ''
     }
@@ -398,7 +421,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="toolbar-left">
           <Select
             allowClear
-            placeholder="选择服务器"
+            placeholder={t('reservation.selectServer')}
             style={{ width: 200 }}
             value={serverId}
             onChange={onServerChange}
@@ -417,9 +440,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             value={viewMode}
             onChange={(value) => onViewModeChange?.(value as 'day' | 'week' | 'month')}
             options={[
-              { label: '日', value: 'day' },
-              { label: '周', value: 'week' },
-              { label: '月', value: 'month' },
+              { label: t('reservation.day'), value: 'day' },
+              { label: t('reservation.week'), value: 'week' },
+              { label: t('reservation.month'), value: 'month' },
             ]}
           />
         </div>
@@ -429,23 +452,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="calendar-legend">
         <span className="legend-item">
           <span className="legend-color" style={{ background: RESERVATION_STATUS_COLORS.pending }}></span>
-          待审批
+          {t('reservation.pending')}
         </span>
         <span className="legend-item">
           <span className="legend-color" style={{ background: RESERVATION_STATUS_COLORS.approved }}></span>
-          已批准
+          {t('reservation.approved')}
         </span>
         <span className="legend-item">
           <span className="legend-color" style={{ background: RESERVATION_STATUS_COLORS.active }}></span>
-          进行中
+          {t('reservation.active')}
         </span>
         <span className="legend-item">
           <span className="legend-color" style={{ background: RESERVATION_STATUS_COLORS.completed }}></span>
-          已完成
+          {t('reservation.completed')}
         </span>
         <span className="legend-item">
           <span className="legend-color" style={{ background: RESERVATION_STATUS_COLORS.cancelled }}></span>
-          已取消
+          {t('reservation.cancelled')}
         </span>
       </div>
 
@@ -455,7 +478,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       {viewMode === 'month' && renderMonthView()}
 
       {reservations.length === 0 && !loading && (
-        <Empty description="暂无预约数据" style={{ margin: '40px 0' }} />
+        <Empty description={t('reservation.noReservations')} style={{ margin: '40px 0' }} />
       )}
     </Card>
   )

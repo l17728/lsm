@@ -28,6 +28,9 @@ jest.mock('../../utils/prisma', () => {
       count: jest.fn(),
       update: jest.fn(),
     },
+    clusterReservation: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
     server: {
       findUnique: jest.fn(),
       findMany: jest.fn(),

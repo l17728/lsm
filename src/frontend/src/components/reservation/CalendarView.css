@@ -297,6 +297,15 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
+.month-cell.has-reservations {
+  background: rgba(24, 144, 255, 0.03);
+  border-left: 3px solid #1890ff;
+}
+
+.month-cell.has-reservations:hover {
+  background: rgba(24, 144, 255, 0.08);
+}
+
 .month-cell {
   flex: 1;
   min-height: 120px;
@@ -345,34 +354,54 @@
 }
 
 .month-reservation-item {
-  padding: 2px 6px;
-  border-radius: 2px;
-  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.month-reservation-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .month-reservation-item.status-pending {
-  background: rgba(250, 173, 20, 0.2);
+  background: rgba(250, 173, 20, 0.25);
+  border: 1px solid rgba(250, 173, 20, 0.4);
+  color: #d48806;
 }
 
 .month-reservation-item.status-approved {
-  background: rgba(24, 144, 255, 0.2);
+  background: rgba(24, 144, 255, 0.25);
+  border: 1px solid rgba(24, 144, 255, 0.4);
+  color: #096dd9;
 }
 
 .month-reservation-item.status-active {
-  background: rgba(82, 196, 26, 0.2);
+  background: rgba(82, 196, 26, 0.25);
+  border: 1px solid rgba(82, 196, 26, 0.4);
+  color: #389e0d;
 }
 
 .month-reservation-item.status-completed {
-  background: rgba(140, 140, 140, 0.2);
+  background: rgba(140, 140, 140, 0.25);
+  border: 1px solid rgba(140, 140, 140, 0.4);
+  color: #595959;
 }
 
 .month-reservation-item.status-cancelled {
-  background: rgba(255, 77, 79, 0.1);
+  background: rgba(255, 77, 79, 0.15);
+  border: 1px solid rgba(255, 77, 79, 0.3);
   text-decoration: line-through;
+  color: #cf1322;
 }
 
 /* Responsive */

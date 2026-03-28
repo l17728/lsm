@@ -31,6 +31,9 @@ vi.mock('../../services/api', () => ({
     release: vi.fn(),
     recommendTimeSlots: vi.fn().mockResolvedValue({ data: { data: [] } }),
   },
+  authApi: {
+    getUsers: vi.fn().mockResolvedValue({ data: { data: [] } }),
+  },
 }));
 
 // Mock the auth store

@@ -12,6 +12,7 @@ const Dashboard       = lazy(() => import('./pages/Dashboard'))
 const Servers         = lazy(() => import('./pages/Servers'))
 const Clusters        = lazy(() => import('./pages/Clusters'))
 const ClusterApproval = lazy(() => import('./pages/ClusterApproval'))
+const ServerApproval = lazy(() => import('./pages/ServerApproval'))
 const GPUs            = lazy(() => import('./pages/GPUs'))
 const Tasks           = lazy(() => import('./pages/Tasks'))
 const Monitoring      = lazy(() => import('./pages/Monitoring'))
@@ -19,6 +20,7 @@ const Analytics       = lazy(() => import('./pages/Analytics'))
 const Users           = lazy(() => import('./pages/Users'))
 const Reservations    = lazy(() => import('./pages/Reservations'))
 const ReservationForm = lazy(() => import('./pages/ReservationForm'))
+const ClusterReservationForm = lazy(() => import('./pages/ClusterReservationForm'))
 const MyReservations  = lazy(() => import('./pages/MyReservations'))
 const ChatPage        = lazy(() => import('./pages/ChatPage'))
 const DocsPage        = lazy(() => import('./pages/DocsPage'))
@@ -34,7 +36,7 @@ const { Content } = Layout
 /** Fallback shown while a lazy page chunk is being downloaded */
 const PageLoading = (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-    <Spin size="large" tip="页面加载中..." />
+    <Spin size="large" tip="Loading..." />
   </div>
 )
 
@@ -72,13 +74,15 @@ function App() {
 <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/servers" element={<Servers />} />
-                  <Route path="/clusters" element={<Clusters />} />
-                  <Route path="/clusters/approval" element={<ClusterApproval />} />
-                  <Route path="/gpus" element={<GPUs />} />
+<Route path="/clusters" element={<Clusters />} />
+                   <Route path="/clusters/approval" element={<ClusterApproval />} />
+                   <Route path="/servers/approval" element={<ServerApproval />} />
+                   <Route path="/gpus" element={<GPUs />} />
                   <Route path="/tasks" element={<Tasks />} />
-                  <Route path="/reservations" element={<Reservations />} />
-                  <Route path="/reservations/new" element={<ReservationForm />} />
-                  <Route path="/reservations/mine" element={<MyReservations />} />
+<Route path="/reservations" element={<Reservations />} />
+                   <Route path="/reservations/new" element={<ReservationForm />} />
+                   <Route path="/reservations/cluster" element={<ClusterReservationForm />} />
+                   <Route path="/reservations/mine" element={<MyReservations />} />
                   <Route path="/monitoring" element={<Monitoring />} />
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/chat" element={<ChatPage />} />

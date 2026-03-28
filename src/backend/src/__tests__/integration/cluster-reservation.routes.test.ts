@@ -94,6 +94,36 @@ describe('Cluster Reservation Routes', () => {
         expect.objectContaining({ status: 'PENDING' })
       );
     });
+
+    it('should filter reservations by date range', async () => {
+      (clusterReservationService.getReservations as jest.Mock).mockResolvedValue([mockReservation]);
+
+      const startTime = '2026-04-01T00:00:00.000Z';
+      const endTime = '2026-04-30T23:59:59.999Z';
+
+      const res = await request(app).get(
+        `/api/cluster-reservations?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`
+      );
+
+      expect(res.status).toBe(200);
+      expect(clusterReservationService.getReservations).toHaveBeenCalledWith(
+        expect.objectContaining({
+          startTime: new Date(startTime),
+          endTime: new Date(endTime),
+        })
+      );
+    });
+
+    it('should filter reservations by clusterId', async () => {
+      (clusterReservationService.getReservations as jest.Mock).mockResolvedValue([mockReservation]);
+
+      const res = await request(app).get('/api/cluster-reservations?clusterId=cluster-1');
+
+      expect(res.status).toBe(200);
+      expect(clusterReservationService.getReservations).toHaveBeenCalledWith(
+        expect.objectContaining({ clusterId: 'cluster-1' })
+      );
+    });
   });
 
   // ============================================

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input, Select, Button, Space, Tag, Dropdown, Menu, Modal, List } from 'antd';
 import {
   SearchOutlined,
@@ -33,11 +34,13 @@ interface AdvancedSearchProps {
 export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
   onSearch,
   onClear,
-  placeholder = '搜索...',
+  placeholder,
   filters = [],
   showHistory = true,
   maxHistory = 10,
 }) => {
+  const { t } = useTranslation();
+  const actualPlaceholder = placeholder || t('search.placeholder');
   const [query, setQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, any>>({});
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
@@ -114,7 +117,7 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
 
   // Save current search as preset
   const saveAsPreset = () => {
-    const label = prompt('请输入保存名称:');
+    const label = prompt(t('common.enterName'));
     if (label) {
       const preset: SearchHistoryItem = {
         id: Date.now().toString(),
@@ -136,11 +139,11 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       {filters.map((filter) => (
         <Menu.Item key={filter.key} style={{ padding: '8px 0' }}>
           <div style={{ marginBottom: 8, fontWeight: 500 }}>{filter.label}</div>
-          {filter.type === 'select' && (
-            <Select
-              style={{ width: '100%' }}
-              placeholder={`选择${filter.label}`}
-              value={activeFilters[filter.key]}
+           {filter.type === 'select' && (
+             <Select
+               style={{ width: '100%' }}
+               placeholder={t('common.choose') + filter.label}
+               value={activeFilters[filter.key]}
               onChange={(value) =>
                 setActiveFilters({ ...activeFilters, [filter.key]: value })
               }
@@ -153,10 +156,10 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
               ))}
             </Select>
           )}
-          {filter.type === 'input' && (
-            <Input
-              placeholder={`输入${filter.label}`}
-              value={activeFilters[filter.key]}
+           {filter.type === 'input' && (
+             <Input
+               placeholder={t('common.enter') + filter.label}
+               value={activeFilters[filter.key]}
               onChange={(e) =>
                 setActiveFilters({ ...activeFilters, [filter.key]: e.target.value })
               }
@@ -172,11 +175,11 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
               }
             />
           )}
-          {filter.type === 'number' && (
-            <Input
-              type="number"
-              placeholder={`输入${filter.label}`}
-              value={activeFilters[filter.key]}
+           {filter.type === 'number' && (
+             <Input
+               type="number"
+               placeholder={t('common.enter') + filter.label}
+               value={activeFilters[filter.key]}
               onChange={(e) =>
                 setActiveFilters({ ...activeFilters, [filter.key]: e.target.value })
               }
@@ -185,25 +188,25 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         </Menu.Item>
       ))}
       <Menu.Divider />
-      <Menu.Item>
-        <Button
-          type="primary"
-          block
-          onClick={() => {
-            handleSearch();
-            setShowFilterDropdown(false);
-          }}
-        >
-          搜索
-        </Button>
-      </Menu.Item>
+       <Menu.Item>
+         <Button
+           type="primary"
+           block
+           onClick={() => {
+             handleSearch();
+             setShowFilterDropdown(false);
+           }}
+         >
+           {t('search.search')}
+         </Button>
+       </Menu.Item>
     </Menu>
   );
 
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
       <Input
-        placeholder={placeholder}
+        placeholder={actualPlaceholder}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyPress={handleKeyPress}
@@ -212,16 +215,16 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         allowClear
       />
 
-      {filters.length > 0 && (
-        <Dropdown
-          overlay={filterMenu}
-          trigger={['click']}
-          open={showFilterDropdown}
-          onOpenChange={setShowFilterDropdown}
-        >
-          <Button icon={<FilterOutlined />}>
-            筛选
-            {Object.keys(activeFilters).length > 0 && (
+       {filters.length > 0 && (
+         <Dropdown
+           overlay={filterMenu}
+           trigger={['click']}
+           open={showFilterDropdown}
+           onOpenChange={setShowFilterDropdown}
+         >
+           <Button icon={<FilterOutlined />}>
+             {t('search.filter')}
+             {Object.keys(activeFilters).length > 0 && (
               <Tag color="blue" style={{ marginLeft: 4 }}>
                 {Object.keys(activeFilters).length}
               </Tag>
@@ -230,53 +233,53 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         </Dropdown>
       )}
 
-      <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-        搜索
-      </Button>
+       <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+         {t('search.search')}
+       </Button>
 
-      {(query || Object.keys(activeFilters).length > 0) && (
-        <Button icon={<ClearOutlined />} onClick={handleClear}>
-          清除
-        </Button>
-      )}
+       {(query || Object.keys(activeFilters).length > 0) && (
+         <Button icon={<ClearOutlined />} onClick={handleClear}>
+           {t('search.clear')}
+         </Button>
+       )}
 
-      {showHistory && history.length > 0 && (
-        <>
-          <Button
-            icon={<HistoryOutlined />}
-            onClick={() => setShowHistoryModal(true)}
-          >
-            历史
-          </Button>
+       {showHistory && history.length > 0 && (
+         <>
+           <Button
+             icon={<HistoryOutlined />}
+             onClick={() => setShowHistoryModal(true)}
+           >
+             {t('search.history')}
+           </Button>
 
-          <Modal
-            title="搜索历史"
-            open={showHistoryModal}
-            onCancel={() => setShowHistoryModal(false)}
-            footer={[
-              <Button key="clear" danger icon={<ClearOutlined />} onClick={clearHistory}>
-                清空历史
-              </Button>,
-              <Button key="close" onClick={() => setShowHistoryModal(false)}>
-                关闭
-              </Button>,
-            ]}
-            width={600}
-          >
+           <Modal
+             title={t('search.searchHistory')}
+             open={showHistoryModal}
+             onCancel={() => setShowHistoryModal(false)}
+             footer={[
+               <Button key="clear" danger icon={<ClearOutlined />} onClick={clearHistory}>
+                 {t('search.clearHistory')}
+               </Button>,
+               <Button key="close" onClick={() => setShowHistoryModal(false)}>
+                 {t('common.close')}
+               </Button>,
+             ]}
+             width={600}
+           >
             <List
               dataSource={history}
               renderItem={(item) => (
-                <List.Item
-                  actions={[
-                    <Button
-                      key="load"
-                      type="link"
-                      onClick={() => loadFromHistory(item)}
-                    >
-                      使用
-                    </Button>,
-                  ]}
-                >
+                 <List.Item
+                   actions={[
+                     <Button
+                       key="load"
+                       type="link"
+                       onClick={() => loadFromHistory(item)}
+                     >
+                       {t('search.use')}
+                     </Button>,
+                   ]}
+                 >
                   <List.Item.Meta
                     title={
                       <Space>
@@ -307,9 +310,9 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       <Button
         icon={<SaveOutlined />}
         onClick={saveAsPreset}
-        title="保存为预设"
+        title={t('search.saveAsPreset')}
       >
-        保存
+        {t('search.save')}
       </Button>
     </div>
   );

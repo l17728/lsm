@@ -1,7 +1,7 @@
 # LSM 运维手册 (Operations Manual)
 
-**版本**: 3.2.1
-**最后更新**: 2026-03-18
+**版本**: 3.2.2
+**最后更新**: 2026-03-28
 **状态**: 生产就绪 ✅
 **维护团队**: DevOps 团队
 **项目**: LSM (Laboratory Server Management System)
@@ -43,9 +43,10 @@
 - [第 17 章 故障自愈服务运维](#第-17-章-故障自愈服务运维)
 - [第 18 章 智能告警降噪服务运维](#第-18-章-智能告警降噪服务运维)
 
-### 第六部分 v3.2.1 可观测性篇
+### 第六部分 v3.2.2 可观测性与预约篇
 
 - [第 19 章 结构化日志与请求追踪](#第-19-章-结构化日志与请求追踪)
+- [第 20 章 预约系统运维](#第-20-章-预约系统运维) 🆕
 
 ### 附录
 
@@ -2562,10 +2563,331 @@ rate(lsm_http_request_duration_seconds_sum[5m])
 
 ---
 
-**运维手册版本**: 3.2.1
-**最后更新**: 2026-03-18
-**页数**: 约 55+ 页
-**字数**: 约 20,000+ 字
+### 第 20 章 预约系统运维
+
+#### 20.1 服务概述
+
+LSM 预约系统提供服务器预约和集群预约两种模式，支持日历视图导航、AI 时间推荐、分级审批等功能。
+
+**核心组件**:
+- 预约管理 API（`/api/reservations`）
+- 集群预约 API（`/api/cluster-reservations`）
+- AI 时间推荐服务（`/api/cluster-reservations/recommend-time-slots`）
+- 日历视图 WebSocket 实时更新
+
+#### 20.2 服务器预约运维
+
+##### 20.2.1 查看预约状态
+
+**API 查询**:
+
+```bash
+# 查看所有预约
+curl -X GET http://localhost:4000/api/reservations \
+  -H "Authorization: Bearer $TOKEN"
+
+# 查看待审批预约
+curl -X GET http://localhost:4000/api/reservations/pending \
+  -H "Authorization: Bearer $TOKEN"
+
+# 按日期范围查询
+curl -X GET "http://localhost:4000/api/reservations?startTime=2026-03-01T00:00:00Z&endTime=2026-03-31T23:59:59Z" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**数据库查询**:
+
+```sql
+-- 查看今日预约
+SELECT * FROM reservations 
+WHERE DATE(start_time) = CURRENT_DATE;
+
+-- 查看待审批预约
+SELECT * FROM reservations 
+WHERE status = 'PENDING' 
+ORDER BY created_at DESC;
+
+-- 查看即将开始的预约（未来1小时）
+SELECT * FROM reservations 
+WHERE start_time BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
+AND status = 'APPROVED';
+```
+
+##### 20.2.2 审批操作
+
+**批准预约**:
+
+```bash
+curl -X POST http://localhost:4000/api/reservations/{id}/approve \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+**拒绝预约**:
+
+```bash
+curl -X POST http://localhost:4000/api/reservations/{id}/reject \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "资源不足，请调整时间"}'
+```
+
+##### 20.2.3 取消和释放
+
+**取消预约**:
+
+```bash
+curl -X POST http://localhost:4000/api/reservations/{id}/cancel \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**提前释放**:
+
+```bash
+curl -X POST http://localhost:4000/api/reservations/{id}/release \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### 20.3 集群预约运维
+
+##### 20.3.1 查看集群预约
+
+**API 查询**:
+
+```bash
+# 查看所有集群预约
+curl -X GET http://localhost:4000/api/cluster-reservations \
+  -H "Authorization: Bearer $TOKEN"
+
+# 查看我的集群预约
+curl -X GET http://localhost:4000/api/cluster-reservations/my \
+  -H "Authorization: Bearer $TOKEN"
+
+# 查看待审批集群预约（SUPER_ADMIN）
+curl -X GET http://localhost:4000/api/cluster-reservations/pending \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+##### 20.3.2 AI 时间推荐
+
+**获取推荐时间**:
+
+```bash
+curl -X POST http://localhost:4000/api/cluster-reservations/recommend-time-slots \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clusterId": "cluster-uuid",
+    "preferredStartTime": "2026-03-25T00:00:00Z",
+    "preferredEndTime": "2026-03-26T00:00:00Z",
+    "durationHours": 8
+  }'
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "recommendations": [
+      {
+        "start": "2026-03-25T02:00:00Z",
+        "end": "2026-03-25T10:00:00Z",
+        "score": 92,
+        "confidence": "high",
+        "reasons": ["凌晨时段无冲突", "集群负载低"]
+      }
+    ]
+  }
+}
+```
+
+##### 20.3.3 集群预约审批（SUPER_ADMIN）
+
+**批准**:
+
+```bash
+curl -X POST http://localhost:4000/api/cluster-reservations/{id}/approve \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**拒绝**:
+
+```bash
+curl -X POST http://localhost:4000/api/cluster-reservations/{id}/reject \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "该时段已有其他预约"}'
+```
+
+#### 20.4 日历系统运维
+
+##### 20.4.1 日历 API
+
+**获取日历数据**:
+
+```bash
+# 获取指定日期范围的日历数据
+curl -X GET "http://localhost:4000/api/reservations/calendar?start=2026-03-01&end=2026-03-31" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+##### 20.4.2 实时更新（WebSocket）
+
+**连接 WebSocket**:
+
+```javascript
+const ws = new WebSocket('ws://localhost:4000/ws');
+
+ws.onopen = () => {
+  // 订阅预约更新
+  ws.send(JSON.stringify({
+    type: 'subscribe',
+    channel: 'reservations'
+  }));
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Reservation update:', data);
+};
+```
+
+##### 20.4.3 日历缓存清理
+
+```bash
+# 清理 Redis 日历缓存
+docker-compose exec redis redis-cli KEYS "calendar:*" | xargs -r docker-compose exec -T redis redis-cli DEL
+
+# 重新加载日历数据
+curl -X POST http://localhost:4000/api/reservations/calendar/refresh \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### 20.5 权限配置
+
+##### 20.5.1 角色权限说明
+
+| 角色 | 服务器预约审批 | 集群预约审批 |
+|------|----------------|----------------|
+| USER | ❌ | ❌ |
+| MANAGER | ❌ | ❌ |
+| ADMIN | ✅ | ❌ |
+| SUPER_ADMIN | ✅ | ✅ |
+
+##### 20.5.2 权限检查
+
+```bash
+# 检查用户权限
+curl -X GET http://localhost:4000/api/auth/check-permission \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### 20.6 监控指标
+
+##### 20.6.1 预约相关指标
+
+| 指标 | 说明 | 告警阈值 |
+|------|------|----------|
+| `lsm_reservations_total` | 预约总数 | - |
+| `lsm_reservations_pending` | 待审批预约数 | > 10 |
+| `lsm_reservations_approved` | 已批准预约数 | - |
+| `lsm_cluster_reservations_total` | 集群预约总数 | - |
+| `lsm_calendar_load_time` | 日历加载时间 | > 500ms |
+
+##### 20.6.2 Prometheus 查询
+
+```promql
+# 预约创建速率
+rate(lsm_reservations_created_total[1h])
+
+# 待审批预约数
+lsm_reservations_pending
+
+# 集群预约审批等待时间
+lsm_cluster_reservation_approval_wait_seconds
+```
+
+##### 20.6.3 告警规则
+
+```yaml
+groups:
+  - name: reservation-alerts
+    rules:
+      - alert: TooManyPendingReservations
+        expr: lsm_reservations_pending > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "待审批预约过多"
+          description: "当前有 {{ $value }} 个待审批预约"
+
+      - alert: ClusterReservationPendingTooLong
+        expr: lsm_cluster_reservation_approval_wait_seconds > 3600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "集群预约审批等待时间过长"
+          description: "等待时间超过 1 小时"
+
+      - alert: CalendarLoadSlow
+        expr: lsm_calendar_load_time > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "日历加载缓慢"
+          description: "加载时间 {{ $value }}ms"
+```
+
+#### 20.7 故障排查
+
+##### 20.7.1 常见问题
+
+| 问题 | 排查步骤 | 解决方案 |
+|------|----------|----------|
+| 预约创建失败 | 检查资源可用性 | 确认服务器/集群状态 |
+| 日历加载空白 | 检查 API 返回 | 清理缓存，检查数据库连接 |
+| 审批权限不足 | 检查用户角色 | 确认用户具有 ADMIN/SUPER_ADMIN 角色 |
+| AI 推荐失败 | 检查集群状态和历史数据 | 确保集群有足够的历史使用数据 |
+
+##### 20.7.2 日志查看
+
+```bash
+# 查看预约相关日志
+docker-compose logs backend | grep -i reservation
+
+# 查看审批日志
+docker-compose logs backend | grep -i "approv\|reject"
+
+# 查看日历错误
+docker-compose logs backend | grep -i calendar
+```
+
+##### 20.7.3 数据修复
+
+```sql
+-- 修复卡住的预约状态
+UPDATE reservations 
+SET status = 'COMPLETED' 
+WHERE status = 'APPROVED' 
+AND end_time < NOW();
+
+-- 清理过期预约
+DELETE FROM reservations 
+WHERE status = 'CANCELLED' 
+AND updated_at < NOW() - INTERVAL '30 days';
+```
+
+---
+
+**运维手册版本**: 3.2.2
+**最后更新**: 2026-03-28
+**页数**: 约 60+ 页
+**字数**: 约 25,000+ 字
 
 ---
 

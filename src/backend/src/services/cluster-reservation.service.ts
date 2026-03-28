@@ -900,6 +900,15 @@ export class ClusterReservationService {
           },
         ],
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+          },
+        },
+      },
     });
 
     if (conflicts.length > 0) {
@@ -911,6 +920,51 @@ export class ClusterReservationService {
     }
 
     return conflicts;
+  }
+
+  /**
+   * Check for time conflicts and return detailed conflict information
+   */
+  async checkConflicts(
+    clusterId: string,
+    startTime: Date,
+    endTime: Date
+  ): Promise<{
+    hasConflicts: boolean;
+    conflicts: Array<{
+      id: string;
+      startTime: Date;
+      endTime: Date;
+      status: string;
+      queuePosition: number | null;
+      user: {
+        id: string;
+        username: string;
+        displayName: string | null;
+      };
+    }>;
+  }> {
+    const conflictingReservations = await this.findConflictingReservations(
+      clusterId,
+      startTime,
+      endTime
+    );
+
+    return {
+      hasConflicts: conflictingReservations.length > 0,
+      conflicts: conflictingReservations.map(r => ({
+        id: r.id,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        status: r.status,
+        queuePosition: r.queuePosition,
+        user: {
+          id: r.userId,
+          username: (r as any).user?.username || 'Unknown',
+          displayName: (r as any).user?.displayName || null,
+        },
+      })),
+    };
   }
 
   /**

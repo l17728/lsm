@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BellOutlined as Bell, CheckOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 
 interface Notification {
   id: string;
@@ -20,6 +21,7 @@ interface NotificationCenterProps {
 }
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }) => {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<NotificationStats>({ unreadCount: 0, total: 0 });
   const [isOpen, setIsOpen] = useState(false);
@@ -124,10 +126,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
     const now = new Date();
     const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (diff < 60) return '刚刚';
-    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-    return `${Math.floor(diff / 86400)}天前`;
+    if (diff < 60) return t('datetime.justNow');
+    if (diff < 3600) return t('datetime.minutesAgo', { min: Math.floor(diff / 60) });
+    if (diff < 86400) return t('datetime.hoursAgo', { hour: Math.floor(diff / 3600) });
+    return t('datetime.daysAgo', { day: Math.floor(diff / 86400) });
   };
 
   useEffect(() => {
@@ -184,14 +186,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              通知中心
-              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">({stats.unreadCount} 未读)</span>
+              {t('notification.title')}
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">({stats.unreadCount} {t('notification.unread')})</span>
             </h3>
             <div className="flex items-center space-x-2">
               <button
                 onClick={markAllAsRead}
                 className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                title="全部标记为已读"
+                title={t('notification.markAllRead')}
               >
                 <CheckOutlined style={{ fontSize: 16 }} />
               </button>
@@ -214,7 +216,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
                   : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
-              全部
+              {t('notification.all')}
             </button>
             <button
               onClick={() => setFilter('unread')}
@@ -224,16 +226,16 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
                   : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
-              未读
+              {t('notification.unread')}
             </button>
           </div>
 
           {/* Notifications List */}
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <div className="p-8 text-center text-gray-500 dark:text-gray-400">加载中...</div>
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t('common.loading')}</div>
             ) : filteredNotifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 dark:text-gray-400">暂无通知</div>
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400">{t('notification.noNotifications')}</div>
             ) : (
               filteredNotifications.map(notification => (
                 <div
@@ -266,7 +268,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
                         <button
                           onClick={() => markAsRead(notification.id)}
                           className="p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400"
-                          title="标记为已读"
+                          title={t('notification.markAsRead')}
                         >
                           <CheckOutlined style={{ fontSize: 16 }} />
                         </button>
@@ -274,7 +276,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
                       <button
                         onClick={() => deleteNotification(notification.id)}
                         className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                        title="删除"
+                        title={t('common.delete')}
                       >
                         <DeleteOutlined style={{ fontSize: 16 }} />
                       </button>
@@ -291,7 +293,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }
               onClick={() => {/* Navigate to all notifications page */}}
               className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
             >
-              查看全部通知
+              {t('notification.viewAll')}
             </button>
           </div>
         </div>

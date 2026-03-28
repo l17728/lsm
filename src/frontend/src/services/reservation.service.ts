@@ -7,13 +7,16 @@ export interface Reservation {
   userName: string
   serverId: string
   serverName: string
-  gpuIds: string[]
+  gpuIds?: string[]
   startTime: string
   endTime: string
-  status: 'pending' | 'approved' | 'active' | 'completed' | 'cancelled'
-  purpose: string
+  status: string
+  purpose?: string
+  title?: string
+  gpuCount?: number
+  priority?: number
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
 }
 
 export interface TimeSlot {
@@ -28,7 +31,8 @@ export interface TimeSlot {
 export interface Server {
   id: string
   name: string
-  gpus: GPU[]
+  gpus?: GPU[]
+  availableGpus?: GPU[]
   availableGpuCount: number
   status: 'online' | 'offline' | 'maintenance'
 }
@@ -66,6 +70,8 @@ export interface ReservationFilters {
 export interface FetchParams {
   startDate?: string
   endDate?: string
+  startTime?: string
+  endTime?: string
   serverId?: string
   status?: string
   page?: number
@@ -113,7 +119,7 @@ export const reservationApi = {
 
   // 获取可用服务器和 GPU
   getAvailableServers: (params?: { startTime?: string; endTime?: string }) =>
-    apiClient.get('/reservations/available-servers', { params }),
+    apiClient.get('/reservations/availability', { params }),
 
   // 检查时间冲突
   checkConflicts: (data: { serverId: string; gpuIds: string[]; startTime: string; endTime: string }) =>
@@ -126,6 +132,10 @@ export const reservationApi = {
   // 获取用户配额
   getUserQuota: () =>
     apiClient.get('/reservations/quota'),
+
+  // 获取待审批预约 (SUPER_ADMIN)
+  getPending: () =>
+    apiClient.get('/reservations/pending'),
 
   // 管理员审批
   approve: (id: string) =>

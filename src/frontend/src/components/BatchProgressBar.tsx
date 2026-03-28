@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Progress, Button, Space, Alert, Modal, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { 
   LoadingOutlined, 
   CheckCircleOutlined, 
@@ -62,6 +63,7 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
   autoClose = false,
   autoCloseDelay = 3000,
 }) => {
+  const { t } = useTranslation();
   const [internalVisible, setInternalVisible] = useState(visible);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
@@ -100,12 +102,12 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
 
   const getStatusText = () => {
     if (isProcessing) {
-      return `处理中 ${processed}/${total}`;
+      return t('batch.processing', { processed, total });
     }
     if (failureCount > 0) {
-      return `完成 ${processed}/${total} (失败 ${failureCount})`;
+      return t('batch.completedWith', { processed, total, failed: failureCount });
     }
-    return `完成 ${processed}/${total}`;
+    return t('batch.completedTotal', { processed, total });
   };
 
   const handleViewDetails = () => {
@@ -161,39 +163,39 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
             <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--text-primary)' }}>
               {total}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>总数</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('common.total')}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}>
               {processed}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>已处理</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('common.processed')}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 20, fontWeight: 'bold', color: '#52c41a' }}>
               {successCount}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>成功</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('common.succeeded')}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 20, fontWeight: 'bold', color: '#f5222d' }}>
               {failureCount}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>失败</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('common.failed')}</div>
           </div>
         </div>
 
         {/* Error Summary */}
         {failureCount > 0 && (
           <Alert
-            message={`${failureCount} 项操作失败`}
+            message={t('batch.operationFailed', { count: failureCount })}
             description={
               showDetails && items.length > 0 ? (
                 <Button type="link" onClick={handleViewDetails} style={{ padding: 0 }}>
-                  查看失败详情
+                  {t('batch.viewFailedDetails')}
                 </Button>
               ) : (
-                '部分项目处理失败，请查看日志或重试'
+                t('batch.partialFailure')
               )
             }
             type="warning"
@@ -210,18 +212,18 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
               icon={<StopOutlined />} 
               onClick={handleCancel}
             >
-              取消操作
+              {t('batch.cancelOperation')}
             </Button>
           )}
           {!isProcessing && (
             <Space>
               {failureCount > 0 && showDetails && (
                 <Button onClick={handleViewDetails}>
-                  查看失败详情
+                  {t('batch.viewFailedDetails')}
                 </Button>
               )}
               <Button onClick={handleClose}>
-                关闭
+                {t('common.close')}
               </Button>
             </Space>
           )}
@@ -237,7 +239,7 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
             borderRadius: 6,
             padding: 8,
           }}>
-            {items.slice(0, 10).map((item, index) => (
+            {(items || []).slice(0, 10).map((item, index) => (
               <div
                 key={item.id}
                 style={{
@@ -272,7 +274,7 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
             ))}
             {items.length > 10 && (
               <div style={{ textAlign: 'center', padding: 8, color: 'var(--text-secondary)' }}>
-                还有 {items.length - 10} 项...
+                {t('batch.itemsRemaining', { count: items.length - 10 })}
               </div>
             )}
           </div>
@@ -281,12 +283,12 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
 
       {/* Detail Modal */}
       <Modal
-        title="失败详情"
+        title={t('errorDetails.title')}
         open={showDetailModal}
         onCancel={() => setShowDetailModal(false)}
         footer={[
           <Button key="close" onClick={() => setShowDetailModal(false)}>
-            关闭
+            {t('common.close')}
           </Button>,
         ]}
         width={700}
@@ -298,7 +300,7 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
               <Alert
                 key={item.id}
                 message={item.name}
-                description={item.error || '未知错误'}
+                description={item.error || t('common.unknownError')}
                 type="error"
                 showIcon
                 style={{ marginBottom: index < items.filter(i => i.status === 'error').length - 1 ? 8 : 0 }}

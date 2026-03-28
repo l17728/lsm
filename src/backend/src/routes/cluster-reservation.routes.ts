@@ -90,9 +90,9 @@ router.get('/', requireManager, async (req: AuthRequest, res: Response) => {
 /**
  * @route   GET /api/cluster-reservations/my
  * @desc    Get user's own reservations
- * @access  Private (MANAGER+)
+ * @access  Private (All authenticated users)
  */
-router.get('/my', requireManager, async (req: AuthRequest, res: Response) => {
+router.get('/my', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const reservations = await clusterReservationService.getMyReservations(
       req.user!.userId
@@ -108,11 +108,11 @@ router.get('/my', requireManager, async (req: AuthRequest, res: Response) => {
 /**
  * @route   GET /api/cluster-reservations/recommend-time-slots
  * @desc    Get AI-recommended time slots for a cluster
- * @access  Private (MANAGER+)
+ * @access  Private (All authenticated users)
  */
 router.get(
   '/recommend-time-slots',
-  requireManager,
+  authenticate,
   async (req: AuthRequest, res: Response) => {
     try {
       const { clusterId, duration, preferredStartTime, preferredEndTime } = req.query;
@@ -141,6 +141,39 @@ router.get(
       res.json({ success: true, data: recommendations });
     } catch (error: any) {
       safeLogger.error('Error generating time slot recommendations', { error: error.message });
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+);
+
+/**
+ * @route   GET /api/cluster-reservations/check-conflicts
+ * @desc    Check for time conflicts for a cluster reservation
+ * @access  Private (MANAGER+)
+ */
+router.get(
+  '/check-conflicts',
+  requireManager,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { clusterId, startTime, endTime } = req.query;
+
+      if (!clusterId || !startTime || !endTime) {
+        return res.status(400).json({
+          success: false,
+          error: 'clusterId, startTime, and endTime are required',
+        });
+      }
+
+      const result = await clusterReservationService.checkConflicts(
+        clusterId as string,
+        new Date(startTime as string),
+        new Date(endTime as string)
+      );
+
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      safeLogger.error('Error checking conflicts', { error: error.message });
       res.status(500).json({ success: false, error: error.message });
     }
   }

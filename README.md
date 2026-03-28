@@ -1,7 +1,7 @@
 # LSM Project - Complete Documentation
 
 **Version**: 3.2.2
-**Last Updated**: 2026-03-26
+**Last Updated**: 2026-03-28
 **Status**: Production Ready ✅
 
 ---
@@ -460,6 +460,26 @@ npx playwright test
 
 ---
 
+## Documentation
+
+### User Documentation
+
+- **User Manual** (`docs/USER_MANUAL.md`) - Complete user guide covering all features
+  - Chapter 18: Resource Reservation Management (Server & Cluster)
+  - Chapter 19: Requirements Management
+
+### Operations Documentation
+
+- **Operations Manual** (`docs/OPERATIONS_MANUAL.md`) - DevOps guide
+  - Chapter 20: Reservation System Operations
+
+### API Documentation
+
+- **Backend API** (`backend/docs/API.md`) - REST API reference
+- **OpenAPI Spec** - Available at `/api/docs` when running
+
+---
+
 ## Support
 
 For issues and questions:
@@ -469,6 +489,6 @@ For issues and questions:
 
 ---
 
-**Last Updated**: 2026-03-18
-**Version**: 3.2.1
+**Last Updated**: 2026-03-28
+**Version**: 3.2.2
 **Status**: Production Ready ✅

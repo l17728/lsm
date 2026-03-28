@@ -3,6 +3,7 @@ import { Table, Tag, Button, Space, Modal, Form, Input, InputNumber, Select, mes
 import { PlusOutlined, EditOutlined, DeleteOutlined, SyncOutlined, DesktopOutlined, ClusterOutlined, UserOutlined, ClockCircleOutlined, CloseOutlined } from '@ant-design/icons'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { serverApi, clusterApi } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import ExportButton from '../components/ExportButton'
 import BatchProgressBar, { BatchProgressItem } from '../components/BatchProgressBar'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -60,6 +61,7 @@ interface BatchOperationState {
 }
 
 const Servers: React.FC = () => {
+  const { user } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
@@ -68,6 +70,12 @@ const Servers: React.FC = () => {
   const [editingServer, setEditingServer] = useState<Server | null>(null)
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
   const [form] = Form.useForm()
+
+  // Check if user is admin (ADMIN or SUPER_ADMIN)
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  // 只有 SUPER_ADMIN 可以手动修改服务器状态
+  const canModifyStatus = isSuperAdmin
 
   // Right panel state for cluster drill-down
   const [drillDownVisible, setDrillDownVisible] = useState(false)
@@ -473,7 +481,7 @@ const Servers: React.FC = () => {
 
   const onSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRowKeys(servers.map(s => s.id))
+      setSelectedRowKeys((servers || []).map(s => s.id))
     } else {
       setSelectedRowKeys([])
     }
@@ -532,6 +540,25 @@ const Servers: React.FC = () => {
     return colorMap[status] || 'default'
   }
 
+  // Handle single server status update
+  const handleStatusUpdate = async (serverId: string, newStatus: string) => {
+    try {
+      await serverApi.update(serverId, { status: newStatus })
+      message.success('Server status updated')
+      loadServers()
+    } catch (error: any) {
+      message.error('Failed to update server status')
+    }
+  }
+
+  // Server status options
+  const serverStatusOptions = [
+    { value: 'ONLINE', label: 'Online' },
+    { value: 'OFFLINE', label: 'Offline' },
+    { value: 'MAINTENANCE', label: 'Maintenance' },
+    { value: 'ERROR', label: 'Error' },
+  ]
+
   // Batch selection column
   const batchColumns = {
     title: (
@@ -578,7 +605,19 @@ const Servers: React.FC = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => <Tag color={getStatusColor(status)}>{status}</Tag>,
+      render: (status: string, record: Server) => {
+        if (canModifyStatus) {
+          return (
+            <Select
+              value={status}
+              style={{ width: 130 }}
+              onChange={(value) => handleStatusUpdate(record.id, value)}
+              options={serverStatusOptions}
+            />
+          )
+        }
+        return <Tag color={getStatusColor(status)}>{status}</Tag>
+      },
     },
     {
       title: 'CPU Cores',
@@ -921,7 +960,7 @@ const Servers: React.FC = () => {
                   <Title level={5}>Server List</Title>
                 {selectedCluster.servers && selectedCluster.servers.length > 0 ? (
                   <Row gutter={[8, 8]}>
-                    {selectedCluster.servers.map((s) => (
+                    {(selectedCluster.servers || []).map((s) => (
                       <Col key={s.server.id} span={24}>
                         <Card
                           size="small"

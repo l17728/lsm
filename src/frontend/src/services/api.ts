@@ -275,6 +275,8 @@ export const clusterApi = {
   getById: (id: string) => apiClient.get(`/clusters/${id}`),
   getStats: () => apiClient.get('/clusters/stats'),
   getAvailableServers: () => apiClient.get('/clusters/available-servers'),
+  // Get clusters available for reservation (all authenticated users can access)
+  getAvailableForReservation: () => apiClient.get('/clusters/available-for-reservation'),
   create: (data: {
     name: string
     code: string
@@ -289,6 +291,9 @@ export const clusterApi = {
     status?: string
   }) => apiClient.put(`/clusters/${id}`, data),
   delete: (id: string) => apiClient.delete(`/clusters/${id}`),
+  // Update cluster status (manual override by admin)
+  updateStatus: (id: string, status: string, reason?: string) =>
+    apiClient.patch(`/clusters/${id}/status`, { status, reason }),
   addServer: (clusterId: string, data: {
     serverId: string
     priority?: number
@@ -355,4 +360,11 @@ export const clusterReservationApi = {
     preferredStartTime?: string
     preferredEndTime?: string
   }) => apiClient.get('/cluster-reservations/recommend-time-slots', { params }),
+
+  // Check for time conflicts
+  checkConflicts: (params: {
+    clusterId: string
+    startTime: string
+    endTime: string
+  }) => apiClient.get('/cluster-reservations/check-conflicts', { params }),
 }

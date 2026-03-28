@@ -88,7 +88,8 @@ const ClusterApproval: React.FC = () => {
     try {
       await clusterReservationApi.approve(reservation.id)
       message.success('Reservation approved')
-      loadPendingReservations()
+      // Remove the approved reservation from local state
+      setReservations(prev => prev.filter(r => r.id !== reservation.id))
     } catch (error: any) {
       message.error(error.response?.data?.error || 'Approval failed')
     } finally {
@@ -110,8 +111,9 @@ const ClusterApproval: React.FC = () => {
       message.success('Reservation rejected')
       setRejectModalVisible(false)
       setRejectReason('')
+      // Remove the rejected reservation from local state
+      setReservations(prev => prev.filter(r => r.id !== selectedReservation.id))
       setSelectedReservation(null)
-      loadPendingReservations()
     } catch (error: any) {
       message.error(error.response?.data?.error || 'Operation failed')
     } finally {
@@ -212,8 +214,10 @@ const ClusterApproval: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
+      width: 220,
+      fixed: 'right' as const,
       render: (_: any, record: ClusterReservation) => (
-        <Space>
+        <Space size="small">
           <Tooltip title="View Details">
             <Button 
               size="small" 
@@ -228,6 +232,7 @@ const ClusterApproval: React.FC = () => {
               icon={<CheckCircleOutlined />}
               onClick={() => handleApprove(record)}
               loading={processing}
+              style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
             >
               Approve
             </Button>
@@ -364,17 +369,18 @@ const ClusterApproval: React.FC = () => {
         okText="Confirm Rejection"
         okButtonProps={{ danger: true }}
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Text>Are you sure you want to reject this reservation request?</Text>
-            <TextArea
-              rows={4}
-              placeholder="Please enter rejection reason (required)"
+          <TextArea
+            rows={4}
+            placeholder="Please enter rejection reason (required)"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             maxLength={500}
             showCount
+            style={{ resize: 'none' }}
           />
-        </Space>
+        </div>
       </Modal>
     </div>
   )
