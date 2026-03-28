@@ -14,8 +14,8 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies
-RUN npm ci
+# Install all dependencies (use npm install for better compatibility)
+RUN npm install
 
 # ============================================
 # Stage 2: Builder
