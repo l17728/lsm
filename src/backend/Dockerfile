@@ -43,6 +43,7 @@ COPY tsconfig*.json ./
 
 # Copy source code
 COPY src ./src
+COPY swagger.js swagger-output.json ./
 
 # Generate Prisma Client
 RUN npx prisma generate
