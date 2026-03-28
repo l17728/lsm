@@ -12,7 +12,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install all dependencies (use npm install for better compatibility)
 RUN npm install
@@ -26,7 +26,7 @@ WORKDIR /app
 
 # Copy dependencies from previous stage
 COPY --from=dependencies /app/node_modules ./node_modules
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY vite.config.ts ./
 COPY tsconfig.json ./
 COPY tsconfig.node.json ./

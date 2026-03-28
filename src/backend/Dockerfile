@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
 # Install all dependencies (including devDependencies for build)
@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy dependencies from previous stage
 COPY --from=dependencies /app/node_modules ./node_modules
-COPY package*.json ./
+COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 COPY tsconfig*.json ./
 
@@ -71,7 +71,7 @@ RUN groupadd -g 1001 nodejs && \
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install production dependencies only
 RUN npm ci --only=production && \
