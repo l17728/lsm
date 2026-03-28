@@ -1,8 +1,8 @@
 version: '3.8'
 
 # LSM Project - Production Docker Compose Configuration
-# Optimized for production deployment with enhanced security and monitoring
-# Run with: docker-compose --env-file .env.production -f docker-compose.prod.yml up -d
+# 使用 Docker Hub 预构建镜像，无需本地编译
+# Run with: docker-compose -f docker-compose.prod.yml up -d
 
 services:
   # ============================================
@@ -69,10 +69,10 @@ services:
           memory: 256M
 
   # ============================================
-  # Backend Service
+  # Backend Service - Docker Hub 镜像
   # ============================================
   backend:
-    image: lsm-backend:v4.0.0
+    image: l17728/lsm-backend:${LSM_VERSION:-latest}
     container_name: lsm-backend
     restart: unless-stopped
     environment:
@@ -122,10 +122,10 @@ services:
           memory: 512M
 
   # ============================================
-  # Frontend Service
+  # Frontend Service - Docker Hub 镜像
   # ============================================
   frontend:
-    image: lsm-frontend:v4.0.0
+    image: l17728/lsm-frontend:${LSM_VERSION:-latest}
     container_name: lsm-frontend
     restart: unless-stopped
     environment:

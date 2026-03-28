@@ -1,5 +1,36 @@
 # LSM 项目版本更新日志
 
+## [v3.2.3] - 2026-03-28
+
+### 🐳 Docker 镜像发布
+
+#### Docker Hub 预构建镜像 🆕
+- **l17728/lsm-backend:latest** - 后端 API 服务镜像
+- **l17728/lsm-frontend:latest** - 前端 Web 界面镜像
+- 支持多平台：linux/amd64, linux/arm64
+- 通过 GitHub Actions 自动构建发布
+
+#### 部署方式改进
+- 新增 Docker Hub 镜像快速部署（无需本地编译）
+- 更新 docker-compose.prod.yml 使用预构建镜像
+- 添加 `LSM_VERSION` 环境变量控制版本
+
+### 🐛 Bug 修复
+
+#### 后端 Dockerfile 修复
+- 修复 builder 阶段缺少 `npm run build` 导致编译产物缺失
+- 修复 production 阶段从本地复制 dist 改为从 builder 复制
+- 添加 .dockerignore 优化构建上下文
+
+### 🔧 CI/CD 增强
+
+#### GitHub Actions 工作流
+- 新增 `.github/workflows/docker-publish.yml`
+- Release 发布时自动构建推送 Docker Hub 镜像
+- 支持手动触发构建指定版本
+
+---
+
 ## [v3.2.2] - 2026-03-28
 
 ### 📅 日历系统增强

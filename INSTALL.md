@@ -51,14 +51,49 @@
 
 ## 一键部署（推荐）
 
-### 最快方式
+### 方式一：Docker Hub 镜像（最快，推荐生产环境）
+
+**无需本地编译，直接拉取预构建镜像**：
+
+```bash
+# 1. 下载 docker-compose 配置
+mkdir lsm && cd lsm
+curl -O https://raw.githubusercontent.com/l17728/lsm/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/l17728/lsm/main/.env.example
+
+# 2. 配置环境变量
+cp .env.example .env
+vim .env  # 修改密码和配置
+
+# 3. 拉取镜像并启动
+docker-compose -f docker-compose.prod.yml pull
+docker-compose -f docker-compose.prod.yml up -d
+
+# 4. 验证服务
+curl http://localhost:8080/api/health
+```
+
+**镜像地址**：
+
+| 镜像 | 说明 |
+|------|------|
+| `l17728/lsm-backend:latest` | 后端 API 服务 |
+| `l17728/lsm-frontend:latest` | 前端 Web 界面 |
+| `l17728/lsm-backend:v3.2.2` | 指定版本 |
+
+**优势**：
+- ⚡ 秒级拉取，无需编译
+- 🔒 版本锁定，生产环境稳定
+- 🌐 支持多平台 (amd64/arm64)
+
+### 方式二：源码构建（适合开发调试）
 
 ```bash
 # 克隆项目
 git clone https://github.com/l17728/lsm.git
 cd lsm
 
-# 一键启动
+# 一键启动（本地构建镜像）
 ./quickstart.sh dev
 ```
 

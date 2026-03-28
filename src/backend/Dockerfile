@@ -47,6 +47,9 @@ COPY src ./src
 # Generate Prisma Client
 RUN npx prisma generate
 
+# Build TypeScript to JavaScript
+RUN npm run build
+
 # ============================================
 # Stage 3: Production (优化版)
 # ============================================
@@ -73,11 +76,12 @@ COPY package*.json ./
 RUN npm ci --only=production && \
     npm cache clean --force
 
-# Copy built files
+# Copy built files from builder
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY dist ./dist
-COPY swagger-output.json swagger.js ./
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/swagger-output.json ./
+COPY --from=builder /app/swagger.js ./
 
 # Change ownership to non-root user
 RUN chown -R nodejs:nodejs /app
