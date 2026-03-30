@@ -68,3 +68,25 @@ docker-compose.override.yml
 
 # Documentation build
 docs/_build/
+
+# Backup files - 防止提交备份文件
+*.backup
+*.bak
+*.old
+*~
+
+# Frontend build outputs (already in root, ensure src is covered)
+src/frontend/dist/
+src/backend/dist/
+
+# Logs in src directories
+src/backend/*.log
+src/frontend/*.log
+stdout.log
+stderr.log
+
+# Test results
+test-results/
+.playwright/
+e2e/.auth/
+e2e/test-results/
